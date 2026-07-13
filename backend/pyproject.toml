@@ -3,7 +3,8 @@ name = "fastrepo"
 version = "0.1.0"
 description = "FastRepo is a code hosting and collaboration service using git version control system."
 authors = [
-    {name = "Shabit Zaman",email = "shabit855@gmail.com"}
+    {name = "Shabit Zaman",email = "shabit855@gmail.com"},
+    {name = "Sanonda Deb", email = "sanondadeb@gmail.com"}
 ]
 
 packages = [
