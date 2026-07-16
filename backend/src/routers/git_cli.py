@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
-from src.services.repository import get_repo_path, ref_info_handler, pack_handler
+from services.repository import get_repo_path, ref_info_handler, pack_handler
 
 router = APIRouter(
     prefix="/{username}/{repository}",

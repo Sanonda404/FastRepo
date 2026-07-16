@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import pytest
 from fastapi.testclient import TestClient
 
-from src.app import app
+from app import app
 
 load_dotenv()
 

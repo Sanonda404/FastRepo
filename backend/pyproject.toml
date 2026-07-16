@@ -7,10 +7,6 @@ authors = [
     {name = "Sanonda Deb", email = "sanondadeb@gmail.com"}
 ]
 
-packages = [
-  {include = "src"}
-]
-
 license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
@@ -20,6 +16,14 @@ dependencies = [
     "dulwich (>=1.2.10,<2.0.0)",
     "python-jose[cryptography] (>=3.5.0,<4.0.0)",
     "passlib[bcrypt] (>=1.7.4,<2.0.0)"
+]
+
+[tool.poetry]
+packages = [
+  {include = "auth", from = "src"},
+  {include = "routers", from = "src"},
+  {include = "services", from = "src"},
+  {include = "app.py", from = "src"}
 ]
 
 
