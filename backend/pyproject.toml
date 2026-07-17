@@ -22,8 +22,10 @@ dependencies = [
 [tool.poetry]
 packages = [
   {include = "auth", from = "src"},
+  {include = "models", from = "src"},
   {include = "routers", from = "src"},
   {include = "services", from = "src"},
+  {include = "schemas", from = "src"},
   {include = "app.py", from = "src"}
 ]
 
