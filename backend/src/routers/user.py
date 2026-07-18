@@ -38,7 +38,7 @@ async def login(
     """Standard OAuth2 login endpoint returning a JWT token."""
     user = await get_user_by_username(pool, form_data.username)
     
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+    if not user or not verify_password(form_data.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -48,7 +48,7 @@ async def login(
     # Create JWT Token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["username"], "role": user["role"]},
+        data={"sub": user["username"], "user_id": user["id"]},
         expires_delta=access_token_expires
     )
     
