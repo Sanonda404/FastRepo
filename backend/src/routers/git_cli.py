@@ -1,20 +1,22 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
-from services.repository import get_repo_path, ref_info_handler, pack_handler
+
+from services.repository import get_repo_id, ref_info_handler, pack_handler
 
 router = APIRouter(
     prefix="/{username}/{repository}",
     tags=["git_cli"]
 )
 
+
 @router.get("/info/refs")
 async def info_refs(username: str, repository: str, service: str) -> Response:
     if service not in ("git-upload-pack", "git-receive-pack"):
         raise HTTPException(status_code=403, detail="Unsupported service")
 
-    repo_path = get_repo_path(username, repository)
+    repo_id = await get_repo_id(username, repository)
 
-    body: bytes = await run_in_threadpool(ref_info_handler, repo_path, service)
+    body: bytes = await run_in_threadpool(ref_info_handler, repo_id, service)
 
     return Response(
         content=body,
@@ -28,11 +30,11 @@ async def info_refs(username: str, repository: str, service: str) -> Response:
 
 @router.post("/git-upload-pack")
 async def git_upload_pack(username: str, repository: str, req: Request) -> Response:
-    repo_path = get_repo_path(username, repository)
+    repo_id = await get_repo_id(username, repository)
     input_data = await req.body()
 
     output: bytes = await run_in_threadpool(
-        pack_handler, repo_path, "git-upload-pack", input_data
+        pack_handler, repo_id, "git-upload-pack", input_data
     )
 
     return Response(
@@ -44,11 +46,11 @@ async def git_upload_pack(username: str, repository: str, req: Request) -> Respo
 
 @router.post("/git-receive-pack")
 async def git_receive_pack(username: str, repository: str, req: Request) -> Response:
-    repo_path = get_repo_path(username, repository)
+    repo_id = await get_repo_id(username, repository)
     input_data = await req.body()
 
     output: bytes = await run_in_threadpool(
-        pack_handler, repo_path, "git-receive-pack", input_data
+        pack_handler, repo_id, "git-receive-pack", input_data
     )
 
     return Response(

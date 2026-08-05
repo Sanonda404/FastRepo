@@ -1,38 +1,43 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
 from io import BytesIO
 
-from dulwich.repo import Repo
-from dulwich.server import DictBackend, ReceivePackHandler, UploadPackHandler
 from dulwich.protocol import Protocol
-
+from dulwich.server import Backend, ReceivePackHandler, UploadPackHandler
 from fastapi import HTTPException
 
-# Read environment variables from .env
-load_dotenv()
-REPOSITORY_ROOT: str = os.getenv("REPOSITORY_ROOT", "./repositories")
+from services.database import get_pool
+from services.git_backend import FastRepo
 
 # End of message/data
 FLUSH_PACKET: bytes = b"0000"
 
-def get_repo_path(username: str, repo: str) -> Path:
-    """Return the absolute path to a bare repository on disk.
-    Stored at $REPOSITORY_ROOT/{username}/{repo}.git
-    """
-    
-    for part in (username, repo):
+
+class FastRepoBackend(Backend):
+    def __init__(self, repo: FastRepo) -> None:
+        self._repo = repo
+
+    def open_repository(self, path):
+        return self._repo
+
+
+async def get_repo_id(username: str, repository: str) -> int:
+    for part in (username, repository):
         if ".." in part or "/" in part or "\\" in part:
             raise HTTPException(status_code=400, detail="Invalid username or repository")
 
-    repo = repo if repo.endswith(".git") else repo + ".git"
-    repo_path = Path(REPOSITORY_ROOT).resolve() / username / f"{repo}"
-
-    # Add valid username/repository check later
-    if not repo_path.is_dir():
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        repo_id = await conn.fetchval(
+            "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id "
+            "WHERE u.username = $1 AND r.name = $2",
+            username,
+            repository,
+        )
+        
+    if repo_id is None:
         raise HTTPException(status_code=404, detail="Repository not found")
+    
+    return repo_id
 
-    return repo_path
 
 def encode_pkt_line(data: str | bytes) -> bytes:
     """Encode plain data to git pkt line format.
@@ -44,33 +49,26 @@ def encode_pkt_line(data: str | bytes) -> bytes:
     pkt_len = 4 + len(data)
     return f"{pkt_len:04x}".encode() + data
 
-def ref_info_handler(repo_path: Path, action: str) -> bytes:
+def ref_info_handler(repo_id: int, action: str) -> bytes:
     """Prepare packfile content for sending client repository information"""
-    
-    repo = Repo(str(repo_path))
+    backend = FastRepoBackend(FastRepo(repo_id))
     header = encode_pkt_line(f"# service={action}\n") + FLUSH_PACKET
-    backend = DictBackend({"/" : repo})
 
     if action == "git-upload-pack":
-        handler = UploadPackHandler(
-            backend, ["/"], proto=None, stateless_rpc=True
-        )
-        
+        handler = UploadPackHandler(backend, ["/"], proto=None, stateless_rpc=True)
     elif action == "git-receive-pack":
-        handler = ReceivePackHandler(
-            backend, ["/"], proto=None, stateless_rpc=True
-        )
-        
+        handler = ReceivePackHandler(backend, ["/"], proto=None, stateless_rpc=True)
     else:
         raise HTTPException(status_code=403, detail="Unsupported action")
 
+    repo = backend.open_repository("/")
     refs = repo.get_refs()
     capabilities = handler.capabilities()
     capability_payload = b" ".join(capabilities)
 
     lines: list[bytes] = []
     first = True
-    
+
     for ref_name, sha in sorted(refs.items()):
         ref_name_bytes = bytes(ref_name)
         sha_bytes = bytes(sha)
@@ -84,33 +82,25 @@ def ref_info_handler(repo_path: Path, action: str) -> bytes:
             lines.append(encode_pkt_line(line))
 
     if first:
-        line = b"0"*40 + b" capabilities^{}\x00" + capability_payload + b"\n"
+        line = b"0" * 40 + b" capabilities^{}\x00" + capability_payload + b"\n"
         lines.append(encode_pkt_line(line))
 
     body = header + b"".join(lines) + FLUSH_PACKET
     return body
 
-def pack_handler(repo_path: Path, action: str, input: bytes) -> bytes:
+def pack_handler(repo_id: int, action: str, input: bytes) -> bytes:
     """Send/receive git objects"""
-    
-    repo = Repo(str(repo_path))
-    backend = DictBackend({"/" : repo})
+    backend = FastRepoBackend(FastRepo(repo_id))
 
     input_stream = BytesIO(input)
     output_stream = BytesIO()
 
     protocol = Protocol(input_stream.read, output_stream.write)
-    
+
     if action == "git-upload-pack":
-        handler = UploadPackHandler(
-            backend, ["/"], protocol, stateless_rpc=True
-        )
-        
+        handler = UploadPackHandler(backend, ["/"], protocol, stateless_rpc=True)
     elif action == "git-receive-pack":
-        handler = ReceivePackHandler(
-            backend, ["/"], protocol, stateless_rpc=True
-        )
-        
+        handler = ReceivePackHandler(backend, ["/"], protocol, stateless_rpc=True)
     else:
         raise HTTPException(status_code=403, detail="Unsupported service")
 
