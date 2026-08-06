@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 import asyncpg
 
-from services.git_backend import AsyncpgObjectStore, AsyncpgRefsContainer, FastRepo, _AsyncBridge
-from models.git import ensure_git_tables, EMPTY_TREE_SHA
+from services.git_backend import ObjectStore, RefContainer, FastRepo, _AsyncBridge
+from models.git import ensure_tables, EMPTY_TREE_SHA
 from services.database import DATABASE_URL
 
 import asyncio
@@ -17,7 +17,17 @@ pytestmark = pytest.mark.asyncio
 
 async def setup_test_db():
     pool = await asyncpg.create_pool(DATABASE_URL)
-    await ensure_git_tables(pool)
+    from models.users import ensure_users_table
+    from models.repository import ensure_repositories_table
+    from models.repository_collaborators import ensure_repository_collaborators_table
+    from models.team import ensure_teams_table
+    from models.team_members import ensure_team_members_table
+    await ensure_users_table(pool)
+    await ensure_repositories_table(pool)
+    await ensure_repository_collaborators_table(pool)
+    await ensure_teams_table(pool)
+    await ensure_team_members_table(pool)
+    await ensure_tables(pool)
     return pool
 
 
@@ -56,6 +66,20 @@ def get_refs(repo_dir: Path) -> dict:
             ref, sha = line.split(" ", 1)
             refs[ref] = sha
     return refs
+
+
+async def _tree_exists(repo_id: int, tree_sha: bytes) -> bool:
+    async def _check():
+        conn = await asyncpg.connect(DATABASE_URL)
+        try:
+            return await conn.fetchval(
+                "SELECT 1 FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2",
+                repo_id, tree_sha,
+            ) is not None
+        finally:
+            await conn.close()
+
+    return await _check()
 
 
 class TestGitBackend:
@@ -108,7 +132,7 @@ class TestGitBackend:
             loop.close()
 
     def test_object_roundtrip_byte_identical(self, bridge, repo_id):
-        store = AsyncpgObjectStore(repo_id, bridge=bridge)
+        store = ObjectStore(repo_id, bridge=bridge)
 
         from dulwich.repo import Repo
         from dulwich.objects import Blob, Commit, Tag, Tree
@@ -125,7 +149,7 @@ class TestGitBackend:
             create_commit(repo_path, "dir/file2.txt", "content2", "Second commit")
             create_commit(repo_path, "file3.txt", "content3", "Third commit")
 
-            # Annotated tag (creates a tag object in git_tags table)
+            # Annotated tag (creates a tag object in tags table)
             run_git(repo_path, "tag", "-a", "v1.0", "-m", "Version 1.0", "HEAD~2")
             # Lightweight tag (no tag object)
             run_git(repo_path, "tag", "v2.0", "HEAD")
@@ -136,8 +160,9 @@ class TestGitBackend:
                 obj = dulwich_repo.object_store[sha]
                 original_objects[sha] = obj
 
-            for sha, obj in original_objects.items():
-                store.add_object(obj)
+            # single transaction: object order in the pack is arbitrary,
+            # deferred FKs need all rows visible before the commit point
+            store.add_objects([(obj, None) for obj in original_objects.values()])
 
             for sha, original_obj in original_objects.items():
                 retrieved = store[sha]
@@ -154,9 +179,84 @@ class TestGitBackend:
         finally:
             shutil.rmtree(tmp)
 
+    def test_structured_commit_columns_and_parents(self, bridge, repo_id):
+        """Extracted columns: root_tree, author, message, date, parents, blob size."""
+        from dulwich.repo import Repo
+
+        store = ObjectStore(repo_id, bridge=bridge)
+
+        tmp = tempfile.mkdtemp()
+        try:
+            repo_path = Path(tmp) / "merge_repo"
+            repo_path.mkdir()
+            run_git(repo_path, "init")
+            run_git(repo_path, "config", "user.name", "Test Author")
+            run_git(repo_path, "config", "user.email", "author@test.com")
+
+            create_commit(repo_path, "base.txt", "base", "base")
+            run_git(repo_path, "checkout", "-b", "feature")
+            feature_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            create_commit(repo_path, "feat.txt", "feat", "Feature")
+            feature_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            run_git(repo_path, "checkout", "master")
+            create_commit(repo_path, "other.txt", "other", "Other")
+            master_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            merge_result = run_git(repo_path, "merge", "--no-ff", "feature", "-m", "Merge feature")
+            assert merge_result.returncode == 0, merge_result.stderr
+            merge_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+
+            dulwich_repo = Repo(str(repo_path))
+            objects = [dulwich_repo.object_store[sha] for sha in dulwich_repo.object_store]
+            store.add_objects([(o, None) for o in objects])
+
+            blobs_expected = {
+                o.id: len(o.data)
+                for o in objects if o.type_num == 3
+            }
+            root_tree = None
+
+            async def verify():
+                conn = await asyncpg.connect(DATABASE_URL)
+                try:
+                    nonlocal root_tree
+                    row = await conn.fetchrow(
+                        "SELECT root_tree_sha, author_name, author_date, message "
+                        "FROM commits WHERE repo_id = $1 AND sha = $2",
+                        repo_id, merge_head,
+                    )
+                    root_tree = row["root_tree_sha"]
+                    assert row["author_name"] == b"Test User"
+                    assert row["message"] == b"Merge feature\n"
+                    assert row["author_date"] is not None
+
+                    parents = await conn.fetch(
+                        "SELECT parent_index, parent_sha FROM commit_parent "
+                        "WHERE repo_id = $1 AND commit_sha = $2 ORDER BY parent_index",
+                        repo_id, merge_head,
+                    )
+                    assert [r["parent_index"] for r in parents] == [0, 1]
+                    assert [r["parent_sha"] for r in parents] == [master_head, feature_head]
+
+                    blob_rows = await conn.fetch(
+                        "SELECT sha, size FROM blobs WHERE repo_id = $1", repo_id
+                    )
+                    got = {r["sha"]: r["size"] for r in blob_rows}
+                    for sha, size in blobs_expected.items():
+                        assert got.get(sha) == size, f"blob {sha} size mismatch"
+                finally:
+                    await conn.close()
+
+            asyncio.new_event_loop().run_until_complete(verify())
+
+            assert root_tree is not None and len(root_tree) == 40
+            tree_exists = asyncio.new_event_loop().run_until_complete(_tree_exists(repo_id, root_tree))
+            assert tree_exists
+        finally:
+            shutil.rmtree(tmp)
+
     def test_empty_tree(self, bridge, repo_id):
         """Test empty tree special case handling."""
-        store = AsyncpgObjectStore(repo_id, bridge=bridge)
+        store = ObjectStore(repo_id, bridge=bridge)
 
         # Empty tree should be considered present
         assert EMPTY_TREE_SHA in store
@@ -167,7 +267,7 @@ class TestGitBackend:
         assert content == b""
 
     def test_thin_pack_ingestion(self, bridge, repo_id):
-        store = AsyncpgObjectStore(repo_id, bridge=bridge)
+        store = ObjectStore(repo_id, bridge=bridge)
 
         tmp = tempfile.mkdtemp()
         try:
@@ -213,7 +313,7 @@ class TestGitBackend:
         from dulwich.pack import write_pack_from_container
         from io import BytesIO
 
-        store = AsyncpgObjectStore(repo_id, bridge=bridge)
+        store = ObjectStore(repo_id, bridge=bridge)
 
         tmp = tempfile.mkdtemp()
         try:
@@ -229,10 +329,9 @@ class TestGitBackend:
 
             dulwich_repo = __import__("dulwich.repo").repo.Repo(str(repo_path))
             all_shas = list(dulwich_repo.object_store)
-            for sha in all_shas:
-                store.add_object(dulwich_repo.object_store[sha])
+            store.add_objects([(dulwich_repo.object_store[sha], None) for sha in all_shas])
 
-            store2 = AsyncpgObjectStore(repo_id + 1, bridge=bridge)
+            store2 = ObjectStore(repo_id + 1, bridge=bridge)
             object_ids = [(sha, None) for sha in all_shas]
 
             buf = BytesIO()
@@ -256,7 +355,7 @@ class TestGitBackend:
             shutil.rmtree(tmp)
 
     def test_refs_cas_and_symref(self, bridge, repo_id):
-        refs = AsyncpgRefsContainer(repo_id, bridge=bridge)
+        refs = RefContainer(repo_id, bridge=bridge)
 
         head_ref = b"HEAD"
         master_ref = b"refs/heads/master"
@@ -301,9 +400,9 @@ class TestGitBackend:
             c2 = create_commit(repo_path, "file2.txt", "content2", "Second")
 
             dulwich_src = DulwichRepo(str(repo_path))
-            for sha in dulwich_src.object_store:
-                obj = dulwich_src.object_store[sha]
-                repo.object_store.add_object(obj)
+            repo.object_store.add_objects(
+                [(dulwich_src.object_store[sha], None) for sha in dulwich_src.object_store]
+            )
 
             refs_dict = dulwich_src.get_refs()
             for ref_name, sha in refs_dict.items():
@@ -346,7 +445,7 @@ class TestGitBackend:
 
             for sha in dulwich_src.object_store:
                 obj = dulwich_src.object_store[sha]
-                repo.object_store.add_object(obj)
+                repo.object_store.add_objects([(obj, None)])
             repo.refs.add_if_new(b"refs/heads/master", head_sha)
             repo.refs.set_symbolic_ref(b"HEAD", b"refs/heads/master")
 

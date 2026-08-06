@@ -47,7 +47,7 @@ def seed_repo(username: str, repo_name: str) -> int:
                 repo_name,
             )
             await conn.execute(
-                "INSERT INTO git_refs (repo_id, name, value) VALUES ($1, $2, $3)",
+                "INSERT INTO refs (repo_id, name, value) VALUES ($1, $2, $3)",
                 repo_id,
                 b"HEAD",
                 b"ref: refs/heads/master",
@@ -76,7 +76,7 @@ def fetch_ref(repo_id: int, ref_name: str) -> str | None:
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             row = await conn.fetchrow(
-                "SELECT value FROM git_refs WHERE repo_id = $1 AND name = $2",
+                "SELECT value FROM refs WHERE repo_id = $1 AND name = $2",
                 repo_id,
                 ref_name.encode(),
             )
@@ -159,9 +159,9 @@ class TestGitCliHTTP:
         assert push.returncode == 0, push.stderr
 
         assert fetch_ref(repo["id"], "refs/heads/master") == head
-        assert count_rows(repo["id"], "git_commits") >= 1
-        assert count_rows(repo["id"], "git_blobs") >= 1
-        assert count_rows(repo["id"], "git_tree_entries") >= 1
+        assert count_rows(repo["id"], "commits") >= 1
+        assert count_rows(repo["id"], "blobs") >= 1
+        assert count_rows(repo["id"], "tree_entries") >= 1
 
     def test_non_fast_forward_push_rejected(self, repo):
         clone1 = TMP_DIR / f"clone1_{repo['name']}"
