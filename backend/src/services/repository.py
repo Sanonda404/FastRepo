@@ -62,9 +62,21 @@ def ref_info_handler(repo_id: int, action: str) -> bytes:
         raise HTTPException(status_code=403, detail="Unsupported action")
 
     repo = backend.open_repository("/")
-    refs = repo.get_refs()
     capabilities = handler.capabilities()
     capability_payload = b" ".join(capabilities)
+
+    refs: dict[bytes, bytes] = {}
+    for name in repo.refs.allkeys():
+        value = repo.refs.read_loose_ref(name)
+        if value is not None and not value.startswith(b"ref: "):
+            refs[name] = value
+
+    head_raw = repo.refs.read_loose_ref(b"HEAD")
+    if head_raw and head_raw.startswith(b"ref: "):
+        head_target = head_raw[5:]
+        if head_target in refs:
+            capability_payload += b" symref=HEAD:" + head_target
+            refs[b"HEAD"] = refs[head_target]
 
     lines: list[bytes] = []
     first = True
