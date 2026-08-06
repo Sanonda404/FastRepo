@@ -13,14 +13,14 @@ GET_RAW_BY_SHA = """
 """
 
 INSERT_COMMIT = """
-    INSERT INTO commits (repo_id, sha, content)
-    VALUES ($1, $2, $3)
+    INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (repo_id, sha) DO NOTHING
 """
 
 INSERT_BLOB = """
-    INSERT INTO blobs (repo_id, sha, content)
-    VALUES ($1, $2, $3)
+    INSERT INTO blobs (repo_id, sha, content, size)
+    VALUES ($1, $2, $3, $4)
     ON CONFLICT (repo_id, sha) DO NOTHING
 """
 
@@ -28,6 +28,16 @@ INSERT_TAG = """
     INSERT INTO tags (repo_id, sha, content)
     VALUES ($1, $2, $3)
     ON CONFLICT (repo_id, sha) DO NOTHING
+"""
+
+INSERT_COMMIT_PARENT = """
+    INSERT INTO commit_parent (repo_id, commit_sha, parent_sha, parent_index)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (repo_id, commit_sha, parent_index) DO NOTHING
+"""
+
+DELETE_COMMIT_PARENTS = """
+    DELETE FROM commit_parent WHERE repo_id = $1 AND commit_sha = $2
 """
 
 INSERT_TREE_ENTRIES = """

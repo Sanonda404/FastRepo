@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import stat
 import threading
+from datetime import datetime, timezone
 from io import BytesIO
 from collections.abc import Callable, Iterator, Sequence
 from typing import BinaryIO, Optional
@@ -32,6 +33,8 @@ from sqls.git_sqls import (
     INSERT_TAG,
     INSERT_TREE_ENTRIES,
     DELETE_TREE_ENTRIES,
+    INSERT_COMMIT_PARENT,
+    DELETE_COMMIT_PARENTS,
     CHECK_OBJECT_EXISTS,
     ITER_OBJECT_SHAS,
     GET_TREE_ENTRIES,
@@ -184,24 +187,55 @@ class ObjectStore(BaseObjectStore):
                 return [r["sha"] for r in rows]
         return iter(self._run(_inner()))
 
+    @staticmethod
+    def _commit_author_date(obj) -> datetime | None:
+        ts = getattr(obj, "author_time", None)
+        if ts is None:
+            return None
+        return datetime.fromtimestamp(ts + obj.author_timezone, tz=timezone.utc)
+
+    async def _add_one(self, conn: asyncpg.Connection, obj: ShaFile) -> None:
+        raw = obj.as_raw_string()
+        if obj.type_num == _OBJ_COMMIT:
+            root_tree = obj.tree
+            author = getattr(obj, "author", None) or b""
+            name = author.split(b" <", 1)[0] if b" <" in author else author
+            await conn.execute(
+                INSERT_COMMIT,
+                self._repo_id,
+                obj.id,
+                raw,
+                root_tree,
+                name,
+                self._commit_author_date(obj),
+                obj.message,
+            )
+            await conn.execute(DELETE_COMMIT_PARENTS, self._repo_id, obj.id)
+            for index, parent in enumerate(obj.parents):
+                await conn.execute(
+                    INSERT_COMMIT_PARENT,
+                    self._repo_id,
+                    obj.id,
+                    parent,
+                    index,
+                )
+        elif obj.type_num == _OBJ_BLOB:
+            await conn.execute(INSERT_BLOB, self._repo_id, obj.id, raw, len(obj.data))
+        elif obj.type_num == _OBJ_TAG:
+            await conn.execute(INSERT_TAG, self._repo_id, obj.id, raw)
+        elif obj.type_num == _OBJ_TREE:
+            await conn.execute(DELETE_TREE_ENTRIES, self._repo_id, obj.id)
+            entries = list(obj.items())
+            for name, mode, entry_sha in entries:
+                await conn.execute(
+                    INSERT_TREE_ENTRIES, self._repo_id, obj.id, name, mode, entry_sha
+                )
+
     def _async_add_object(self, obj: ShaFile) -> None:
         async def _inner():
             async with self._bridge.pool.acquire() as conn:
                 async with conn.transaction():
-                    raw = obj.as_raw_string()
-                    if obj.type_num == _OBJ_COMMIT:
-                        await conn.execute(INSERT_COMMIT, self._repo_id, obj.id, raw)
-                    elif obj.type_num == _OBJ_BLOB:
-                        await conn.execute(INSERT_BLOB, self._repo_id, obj.id, raw)
-                    elif obj.type_num == _OBJ_TAG:
-                        await conn.execute(INSERT_TAG, self._repo_id, obj.id, raw)
-                    elif obj.type_num == _OBJ_TREE:
-                        await conn.execute(DELETE_TREE_ENTRIES, self._repo_id, obj.id)
-                        entries = list(obj.items())
-                        for name, mode, entry_sha in entries:
-                            await conn.execute(
-                                INSERT_TREE_ENTRIES, self._repo_id, obj.id, name, mode, entry_sha
-                            )
+                    await self._add_one(conn, obj)
         self._run(_inner())
 
     def add_object(self, obj: ShaFile) -> None:
@@ -212,10 +246,17 @@ class ObjectStore(BaseObjectStore):
         objects: Sequence[tuple[ShaFile, str | None]],
         progress: Callable[..., None] | None = None,
     ) -> None:
-        for obj, _path in objects:
-            self.add_object(obj)
-            if progress:
-                progress(obj.id.decode())
+        items = list(objects)
+
+        async def _inner():
+            async with self._bridge.pool.acquire() as conn:
+                async with conn.transaction():
+                    for obj, _path in items:
+                        await self._add_one(conn, obj)
+                        if progress:
+                            progress(obj.id.decode())
+
+        self._run(_inner())
 
     def add_pack(self) -> tuple[BinaryIO, Callable[[], None], Callable[[], None]]:
         f = BytesIO()
@@ -227,8 +268,8 @@ class ObjectStore(BaseObjectStore):
                 p = PackData.from_file(f, self.object_format, size)
                 try:
                     p.check()
-                    for obj in PackInflater.for_pack_data(p, self.get_raw):
-                        self.add_object(obj)
+                    objects = [(obj, None) for obj in PackInflater.for_pack_data(p, self.get_raw)]
+                    self.add_objects(objects)
                 finally:
                     p.close()
 
