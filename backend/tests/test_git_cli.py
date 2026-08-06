@@ -9,7 +9,7 @@ import pytest
 
 from services.database import DATABASE_URL
 
-TMP_DIR = Path("./tmp/git_tests").resolve()
+TMP_DIR = Path("/tmp/opencode/git_tests").resolve()
 
 SERVER_URL = os.getenv("TEST_SERVER_URL", "http://127.0.0.1:8000")
 
@@ -27,36 +27,27 @@ def _run_async(coro):
     return asyncio.new_event_loop().run_until_complete(coro)
 
 
-def seed_repo(username: str, repo_name: str) -> int:
-    """Create a user + repo with a HEAD symref pointing at master. Return repo_id."""
-
-    async def _seed():
-        conn = await asyncpg.connect(DATABASE_URL)
-        try:
-            # Later replace with crud apis
-            user_id = await conn.fetchval(
-                "INSERT INTO users (username, email, password_hash) "
-                "VALUES ($1, $2, $3) RETURNING id",
-                username,
-                f"{username}@test.com",
-                "x",
-            )
-            repo_id = await conn.fetchval(
-                "INSERT INTO repositories (owner_id, name) VALUES ($1, $2) RETURNING id",
-                user_id,
-                repo_name,
-            )
-            await conn.execute(
-                "INSERT INTO refs (repo_id, name, value) VALUES ($1, $2, $3)",
-                repo_id,
-                b"HEAD",
-                b"ref: refs/heads/master",
-            )
-            return repo_id
-        finally:
-            await conn.close()
-
-    return _run_async(_seed())
+def seed_repo(username: str, repo_name: str, password: str = "testpass123") -> int:
+    """Create user + repo through the public API. Return repo_id."""
+    with httpx.Client(base_url=SERVER_URL) as client:
+        reg = client.post(
+            "/users/register",
+            json={"username": username, "email": f"{username}@test.com", "password": password},
+        )
+        assert reg.status_code == 201, reg.text
+        login = client.post(
+            "/users/login",
+            data={"username": username, "password": password},
+        )
+        assert login.status_code == 200, login.text
+        token = login.json()["access_token"]
+        created = client.post(
+            "/repositories/create",
+            json={"name": repo_name, "description": None, "is_private": False},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert created.status_code == 201, created.text
+        return created.json()["id"]
 
 
 def cleanup_repo(username: str, repo_name: str) -> None:
