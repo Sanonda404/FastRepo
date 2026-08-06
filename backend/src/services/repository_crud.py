@@ -10,7 +10,7 @@ from sqls.repository_sqls import (
     COPY_COMMITS
 )
 
-from sqls.git_sqls import INSERT_COMMIT
+from sqls.git_sqls import INSERT_COMMIT, INSERT_HEAD_REF
 
 async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest, owner_id : int) -> RepositoryResponse:
     
@@ -21,6 +21,11 @@ async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest
             )
             if row is None:
                 raise RuntimeError("Failed to create repository")
+            await conn.execute(
+                INSERT_HEAD_REF,
+                row["id"],
+                f"ref: refs/heads/{row['default_branch']}".encode(),
+            )
             return RepositoryResponse(**dict(row))
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")

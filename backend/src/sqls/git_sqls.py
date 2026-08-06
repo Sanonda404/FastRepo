@@ -30,6 +30,12 @@ INSERT_TAG = """
     ON CONFLICT (repo_id, sha) DO NOTHING
 """
 
+INSERT_HEAD_REF = """
+    INSERT INTO refs (repo_id, name, value)
+    VALUES ($1, 'HEAD', $2)
+    ON CONFLICT (repo_id, name) DO NOTHING
+"""
+
 INSERT_COMMIT_PARENT = """
     INSERT INTO commit_parent (repo_id, commit_sha, parent_sha, parent_index)
     VALUES ($1, $2, $3, $4)
