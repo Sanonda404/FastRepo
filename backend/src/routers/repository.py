@@ -10,6 +10,7 @@ from schemas.repository import (
     ForkRepositoryRequest
 )
 from services.repository_crud import create_repository, get_repository, fork_repository
+from services.user import get_user_by_username_or_email
 from auth.auth import get_current_user
 
 router = APIRouter(
@@ -52,6 +53,7 @@ async def do_fork_repository(
     try:
         source_repo : RepositoryResponse = await get_repository(pool, owner_name, repo_name)
         new_repo : RepositoryResponse = await fork_repository(pool, source_repo, payload, current_user["id"])
+        return new_repo
     except ValueError as e:
         raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

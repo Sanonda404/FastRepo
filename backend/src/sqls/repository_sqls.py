@@ -6,7 +6,7 @@ CREATE_REPOSITORY = """
 """
 
 GET_REPO_BY_USER_AND_REPOSIRY_NAME = """
-    SELECT r.id, r.name, r.default_branch, r.is_private, u.username as owner_username
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
     FROM repositories r
     JOIN users u ON r.owner_id = u.id
     WHERE u.username = $1 AND r.name = $2
