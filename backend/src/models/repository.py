@@ -11,6 +11,29 @@ CREATE TABLE IF NOT EXISTS repositories (
     CONSTRAINT unique_owner_repo_name UNIQUE (owner_id, name)
 )
 """
+## Add default_branch col
+CREATE_DEFAULT_BRANCH_COL = """
+    ALTER TABLE repositories
+    ADD COLUMN IF NOT EXISTS
+    default_branch VARCHAR(255) NOT NULL DEFAULT 'main'
+"""
+
+CREATE_DESCRIPTION_COL = """
+    ALTER TABLE repositories
+    ADD COLUMN IF NOT EXISTS description TEXT
+"""
+
+## Update the previous repositories default branches
+UPDATE_DEAFULT_BRANCH = """
+    UPDATE repositories
+    SET default_branch = 'main'
+    WHERE default_branch IS NULL OR default_branch = ''
+"""
+
+
 
 async def ensure_repositories_table(pool: asyncpg.Pool) -> None:
     await pool.execute(REPOSITORIES_TABLE_DDL)
+    await pool.execute(CREATE_DEFAULT_BRANCH_COL)
+    await pool.execute(CREATE_DESCRIPTION_COL)
+    await pool.execute(UPDATE_DEAFULT_BRANCH)
