@@ -11,6 +11,8 @@ from models.repository_collaborators import ensure_repository_collaborators_tabl
 from models.team import ensure_teams_table
 from models.team_members import ensure_team_members_table
 from models.git import ensure_tables as ensure_git_tables
+from models.issues import ensure_issues_table
+from models.issue_comments import ensure_issues_comments_table
 
 load_dotenv()
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/fastrepo")
@@ -26,6 +28,8 @@ async def init_pool() -> None:
     await ensure_teams_table(_pool)
     await ensure_team_members_table(_pool)
     await ensure_git_tables(_pool)
+    await ensure_issues_table(_pool)
+    await ensure_issues_comments_table(_pool)
 
 async def close_pool() -> None:
     global _pool
