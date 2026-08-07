@@ -1,16 +1,23 @@
 import asyncpg
 from fastapi import HTTPException
 
-from schemas.repository import RepositoryCreateRequest, RepositoryResponse, ForkRepositoryRequest
+from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest
 from sqls.repository_sqls import (
     CREATE_REPOSITORY, 
     GET_REPO_BY_USER_AND_REPOSIRY_NAME, 
     FORK_REPOSITORY, 
-    COPY_BRANCHES,
-    COPY_COMMITS
+    COPY_FORK_COMMITS,
+    COPY_FORK_BLOBS,
+    COPY_FORK_TAGS,
+    COPY_FORK_TREE_ENTRIES,
+    COPY_FORK_COMMIT_PARENTS,
+    COPY_FORK_REFS,
+    UPDATE_REPOSITORY,
+    DELETE_REPOSITORY,
+    CHECK_REPO_ACCESS,
 )
 
-from sqls.git_sqls import INSERT_COMMIT, INSERT_HEAD_REF
+from sqls.git_sqls import INSERT_HEAD_REF
 
 async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest, owner_id : int) -> RepositoryResponse:
     
@@ -59,15 +66,13 @@ async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, p
             
             new_repo = RepositoryResponse(**dict(row))
             
-            #copy all the branches
-            await conn.execute(
-                COPY_BRANCHES, new_repo.id, source_repo.id
-            )
-            
-            #connect the commits
-            row = await conn.execute(
-                COPY_COMMITS, new_repo.id, source_repo.id
-            )
+            #copy git objects, refs and parent links to the new repo id
+            await conn.execute(COPY_FORK_COMMITS, new_repo.id, source_repo.id)
+            await conn.execute(COPY_FORK_BLOBS, new_repo.id, source_repo.id)
+            await conn.execute(COPY_FORK_TAGS, new_repo.id, source_repo.id)
+            await conn.execute(COPY_FORK_TREE_ENTRIES, new_repo.id, source_repo.id)
+            await conn.execute(COPY_FORK_COMMIT_PARENTS, new_repo.id, source_repo.id)
+            await conn.execute(COPY_FORK_REFS, new_repo.id, source_repo.id)
             
             return new_repo
         except asyncpg.UniqueViolationError:

@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS repositories (
 CREATE_DEFAULT_BRANCH_COL = """
     ALTER TABLE repositories
     ADD COLUMN IF NOT EXISTS
-    default_branch VARCHAR(255) NOT NULL DEFAULT 'main'
+    default_branch VARCHAR(255) NOT NULL DEFAULT 'main';
+    ALTER TABLE repositories
+    ALTER COLUMN default_branch SET DEFAULT 'main'
 """
 
 CREATE_DESCRIPTION_COL = """
@@ -27,10 +29,8 @@ CREATE_DESCRIPTION_COL = """
 UPDATE_DEAFULT_BRANCH = """
     UPDATE repositories
     SET default_branch = 'main'
-    WHERE default_branch IS NULL OR default_branch = ''
+    WHERE default_branch IS NULL OR default_branch = '' OR default_branch <> 'main'
 """
-
-
 
 async def ensure_repositories_table(pool: asyncpg.Pool) -> None:
     await pool.execute(REPOSITORIES_TABLE_DDL)

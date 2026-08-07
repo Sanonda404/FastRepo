@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS commit_parent (
     commit_sha BYTEA NOT NULL,
     parent_sha BYTEA NOT NULL,
     parent_index INT NOT NULL,
+    PRIMARY KEY (repo_id, commit_sha, parent_index),
     FOREIGN KEY (repo_id, commit_sha)
         REFERENCES commits(repo_id, sha) DEFERRABLE INITIALLY DEFERRED,
     FOREIGN KEY (repo_id, parent_sha)
