@@ -19,24 +19,29 @@ class FastRepoBackend(Backend):
         return self._repo
 
 
-async def get_repo_id(username: str, repository: str) -> int:
+async def resolve_repo(username: str, repository: str) -> dict:
     for part in (username, repository):
         if ".." in part or "/" in part or "\\" in part:
             raise HTTPException(status_code=400, detail="Invalid username or repository")
 
     pool = get_pool()
     async with pool.acquire() as conn:
-        repo_id = await conn.fetchval(
-            "SELECT r.id FROM repositories r JOIN users u ON u.id = r.owner_id "
-            "WHERE u.username = $1 AND r.name = $2",
+        row = await conn.fetchrow(
+            """SELECT r.id, r.is_private, r.owner_id FROM repositories r
+            JOIN users u ON u.id = r.owner_id 
+            WHERE u.username = $1 AND r.name = $2
+            """,
             username,
             repository,
         )
-        
-    if repo_id is None:
+
+    if row is None:
         raise HTTPException(status_code=404, detail="Repository not found")
-    
-    return repo_id
+
+    return {"id": row["id"], "is_private": row["is_private"], "owner_id": row["owner_id"]}
+
+async def get_repo_id(username: str, repository: str) -> int:
+    return (await resolve_repo(username, repository))["id"]
 
 
 def encode_pkt_line(data: str | bytes) -> bytes:
