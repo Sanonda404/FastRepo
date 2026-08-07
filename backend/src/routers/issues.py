@@ -24,7 +24,7 @@ router = APIRouter(
     tags=["issues"]
 )
 
-@router.post("/{owner_name}/{repo_name}/",response_model=IssueResponse,status_code=status.HTTP_201_CREATED,)
+@router.post("/{owner_name}/{repo_name}",response_model=IssueResponse,status_code=status.HTTP_201_CREATED,)
 async def create_issue(
     owner_name: str,
     repo_name: str,
@@ -49,7 +49,7 @@ async def create_issue(
         )
 
 
-@router.get("/{owner_name}/{repo_name}/",response_model=List[IssueResponse],status_code=status.HTTP_200_OK,)
+@router.get("/{owner_name}/{repo_name}",response_model=List[IssueResponse],status_code=status.HTTP_200_OK,)
 async def get_all_issues(
     owner_name: str,
     repo_name: str,

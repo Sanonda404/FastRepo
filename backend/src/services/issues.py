@@ -58,7 +58,7 @@ async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: st
 async def get_issue_by_number(pool: asyncpg.Pool, repo_id: int, repo_name: str, issue_no : int) -> IssueResponse:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(GET_ISSUE_BY_NUMBER, repo_id, issue_no)
-        if not row:
+        if row is None:
             raise HTTPException(status_code=404, detail="Issue not found")
 
         response = IssueResponse(
@@ -89,7 +89,7 @@ from typing import List
 async def close_issue_by_no(pool: asyncpg.Pool, closed_by_id : int, repo_id: int, issue_no: int, closed_by_username : str, repo_name : str) -> IssueResponse:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER, closed_by_id, repo_id, issue_no)
-        if not row:
+        if row is None:
             raise HTTPException(status_code=404, detail="No issues found for this repository")
 
         response = IssueResponse(
