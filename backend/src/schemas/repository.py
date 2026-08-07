@@ -7,6 +7,11 @@ class RepositoryCreateRequest(BaseModel):
     description : Optional[str] = None
     is_private : bool
 
+class RepositoryUpdateRequest(BaseModel):
+    name : Optional[str] = None
+    description : Optional[str] = None
+    is_private : Optional[bool] = None
+
 class RepositoryResponse(BaseModel):
     id : int
     name : str

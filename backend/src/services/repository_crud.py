@@ -50,6 +50,28 @@ async def get_repository(pool : asyncpg.Pool, owner_name : str, repo_name: str) 
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")
 
+async def update_repository(pool: asyncpg.Pool, owner_id: int, repo_name: str, payload: RepositoryUpdateRequest) -> RepositoryResponse:
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                UPDATE_REPOSITORY, owner_id, repo_name, payload.name, payload.description, payload.is_private
+            )
+            if row is None:
+                raise HTTPException(status_code=404, detail="Repository not found")
+            return RepositoryResponse(**dict(row))
+        except asyncpg.UniqueViolationError:
+            raise ValueError("Repository with same name already exists")
+
+async def delete_repository(pool: asyncpg.Pool, owner_id: int, repo_name: str) -> None:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(DELETE_REPOSITORY, owner_id, repo_name)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Repository not found")
+
+async def can_access_repository(pool: asyncpg.Pool, repo_id: int, user_id: int) -> bool:
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval(CHECK_REPO_ACCESS, repo_id, user_id))
+
 async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, payload: ForkRepositoryRequest ,current_user_id: int) -> RepositoryResponse:
     async with pool.acquire() as conn:
         try:
