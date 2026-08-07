@@ -25,3 +25,20 @@ GET_USER_BY_ID = """
         FROM users 
         WHERE id = $1;
     """
+
+# update user's information
+UPDATE_USER = """
+    UPDATE users
+    SET username = COALESCE($2, username),
+        email = COALESCE($3, email),
+        password_hash = COALESCE($4, password_hash)
+    WHERE id = $1
+    RETURNING id, username, email;
+"""
+
+# delete user
+DELETE_USER = """
+    DELETE FROM users
+    WHERE id = $1
+    RETURNING id;
+"""
