@@ -116,3 +116,43 @@ REMOVE_REF_IF_EQUALS = """
     WHERE repo_id = $1 AND name = $2 AND ($3::bytea IS NULL OR value = $3::bytea)
     RETURNING 1
 """
+
+GET_BRANCH_REFS = """
+    SELECT name, value FROM refs
+    WHERE repo_id = $1 AND name LIKE 'refs/heads/%'
+    ORDER BY name
+"""
+
+GET_COMMIT_META = """
+    SELECT c.sha, c.root_tree_sha, c.author_name, c.author_date, c.message,
+           u.email AS author_email
+    FROM commits c
+    LEFT JOIN users u ON u.username::bytea = c.author_name
+    WHERE c.repo_id = $1 AND c.sha = $2
+"""
+
+GET_COMMITS_META = """
+    SELECT c.sha, c.root_tree_sha, c.author_name, c.author_date, c.message,
+           u.email AS author_email
+    FROM commits c
+    LEFT JOIN users u ON u.username::bytea = c.author_name
+    WHERE c.repo_id = $1 AND c.sha = ANY($2::bytea[])
+"""
+
+GET_PARENTS = """
+    SELECT commit_sha, parent_sha FROM commit_parent
+    WHERE repo_id = $1 AND commit_sha = ANY($2::bytea[])
+    ORDER BY commit_sha, parent_index
+"""
+
+GET_BLOBS = """
+    SELECT sha, content FROM blobs WHERE repo_id = $1 AND sha = ANY($2::bytea[])
+"""
+
+GET_TREE_ENTRIES_WITH_SIZES = """
+    SELECT t.name, t.mode, t.sha, b.size
+    FROM tree_entries t
+    LEFT JOIN blobs b ON b.repo_id = t.repo_id AND b.sha = t.sha
+    WHERE t.repo_id = $1 AND t.tree_sha = $2
+    ORDER BY t.name
+"""

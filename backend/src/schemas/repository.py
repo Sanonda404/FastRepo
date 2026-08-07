@@ -38,3 +38,47 @@ class ForkRepositoryRequest(BaseModel):
         False,
         description="Whether the forked repository should be private."
     )
+
+class BranchResponse(BaseModel):
+    name: str
+    sha: str
+    is_default: bool
+
+class CommitSummary(BaseModel):
+    sha: str
+    author: str
+    author_email: Optional[str] = None
+    author_date: datetime
+    message: str
+
+class FileChange(BaseModel):
+    path: str
+    old_path: Optional[str] = None
+    status: str
+    additions: int
+    deletions: int
+    binary: bool
+    diff: Optional[str] = None
+
+class CommitDetail(BaseModel):
+    sha: str
+    author: str
+    author_email: Optional[str] = None
+    author_date: datetime
+    message: str
+    parents: list[str]
+    root_tree_sha: str
+    diff: list[FileChange]
+
+class TreeEntrySchema(BaseModel):
+    name: str
+    type: str
+    mode: int
+    sha: str
+    size: Optional[int] = None
+
+class TreeResponse(BaseModel):
+    commit: str
+    tree: str
+    path: str
+    entries: list[TreeEntrySchema]

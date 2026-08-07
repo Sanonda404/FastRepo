@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 import asyncpg
 
@@ -8,7 +8,11 @@ from schemas.repository import (
     RepositoryCreateRequest,
     RepositoryUpdateRequest,
     RepositoryResponse,
-    ForkRepositoryRequest
+    ForkRepositoryRequest,
+    BranchResponse,
+    CommitSummary,
+    CommitDetail,
+    TreeResponse,
 )
 from services.repository_crud import (
     create_repository,
@@ -18,13 +22,37 @@ from services.repository_crud import (
     fork_repository,
     can_access_repository,
 )
+from services.git_read import (
+    get_branches,
+    get_commit,
+    get_diff,
+    get_history,
+    get_tree,
+    resolve_ref,
+)
 from services.user import get_user_by_username_or_email
 from auth.auth import get_current_user, get_optional_current_user
+from models.git import EMPTY_TREE_SHA
 
 router = APIRouter(
     prefix="/repositories",
     tags=["repositories"]
 )
+
+async def _get_viewable_repo(
+    pool: asyncpg.Pool, owner_name: str, repo_name: str, current_user
+) -> RepositoryResponse:
+    """Resolve a repository, enforcing private-repo auth."""
+    repo = await get_repository(pool, owner_name, repo_name)
+    if repo.is_private and (
+        current_user is None
+        or not await can_access_repository(pool, repo.id, current_user["id"])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Private repository",
+        )
+    return repo
 
 @router.post("/create", response_model=RepositoryResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RepositoryCreateRequest,
@@ -48,16 +76,7 @@ async def view_repository(
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     """View a repository. Private repos require owner or collaborator auth."""
-    repo = await get_repository(pool, owner_name, repo_name)
-    if repo.is_private and (
-        current_user is None
-        or not await can_access_repository(pool, repo.id, current_user["id"])
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Private repository",
-        )
-    return repo
+    return await _get_viewable_repo(pool, owner_name, repo_name, current_user)
 
 @router.patch("/{owner_name}/{repo_name}", response_model=RepositoryResponse)
 async def modify_repository(
@@ -126,3 +145,74 @@ async def do_fork_repository(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(e)
         )
+
+@router.get("/{owner_name}/{repo_name}/branches", response_model=list[BranchResponse])
+async def list_branches(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """List branches of a repository, newest default marked."""
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    return await get_branches(pool, repo.id)
+
+@router.get("/{owner_name}/{repo_name}/commits", response_model=list[CommitSummary])
+async def list_commits(
+    owner_name: str,
+    repo_name: str,
+    ref: str | None = Query(None, description="Branch name, tag, or commit sha. Defaults to default branch."),
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Commit history: author, time, message only."""
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    head_sha = await resolve_ref(pool, repo.id, ref)
+    if head_sha is None:
+        raise HTTPException(status_code=404, detail="Ref not found")
+    return await get_history(pool, repo.id, head_sha, limit, offset)
+
+@router.get("/{owner_name}/{repo_name}/commits/{sha}", response_model=CommitDetail)
+async def view_commit(
+    owner_name: str,
+    repo_name: str,
+    sha: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
+        raise HTTPException(status_code=404, detail="Commit not found")
+    sha_bytes = sha.encode("ascii")
+
+    commit = await get_commit(pool, repo.id, sha_bytes)
+    if commit is None:
+        raise HTTPException(status_code=404, detail="Commit not found")
+
+    if commit["parents"]:
+        parent_meta = await get_commit(pool, repo.id, commit["parents"][0].encode("ascii"))
+        old_tree = parent_meta["root_tree_sha"].encode("ascii") if parent_meta else EMPTY_TREE_SHA
+    else:
+        old_tree = EMPTY_TREE_SHA
+    commit["diff"] = await get_diff(
+        pool, repo.id, old_tree, commit["root_tree_sha"].encode("ascii")
+    )
+    return commit
+
+@router.get("/{owner_name}/{repo_name}/tree", response_model=TreeResponse)
+async def view_tree(
+    owner_name: str,
+    repo_name: str,
+    ref: str | None = Query(None, description="Branch name, tag, or commit sha. Defaults to default branch."),
+    path: str = Query("", description="Directory path inside the ref."),
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Source tree at a branch/commit, optionally inside a subdirectory."""
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    tree = await get_tree(pool, repo.id, ref, path)
+    if tree is None:
+        raise HTTPException(status_code=404, detail="Tree not found")
+    return tree
