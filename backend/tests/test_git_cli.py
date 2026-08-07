@@ -7,11 +7,25 @@ import asyncpg
 import httpx
 import pytest
 
+from urllib.parse import urlparse, urlunparse
+
 from services.database import DATABASE_URL
 
 TMP_DIR = Path("/tmp/opencode/git_tests").resolve()
 
 SERVER_URL = os.getenv("TEST_SERVER_URL", "http://127.0.0.1:8000")
+GIT_PASSWORD = "testpass123"
+
+
+def unique(name):
+    return f"{name}_{int(__import__('time').time() * 1000) % 10**7}_{os.getpid()}"
+
+
+def repo_url(server: str, username: str, repo_name: str, password: str | None = None) -> str:
+    """Server URL with optional HTTP Basic credentials embedded (git sends these as auth)."""
+    parts = urlparse(server)
+    netloc = f"{username}:{password}@{parts.netloc}" if password else parts.netloc
+    return urlunparse((parts.scheme, netloc, f"/{username}/{repo_name}", "", "", ""))
 
 def run_git(repo_dir: Path, *args) -> subprocess.CompletedProcess:
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
@@ -27,7 +41,7 @@ def _run_async(coro):
     return asyncio.new_event_loop().run_until_complete(coro)
 
 
-def seed_repo(username: str, repo_name: str, password: str = "testpass123") -> int:
+def seed_repo(username: str, repo_name: str, password: str = GIT_PASSWORD) -> int:
     """Create user + repo through the public API. Return repo_id."""
     with httpx.Client(base_url=SERVER_URL) as client:
         reg = client.post(
@@ -109,7 +123,7 @@ def repo(server_url):
     repo_name = unique
     repo_id = seed_repo(username, repo_name)
     yield {"username": username, "name": repo_name, "id": repo_id,
-           "url": f"{server_url}/{username}/{repo_name}"}
+           "url": repo_url(server_url, username, repo_name, GIT_PASSWORD)}
     cleanup_repo(username, repo_name)
 
 
@@ -265,11 +279,55 @@ class TestGitCliHTTP:
             f"/{repo['username']}/{repo['name']}/info/refs",
             params={"service": "git-receive-pack"},
         )
-        assert bad.status_code == 200
+        assert bad.status_code == 401, "Anonymous push must be rejected"
 
     def test_missing_repo_404(self, client, repo):
         r = client.get("/fake/naai/info/refs", params={"service": "git-upload-pack"})
         assert r.status_code == 404
+
+    def test_private_repo_clone_requires_auth(self, client, server_url):
+        username = unique("priv")
+        repo_name = unique("priv")
+        repo_id = None
+        try:
+            repo_id = seed_repo(username, repo_name)
+            # flip to private via API
+            token = client.post(
+                "/users/login", data={"username": username, "password": GIT_PASSWORD}
+            ).json()["access_token"]
+            r = client.patch(
+                f"/repositories/{username}/{repo_name}",
+                json={"is_private": True},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert r.status_code == 200
+
+            TMP_DIR.mkdir(parents=True, exist_ok=True)
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+
+            # anonymous clone fails
+            anon_dir = TMP_DIR / f"clone_anon_{repo_name}"
+            anon_url = repo_url(server_url, username, repo_name)
+            anon = subprocess.run(["git", "clone", anon_url, str(anon_dir)],
+                                  capture_output=True, text=True, env=env)
+            assert anon.returncode != 0
+
+            # clone with credentials (owner) succeeds
+            clone_dir = TMP_DIR / f"clone_{repo_name}"
+            url = repo_url(server_url, username, repo_name, GIT_PASSWORD)
+            ok = subprocess.run(["git", "clone", url, str(clone_dir)],
+                                capture_output=True, text=True, env=env)
+            assert ok.returncode == 0, ok.stderr
+
+            # push works with credentials
+            head = make_commit(clone_dir, "p.txt", "private", "Private commit")
+            push = subprocess.run(["git", "-C", str(clone_dir), "push", "origin", "master"],
+                                  capture_output=True, text=True, env=env)
+            assert push.returncode == 0, push.stderr
+            assert fetch_ref(repo_id, "refs/heads/master") == head
+        finally:
+            if repo_id is not None:
+                cleanup_repo(username, repo_name)
 
 
 if __name__ == "__main__":
