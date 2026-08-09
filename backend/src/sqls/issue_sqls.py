@@ -45,5 +45,14 @@ CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER = """
 DELETE_ISSUE_BY_REPO_ID_AND_NUMBER = """
     DELETE FROM issues
     WHERE repository_id = $1 AND number = $2
-    RETURNING id
+    RETURNING id, repository_id, title, body, state, number, created_at, closed_at,
+        (SELECT username FROM users u WHERE u.id = issues.author_id) as author_username,
+        (SELECT username FROM users u WHERE u.id = issues.closed_by_id) as closed_by_username
+"""
+
+GET_ISSUE_REPOSITORY = """
+    SELECT r.id, r.name, r.owner_id, r.is_private
+    FROM issues i
+    INNER JOIN repositories r ON i.repository_id = r.id
+    WHERE i.id = $1
 """

@@ -8,8 +8,11 @@ from schemas.issue_comments import IssueCommentResponse, IssueCommentCreateReque
 from services.issue_comments import (
     create_issue_comment_by_issue_id,
     get_all_issue_comment_by_issue_id,
+    get_issue_comment_by_id,
     delete_issue_comment_by_id
 )
+from services.issues import get_issue_repository
+from services.repository_crud import can_access_repository
 from auth.auth import get_current_user
 from typing import List
 
@@ -17,6 +20,20 @@ router = APIRouter(
     prefix="/issues-comments",
     tags=["issues-comments"]
 )
+
+async def _issue_repo_viewable(pool: asyncpg.Pool, issue_id: int, user: dict):
+    repo = await get_issue_repository(pool, issue_id)
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue Not Found"
+        )
+    if repo["is_private"] and not await can_access_repository(pool, repo["id"], user["id"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Private repository",
+        )
+    return repo
 
 @router.post("/{issue_id}",response_model=IssueCommentResponse,status_code=status.HTTP_201_CREATED,)
 async def create_issue(
@@ -26,6 +43,7 @@ async def create_issue(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
+        await _issue_repo_viewable(pool, issue_id, current_user)
         new_issue_cmnt = await create_issue_comment_by_issue_id(pool, issue_id, current_user["id"], current_user["username"], payload)
         return new_issue_cmnt
     
@@ -43,6 +61,7 @@ async def get_all_issues(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
+        await _issue_repo_viewable(pool, issue_id, current_user)
         issue_cmnts = await get_all_issue_comment_by_issue_id(pool, issue_id)
         return issue_cmnts
     
@@ -53,14 +72,16 @@ async def get_all_issues(
         )
 
 
-@router.delete("/{issue_cmnt_id}",response_model=None,status_code=status.HTTP_200_OK)
+@router.delete("/{issue_cmnt_id}",response_model=IssueCommentResponse,status_code=status.HTTP_200_OK)
 async def delete_issue(
     issue_cmnt_id : int,
     current_user = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        await delete_issue_comment_by_id(pool, issue_cmnt_id, current_user["username"])
+        comment = await get_issue_comment_by_id(pool, issue_cmnt_id)
+        await _issue_repo_viewable(pool, comment.issue_id, current_user)
+        return await delete_issue_comment_by_id(pool, issue_cmnt_id, current_user["username"])
     
     except ValueError as e:
         raise HTTPException(

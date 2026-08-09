@@ -24,6 +24,7 @@ GET_ISSUE_COMMENT_BY_ID = """
 DELETE_ISSUE_COMMENT_BY_ID = """
     DELETE FROM issue_comments i
     WHERE i.id = $1
-    RETURNING i.id
+    RETURNING i.id, i.issue_id, i.body, i.created_at,
+        (SELECT s.username FROM users s WHERE s.id = i.author_id) as author_username
 """
 

@@ -64,7 +64,11 @@ async def get_issue_comment_by_id(pool : asyncpg.Pool, issue_cmnt_id: int) -> Is
             row = await conn.fetchrow(
                 GET_ISSUE_COMMENT_BY_ID, issue_cmnt_id
             )
-            
+            if row is None:
+                raise HTTPException(
+                    status_code= status.HTTP_404_NOT_FOUND, detail="Issue comment not found"
+                )
+
             response = IssueCommentResponse(
                 id=row["id"],
                 issue_id=row["issue_id"],
@@ -80,7 +84,7 @@ async def get_issue_comment_by_id(pool : asyncpg.Pool, issue_cmnt_id: int) -> Is
             )
 
 
-async def delete_issue_comment_by_id(pool : asyncpg.Pool, issue_cmnt_id: int, author_username: str) -> None:
+async def delete_issue_comment_by_id(pool : asyncpg.Pool, issue_cmnt_id: int, author_username: str) -> IssueCommentResponse:
     async with pool.acquire() as conn:
         try:
             if not await check_authorized_to_delete(pool, issue_cmnt_id, author_username):
@@ -95,6 +99,13 @@ async def delete_issue_comment_by_id(pool : asyncpg.Pool, issue_cmnt_id: int, au
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Issue comment not found"
                 )
+            return IssueCommentResponse(
+                id=row["id"],
+                issue_id=row["issue_id"],
+                author_username=row["author_username"],
+                body=row["body"],
+                created_at=row["created_at"]
+            )
         except asyncpg.PostgresError:
             raise HTTPException(
                 status_code= status.HTTP_500_NOT_FOUND, detail="Internal server error"

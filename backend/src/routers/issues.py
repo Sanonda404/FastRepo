@@ -6,9 +6,8 @@ import asyncpg
 from services.database import get_pool
 
 from schemas.issues import IssueCreateRequest, IssueResponse
-from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
-from services.repository_crud import get_repository
+from services.repository_crud import get_repository, can_access_repository
 from services.issues import (
     create_issue_in_repo,
     get_all_issues_in_repo,
@@ -24,6 +23,15 @@ router = APIRouter(
     tags=["issues"]
 )
 
+async def _viewable_repo(pool: asyncpg.Pool, owner_name: str, repo_name: str, user: dict):
+    repo: RepositoryResponse = await get_repository(pool, owner_name, repo_name)
+    if repo.is_private and not await can_access_repository(pool, repo.id, user["id"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Private repository",
+        )
+    return repo
+
 @router.post("/{owner_name}/{repo_name}",response_model=IssueResponse,status_code=status.HTTP_201_CREATED,)
 async def create_issue(
     owner_name: str,
@@ -33,12 +41,7 @@ async def create_issue(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        repo : RepositoryResponse = await get_repository(pool, owner_name, repo_name)
-        if(repo is None):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Repository not found"
-            )
+        repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
         new_issue = await create_issue_in_repo(pool, current_user["id"], repo.id, repo.name, current_user["username"],payload)
         return new_issue
     
@@ -57,12 +60,7 @@ async def get_all_issues(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        repo : RepositoryResponse = await get_repository(pool, owner_name, repo_name)
-        if(repo is None):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Repository not found"
-            )
+        repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
         issues = await get_all_issues_in_repo(pool, repo.id, repo.name)
         return issues
     
@@ -73,7 +71,7 @@ async def get_all_issues(
         )
 
 
-@router.delete("/{owner_name}/{repo_name}/{issue_number}",response_model=None,status_code=status.HTTP_200_OK,)
+@router.delete("/{owner_name}/{repo_name}/{issue_number}",response_model=IssueResponse,status_code=status.HTTP_200_OK,)
 async def delete_issue(
     owner_name : str,
     repo_name: str,
@@ -82,12 +80,7 @@ async def delete_issue(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        repo : RepositoryResponse = await get_repository(pool, owner_name, repo_name)
-        if(repo is None):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Repository not found"
-            )
+        repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
 
         issue : IssueResponse = await get_issue_by_number(pool, repo.id, repo.name, issue_number)
         
@@ -95,7 +88,7 @@ async def delete_issue(
             raise  HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="You don't have permission to delete this issue")
         
-        await delete_issue_by_number(pool, repo.id, issue_number)
+        return await delete_issue_by_number(pool, repo.id, repo.name, issue_number)
     
     except ValueError as e:
         raise HTTPException(
@@ -113,13 +106,21 @@ async def close_issue(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        repo : RepositoryResponse = await get_repository(pool, owner_name, repo_name)
-        if(repo is None):
+        repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+
+        issue : IssueResponse = await get_issue_by_number(pool, repo.id, repo.name, issue_number)
+        if issue is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Repository not found"
+                detail="Issue not found"
             )
-        
+        if (issue.author_username != current_user["username"]
+                and not await can_access_repository(pool, repo.id, current_user["id"])):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to close this issue"
+            )
+
         updated_issue = await close_issue_by_no(pool, current_user["id"], repo.id, issue_number,
                                 current_user["username"], repo.name)
         
