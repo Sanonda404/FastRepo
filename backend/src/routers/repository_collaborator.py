@@ -7,7 +7,7 @@ from schemas.repository_collaborator import CollaboratorAddRequest, Collaborator
 from services.repository_collaborator import add_collaborator_to_repo, get_collaborators, remove_collaborator_from_repo
 from services.repository_crud import get_repository, can_access_repository
 from services.user import get_user_by_username_or_email
-from auth.auth import get_current_user
+from auth.auth import get_current_user, get_optional_current_user
 from typing import List
 
 router = APIRouter(
@@ -20,12 +20,12 @@ router = APIRouter(
 async def list_collaborators(
     owner_name: str,
     repo_name: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict | None = Depends(get_optional_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
         repo = await get_repository(pool, owner_name, repo_name)
-        if repo.is_private and not await can_access_repository(pool, repo.id, current_user["id"]):
+        if repo.is_private and not await can_access_repository(pool, repo.id, current_user["id"] if current_user else None):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Private repository",
