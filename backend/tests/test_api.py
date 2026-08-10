@@ -242,7 +242,7 @@ class TestRepositoryViewUpdateDelete:
             ).status_code == 200
             # collaborator can see private
             add = client.post(
-                f"/repository-collaborators/{owner}/{priv_name}/add-collaborator",
+                f"/collaborators/{owner}/{priv_name}",
                 json={"idenifier": other, "role": "read"},
                 headers=auth(token),
             )
@@ -396,7 +396,7 @@ class TestGitAuthOverHTTP:
 
             # collaborator -> 200
             add = client.post(
-                f"/repository-collaborators/{owner}/{repo_name}/add-collaborator",
+                f"/collaborators/{owner}/{repo_name}",
                 json={"idenifier": other, "role": "read"},
                 headers=auth(token),
             )

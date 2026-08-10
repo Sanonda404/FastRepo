@@ -74,7 +74,7 @@ def create_issue(client, base: str, token: str, title="t", body="b") -> dict:
 def add_collaborator(owner: str, repo_name: str, owner_token: str, username: str) -> None:
     with httpx.Client(base_url=TEST_SERVER_URL) as client:
         r = client.post(
-            f"/repository-collaborators/{owner}/{repo_name}/add-collaborator",
+            f"/collaborators/{owner}/{repo_name}",
             json={"idenifier": username, "role": "write"},
             headers=auth(owner_token),
         )
@@ -84,6 +84,158 @@ def add_collaborator(owner: str, repo_name: str, owner_token: str, username: str
 def seed_other(username: str) -> str:
     seed_repo(username, unique("junk"))
     return token_for(username)
+
+
+class TestCollaboratorRoutes:
+    def test_list_collaborators(self, client, server_url):
+        owner = unique("iss")
+        collab_a = unique("iss")
+        collab_b = unique("iss")
+        repo_name = unique("iss")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            a_token = seed_other(collab_a)
+            b_token = seed_other(collab_b)
+            add_collaborator(owner, repo_name, token, collab_a)
+            add_collaborator(owner, repo_name, token, collab_b)
+
+            r = client.get(f"/collaborators/{owner}/{repo_name}", headers=auth(token))
+            assert r.status_code == 200
+            users = {c["username"]: c["role"] for c in r.json()}
+            assert users == {collab_a: "write", collab_b: "write"}
+            assert {"id", "repository_id", "user_id", "username", "email", "role"} <= set(r.json()[0].keys())
+
+            # collaborator can list too
+            assert client.get(
+                f"/collaborators/{owner}/{repo_name}", headers=auth(a_token)
+            ).status_code == 200
+            # outsider on private repo -> 403
+            outsider = unique("iss")
+            seed_repo(outsider, unique("junk"))
+            assert client.get(
+                f"/collaborators/{owner}/{repo_name}", headers=auth(token_for(outsider))
+            ).status_code == 403
+            cleanup_repo(outsider, unique("junk"))
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(collab_a, unique("junk"))
+            cleanup_repo(collab_b, unique("junk"))
+
+    def test_list_collaborators_public_repo_any_auth_user(self, client, server_url):
+        owner = unique("iss")
+        other = unique("iss")
+        repo_name = unique("iss")
+        try:
+            _, token = seed_repo_and_token(owner, repo_name)
+            other_token = seed_other(other)
+            add_collaborator(owner, repo_name, token, other)
+
+            r = client.get(f"/collaborators/{owner}/{repo_name}", headers=auth(other_token))
+            assert r.status_code == 200
+            assert [c["username"] for c in r.json()] == [other]
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(other, unique("junk"))
+
+    def test_list_collaborators_repo_not_found(self, client, server_url):
+        username = unique("iss")
+        try:
+            seed_repo(username, unique("junk"))
+            token = token_for(username)
+            r = client.get(f"/collaborators/{username}/no-such", headers=auth(token))
+            assert r.status_code == 404
+        finally:
+            cleanup_repo(username, unique("junk"))
+
+    def test_add_and_remove_collaborator(self, client, server_url):
+        owner = unique("iss")
+        collab = unique("iss")
+        repo_name = unique("iss")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            collab_token = seed_other(collab)
+            add_collaborator(owner, repo_name, token, collab)
+
+            # collaborator can use the private repo
+            r = client.post(
+                f"/issues/{owner}/{repo_name}",
+                headers=auth(collab_token),
+                json={"title": "t", "body": "b"},
+            )
+            assert r.status_code == 201
+
+            # owner removes collaborator -> 200 with deleted collaborator info
+            r = client.delete(
+                f"/collaborators/{owner}/{repo_name}/{collab}", headers=auth(token)
+            )
+            assert r.status_code == 200
+            removed = r.json()
+            assert removed["username"] == collab
+            assert removed["role"] == "write"
+
+            # collaborator loses private access
+            r = client.post(
+                f"/issues/{owner}/{repo_name}",
+                headers=auth(collab_token),
+                json={"title": "t", "body": "b"},
+            )
+            assert r.status_code == 403
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(collab, unique("junk"))
+
+    def test_owner_only_can_manage_collaborators(self, client, server_url):
+        owner = unique("iss")
+        other = unique("iss")
+        collab = unique("iss")
+        repo_name = unique("iss")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            other_token = seed_other(other)
+            collab_token = seed_other(collab)
+
+            # non-owner cannot add
+            r = client.post(
+                f"/collaborators/{owner}/{repo_name}",
+                json={"idenifier": collab, "role": "write"},
+                headers=auth(other_token),
+            )
+            assert r.status_code == 403
+
+            # owner adds collab, non-owner cannot remove
+            add_collaborator(owner, repo_name, token, collab)
+            r = client.delete(
+                f"/collaborators/{owner}/{repo_name}/{collab}", headers=auth(other_token)
+            )
+            assert r.status_code == 403
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(other, unique("junk"))
+            cleanup_repo(collab, unique("junk"))
+
+    def test_add_missing_user_and_remove_missing_collaborator(self, client, server_url):
+        owner = unique("iss")
+        repo_name = unique("iss")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            # collaborator user does not exist
+            r = client.post(
+                f"/collaborators/{owner}/{repo_name}",
+                json={"idenifier": "no_such_user", "role": "read"},
+                headers=auth(token),
+            )
+            assert r.status_code == 404
+
+            # user exists but is not a collaborator -> 404
+            other = unique("iss")
+            seed_repo(other, unique("junk"))
+            r = client.delete(
+                f"/collaborators/{owner}/{repo_name}/{other}", headers=auth(token)
+            )
+            assert r.status_code == 404
+            cleanup_repo(other, unique("junk"))
+        finally:
+            cleanup_repo(owner, repo_name)
 
 
 class TestIssueCRUD:
