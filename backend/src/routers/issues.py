@@ -6,6 +6,7 @@ import asyncpg
 from services.database import get_pool
 
 from schemas.issues import IssueCreateRequest, IssueResponse
+from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
 from services.repository_crud import get_repository, can_access_repository
 from services.issues import (
