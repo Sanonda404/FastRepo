@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 class CollaboratorAddRequest(BaseModel):
-    idenifier : str
+    identifier : str
     role : str
 
 

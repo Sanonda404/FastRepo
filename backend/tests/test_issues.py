@@ -75,7 +75,7 @@ def add_collaborator(owner: str, repo_name: str, owner_token: str, username: str
     with httpx.Client(base_url=TEST_SERVER_URL) as client:
         r = client.post(
             f"/collaborators/{owner}/{repo_name}",
-            json={"idenifier": username, "role": "write"},
+            json={"identifier": username, "role": "write"},
             headers=auth(owner_token),
         )
         assert r.status_code == 201, r.text
@@ -197,7 +197,7 @@ class TestCollaboratorRoutes:
             # non-owner cannot add
             r = client.post(
                 f"/collaborators/{owner}/{repo_name}",
-                json={"idenifier": collab, "role": "write"},
+                json={"identifier": collab, "role": "write"},
                 headers=auth(other_token),
             )
             assert r.status_code == 403
@@ -221,7 +221,7 @@ class TestCollaboratorRoutes:
             # collaborator user does not exist
             r = client.post(
                 f"/collaborators/{owner}/{repo_name}",
-                json={"idenifier": "no_such_user", "role": "read"},
+                json={"identifier": "no_such_user", "role": "read"},
                 headers=auth(token),
             )
             assert r.status_code == 404

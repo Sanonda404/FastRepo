@@ -54,7 +54,7 @@ async def add_collaborator(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to add collaborators to this repository."
             )
-        user = await get_user_by_username_or_email(pool, payload.idenifier)
+        user = await get_user_by_username_or_email(pool, payload.identifier)
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

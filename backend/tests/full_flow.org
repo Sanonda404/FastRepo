@@ -181,7 +181,6 @@ But logging in with alice will successfully clone it. Alice will create an empty
 
 * Adding Collaborators
 Now bob will be added to collaborators and then he can clone too.
-#+TODO: Fix idenifier typo
 
 #+begin_src http :exports both
   POST /collaborators/alice/test-private
@@ -189,7 +188,7 @@ Now bob will be added to collaborators and then he can clone too.
   Content-Type: application/json
 
   {
-      "idenifier" : "bob",
+      "identifier" : "bob",
       "role": "write"
   }
 #+end_src
