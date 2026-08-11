@@ -40,7 +40,7 @@ async def _can_write(pool: asyncpg.Pool, repo_id: int, current_user: dict) -> No
             detail="You do not have permission to perform this action on this repository.",
         )
 
-@router.post("/{owner_name}/{repo_name}/", response_model=PullRequestResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{owner_name}/{repo_name}", response_model=PullRequestResponse, status_code=status.HTTP_201_CREATED)
 async def create_pull(
     owner_name: str,
     repo_name: str,
@@ -50,6 +50,7 @@ async def create_pull(
 ):
     try:
         repo = await get_repository(pool, owner_name, repo_name)
+        print(payload)
         if repo.is_private and not await can_access_repository(pool, repo.id, current_user["id"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Private repository"
@@ -61,7 +62,7 @@ async def create_pull(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.get("/{owner_name}/{repo_name}/", response_model=list[PullRequestResponse])
+@router.get("/{owner_name}/{repo_name}", response_model=list[PullRequestResponse])
 async def list_pulls(
     owner_name: str,
     repo_name: str,
