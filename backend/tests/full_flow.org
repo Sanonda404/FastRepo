@@ -1,0 +1,492 @@
+#+title: Test & Demonstration With a Full Workflow of the API
+
+#+PROPERTY: header-args:http :pretty :host 127.0.0.1:8000
+#+PROPERTY: header-args:shell :var host="127.0.0.1:8000" :results output
+
+* Register and Login
+Create two new users Alice and Bob. Alice will be owner of repositories and bob will be outsider, collaborator etc.
+#+begin_src http :exports both
+  POST /users/register
+  Content-Type: application/json
+
+  {
+      "username": "alice",
+      "password": "alice123",
+      "email": "alice123@test.com"
+  }
+#+end_src
+
+#+RESULTS:
+: {
+:   "id": 1,
+:   "username": "alice",
+:   "email": "alice123@test.com"
+: }
+
+#+begin_src http :exports both
+  POST /users/register
+  Content-Type: application/json
+
+  {
+      "username": "bob",
+      "password": "bob123",
+      "email": "bob123@test.com"
+  }
+#+end_src
+
+#+RESULTS:
+: {
+:   "id": 2,
+:   "username": "bob",
+:   "email": "bob123@test.com"
+: }
+
+Now login and save the JWT tokens for Alice and bob.
+
+Alice token:
+#+begin_src http :exports both
+  POST /users/login
+
+  username=alice&password=alice123
+#+end_src
+
+#+RESULTS:
+: {
+:   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsInVzZXJfaWQiOjEsImV4cCI6MTc4NjQ0ODg3M30.2NtFVXkrotqMhf-wMOTs07SIq9bJ4yQ3sUeiKqksDOw",
+:   "token_type": "bearer"
+: }
+
+Bob token:
+#+begin_src http :exports both
+  POST /users/login
+
+  username=bob&password=bob123
+#+end_src
+
+#+RESULTS:
+: {
+:   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJ1c2VyX2lkIjoyLCJleHAiOjE3ODY0NDg4NzR9.f38JSxQnxDKl68jVZSTbLMZiCIrP5PKRvuOuiisibfg",
+:   "token_type": "bearer"
+: }
+
+#+PROPERTY: header-args:http+ :var aliceToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsInVzZXJfaWQiOjEsImV4cCI6MTc4NjQ0ODg3M30.2NtFVXkrotqMhf-wMOTs07SIq9bJ4yQ3sUeiKqksDOw"
+#+PROPERTY: header-args:http+ :var bobToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJ1c2VyX2lkIjoyLCJleHAiOjE3ODY0NDg4NzR9.f38JSxQnxDKl68jVZSTbLMZiCIrP5PKRvuOuiisibfg"
+
+Testing whether they work
+#+begin_src http :exports both
+  GET /users/me
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+: {
+:   "id": 1,
+:   "username": "alice",
+:   "email": "alice123@test.com"
+: }
+
+#+begin_src http :exports both
+  GET /users/me
+  Authorization: Bearer ${bobToken}
+#+end_src
+
+#+RESULTS:
+: {
+:   "id": 2,
+:   "username": "bob",
+:   "email": "bob123@test.com"
+: }
+
+* Repository Creation
+Alice will create two repositories. One public and another is private.
+#+begin_src http :exports both
+  POST /repositories/create
+  Authorization: Bearer ${aliceToken}
+  Content-Type: application/json
+
+  {
+      "name" : "test-public",
+      "description" : "Test repo",
+      "is_private": false
+  }
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "id": 1,
+  "name": "test-public",
+  "description": "Test repo",
+  "is_private": false,
+  "owner_id": 1,
+  "default_branch": "main",
+  "parent_repository_id": null,
+  "created_at": "2026-08-10T15:40:46.835466"
+}
+#+end_example
+
+#+begin_src http :exports both
+  POST /repositories/create
+  Authorization: Bearer ${aliceToken}
+  Content-Type: application/json
+
+  {
+      "name" : "test-private",
+      "description" : "Test repo",
+      "is_private": true
+  }
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "id": 3,
+  "name": "test-private",
+  "description": "Test repo",
+  "is_private": true,
+  "owner_id": 1,
+  "default_branch": "main",
+  "parent_repository_id": null,
+  "created_at": "2026-08-10T16:42:36.581338"
+}
+#+end_example
+
+* Cloning
+Someone not logged in will try to clone both public and private repositories. Public will pass, private will not
+#+begin_src shell :exports both
+  git -C /tmp clone http://$host/alice/test-public
+#+end_src
+
+#+RESULTS:
+
+#+begin_src shell :exports both
+  git -C /tmp clone http://$host/alice/test-private 2>&1
+#+end_src
+
+#+RESULTS:
+: Cloning into 'test-private'...
+: fatal: could not read Username for 'http://127.0.0.1:8000': No such device or address
+
+But logging in with alice will successfully clone it. Alice will create an empty commit in main to make main not an /unborn/ reference, as bob will create pr into main
+#+begin_src shell :exports both
+  git -C /tmp clone http://alice:alice123@$host/alice/test-private
+  git -C /tmp/test-private config user.name "alice"
+  git -C /tmp/test-private config user.email "alice123@test.com"
+  git -C /tmp/test-private checkout -b main
+  git -C /tmp/test-private commit --allow-empty -m "First Commmit"
+  git -C /tmp/test-private push origin main
+#+end_src
+
+#+RESULTS:
+: [main (root-commit) 502a176] First Commmit
+
+* Adding Collaborators
+Now bob will be added to collaborators and then he can clone too.
+#+TODO: Fix idenifier typo
+
+#+begin_src http :exports both
+  POST /collaborators/alice/test-private
+  Authorization: Bearer ${aliceToken}
+  Content-Type: application/json
+
+  {
+      "idenifier" : "bob",
+      "role": "write"
+  }
+#+end_src
+
+#+RESULTS:
+: {
+:   "id": 2,
+:   "repository_id": 3,
+:   "user_id": 2,
+:   "username": "bob",
+:   "email": "bob123@test.com",
+:   "role": "write"
+: }
+
+Now clone it as bob
+#+begin_src shell :exports both
+  git -C /tmp clone http://bob:bob123@$host/alice/test-private test-private-bob
+#+end_src
+Now bob creates branch, commit and pushes
+#+begin_src shell :exports both
+  git -C /tmp/test-private-bob config user.name "bob"
+  git -C /tmp/test-private-bob config user.email "bob123@test.com"
+  git -C /tmp/test-private-bob checkout -b bob-branch
+  echo "Hello World" > /tmp/test-private-bob/foo.txt
+  git -C /tmp/test-private-bob add foo.txt && git -C /tmp/test-private-bob commit -m "Test commit from bob"
+  git -C /tmp/test-private-bob push origin bob-branch
+#+end_src
+
+#+RESULTS:
+: [bob-branch (root-commit) 154e7e2] Test commit from bob
+:  1 file changed, 1 insertion(+)
+:  create mode 100644 foo.txt
+
+* Examining Commits and Branches
+Now alice will examine the commit, branch and current source tree.
+
+Main(defualt) branch:
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/commits
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+: [
+:   {
+:     "sha": "502a176d9452afe1784b581362654fbbbef5a599",
+:     "author": "alice",
+:     "author_email": "alice123@test.com",
+:     "author_date": "2026-08-11T17:15:06Z",
+:     "message": "First Commmit"
+:   }
+: ]
+
+Bob’s branch
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/commits?ref=bob-branch
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+: [
+:   {
+:     "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+:     "author": "bob",
+:     "author_email": "bob123@test.com",
+:     "author_date": "2026-08-10T21:24:42Z",
+:     "message": "Test commit from bob"
+:   }
+: ]
+
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/commits/154e7e273c218eebeb58568c421fd3ed17211ebe
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+  "author": "bob",
+  "author_email": "bob123@test.com",
+  "author_date": "2026-08-10T21:24:42Z",
+  "message": "Test commit from bob",
+  "parents": [],
+  "root_tree_sha": "dc6464cf1692b7b0506b368fa44f5c6714a808c5",
+  "diff": [
+    {
+      "path": "foo.txt",
+      "old_path": null,
+      "status": "added",
+      "additions": 1,
+      "deletions": 0,
+      "binary": false,
+      "diff": "--- a/foo.txt\n+++ b/foo.txt\n@@ -0,0 +1 @@\n+Hello World"
+    }
+  ]
+}
+#+end_example
+
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/branches
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[
+  {
+    "name": "bob-branch",
+    "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+    "is_default": false
+  },
+  {
+    "name": "main",
+    "sha": "502a176d9452afe1784b581362654fbbbef5a599",
+    "is_default": true
+  }
+]
+#+end_example
+
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/tree?ref=bob-branch
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "commit": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+  "tree": "dc6464cf1692b7b0506b368fa44f5c6714a808c5",
+  "path": "",
+  "entries": [
+    {
+      "name": "foo.txt",
+      "type": "blob",
+      "mode": 33188,
+      "sha": "557db03de997c86a4a028e1ebd3a1ceb225be238",
+      "size": 12
+    }
+  ]
+}
+#+end_example
+
+* Creating and Merging Pull Requests
+Now bob will create a pull requst from bob-branch to main.
+#+begin_src http :exports both
+  POST /pulls/alice/test-private
+  Authorization: Bearer ${bobToken}
+  Content-Type: application/json
+
+  {
+      "body": "Testing pull request",
+      "source_branch": "bob-branch",
+      "target_branch": "main"
+  }
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "id": 1,
+  "repository_id": 3,
+  "author_id": 2,
+  "author_username": "bob",
+  "body": "Testing pull request",
+  "state": "open",
+  "source_branch": "bob-branch",
+  "target_branch": "main",
+  "source_repository_id": null,
+  "created_at": "2026-08-11T17:23:13.563466",
+  "closed_at": null
+}
+#+end_example
+
+Alice will see all the pull requests.
+#+begin_src http :exports both
+  GET /pulls/alice/test-private
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[
+  {
+    "id": 1,
+    "repository_id": 3,
+    "author_id": 2,
+    "author_username": "bob",
+    "body": "Testing pull request",
+    "state": "open",
+    "source_branch": "bob-branch",
+    "target_branch": "main",
+    "source_repository_id": null,
+    "created_at": "2026-08-11T17:23:13.563466",
+    "closed_at": null
+  }
+]
+#+end_example
+
+#+begin_src http :exports both
+  GET /pulls/alice/test-private/1
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "id": 1,
+  "repository_id": 3,
+  "author_id": 2,
+  "author_username": "bob",
+  "body": "Testing pull request",
+  "state": "open",
+  "source_branch": "bob-branch",
+  "target_branch": "main",
+  "source_repository_id": null,
+  "created_at": "2026-08-11T17:23:13.563466",
+  "closed_at": null
+}
+#+end_example
+
+#+begin_src http :exports both
+  POST /pulls/alice/test-private/1/merge
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "id": 1,
+  "repository_id": 3,
+  "author_id": 2,
+  "author_username": "bob",
+  "body": "Testing pull request",
+  "state": "closed",
+  "source_branch": "bob-branch",
+  "target_branch": "main",
+  "source_repository_id": null,
+  "created_at": "2026-08-11T17:23:13.563466",
+  "closed_at": "2026-08-11T17:34:38.034144",
+  "merge_commit_sha": "4dc30cdcfcd816aeb3b9be28530098db9b351e53"
+}
+#+end_example
+
+Now check tree and commits of main branch.
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/commits
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[
+  {
+    "sha": "4dc30cdcfcd816aeb3b9be28530098db9b351e53",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T11:34:38Z",
+    "message": "Merge pull request #1: bob-branch into main"
+  },
+  {
+    "sha": "502a176d9452afe1784b581362654fbbbef5a599",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T17:15:06Z",
+    "message": "First Commmit"
+  },
+  {
+    "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+    "author": "bob",
+    "author_email": "bob123@test.com",
+    "author_date": "2026-08-10T21:24:42Z",
+    "message": "Test commit from bob"
+  }
+]
+#+end_example
+
+#+begin_src http :exports both
+  GET /repositories/alice/test-private/tree
+  Authorization: Bearer ${aliceToken}
+#+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "commit": "4dc30cdcfcd816aeb3b9be28530098db9b351e53",
+  "tree": "dc6464cf1692b7b0506b368fa44f5c6714a808c5",
+  "path": "",
+  "entries": [
+    {
+      "name": "foo.txt",
+      "type": "blob",
+      "mode": 33188,
+      "sha": "557db03de997c86a4a028e1ebd3a1ceb225be238",
+      "size": 12
+    }
+  ]
+}
+#+end_example
