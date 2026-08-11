@@ -19,7 +19,13 @@ GET_ISSUE_COMMENT_BY_ID = """
     on i.author_id = u.id
     WHERE i.id = $1
 """
-
+GET_REPO_ID_BY_ISSUE_COMMENT_ID = """
+    SELECT i.repository_id
+    FROM issue_comments ic
+    INNER JOIN issues i
+    on ic.issue_id = i.id
+    WHERE ic.id = $1
+"""
 
 DELETE_ISSUE_COMMENT_BY_ID = """
     DELETE FROM issue_comments i

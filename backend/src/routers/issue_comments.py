@@ -9,31 +9,19 @@ from services.issue_comments import (
     create_issue_comment_by_issue_id,
     get_all_issue_comment_by_issue_id,
     get_issue_comment_by_id,
-    delete_issue_comment_by_id
+    delete_issue_comment_by_id,
+    get_repo_id_by_issue_comment_id
 )
 from services.issues import get_issue_repository
 from services.repository_crud import can_access_repository
-from auth.auth import get_current_user
+from auth.auth import get_current_user, get_optional_current_user
+from auth.repository_auth import _issue_repo_viewable, _issue_repo_viewable_optional_login
 from typing import List
 
 router = APIRouter(
     prefix="/issues-comments",
     tags=["issues-comments"]
 )
-
-async def _issue_repo_viewable(pool: asyncpg.Pool, issue_id: int, user: dict):
-    repo = await get_issue_repository(pool, issue_id)
-    if repo is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Issue Not Found"
-        )
-    if repo["is_private"] and not await can_access_repository(pool, repo["id"], user["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Private repository",
-        )
-    return repo
 
 @router.post("/{issue_id}",response_model=IssueCommentResponse,status_code=status.HTTP_201_CREATED,)
 async def create_issue(
@@ -55,13 +43,13 @@ async def create_issue(
 
 
 @router.get("/{issue_id}",response_model=List[IssueCommentResponse],status_code=status.HTTP_200_OK,)
-async def get_all_issues(
+async def get_all_issue_comments(
     issue_id : int,
-    current_user = Depends(get_current_user),
+    current_user = Depends(get_optional_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        await _issue_repo_viewable(pool, issue_id, current_user)
+        await _issue_repo_viewable_optional_login(pool, issue_id, current_user)
         issue_cmnts = await get_all_issue_comment_by_issue_id(pool, issue_id)
         return issue_cmnts
     
@@ -81,6 +69,10 @@ async def delete_issue(
     try:
         comment = await get_issue_comment_by_id(pool, issue_cmnt_id)
         await _issue_repo_viewable(pool, comment.issue_id, current_user)
+        repo_id = await get_repo_id_by_issue_comment_id(pool, issue_cmnt_id)
+        if(comment.author_username != current_user["username"] and not await can_access_repository(pool, repo_id, current_user["id"])):
+            raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
+                detail="You don't have permission to delete this comment")
         return await delete_issue_comment_by_id(pool, issue_cmnt_id, current_user["username"])
     
     except ValueError as e:

@@ -1,6 +1,7 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
+from typing import List
 import asyncpg
 
 from services.database import get_pool
@@ -17,6 +18,10 @@ from schemas.repository import (
 from services.repository_crud import (
     create_repository,
     get_repository,
+    list_all_accessible_repositories,
+    list_all_public_repositories,
+    list_all_repositories,
+    list_fork_repositories,
     update_repository,
     delete_repository,
     fork_repository,
@@ -30,8 +35,9 @@ from services.git_read import (
     get_tree,
     resolve_ref,
 )
-from services.user import get_user_by_username_or_email
+
 from auth.auth import get_current_user, get_optional_current_user
+from auth.repository_auth import _get_viewable_repo
 from models.git import EMPTY_TREE_SHA
 
 router = APIRouter(
@@ -39,20 +45,6 @@ router = APIRouter(
     tags=["repositories"]
 )
 
-async def _get_viewable_repo(
-    pool: asyncpg.Pool, owner_name: str, repo_name: str, current_user
-) -> RepositoryResponse:
-    """Resolve a repository, enforcing private-repo auth."""
-    repo = await get_repository(pool, owner_name, repo_name)
-    if repo.is_private and (
-        current_user is None
-        or not await can_access_repository(pool, repo.id, current_user["id"])
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Private repository",
-        )
-    return repo
 
 @router.post("/create", response_model=RepositoryResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RepositoryCreateRequest,
@@ -67,6 +59,20 @@ async def register(payload: RepositoryCreateRequest,
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail=str(e)
         )
+
+@router.get("/{owner_name}", response_model=List[RepositoryResponse])
+async def list_repositories(
+    owner_name: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """List repositories for a user.
+        If the user is the owner, include private repos. Otherwise, only public and collaboration reps."""
+    if(current_user is None):
+        return await list_all_public_repositories(pool, owner_name)
+    if(owner_name == current_user["username"]):
+        return await list_all_repositories(pool, current_user["id"])
+    return await list_all_accessible_repositories(pool, owner_name, current_user["id"])
 
 @router.get("/{owner_name}/{repo_name}", response_model=RepositoryResponse)
 async def view_repository(
@@ -145,6 +151,19 @@ async def do_fork_repository(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(e)
         )
+
+@router.get("/{owner_name}/{repo_name}/forks", response_model=List[RepositoryResponse])
+async def list_forks(
+    owner_name : str,
+    repo_name : str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool : asyncpg.Pool = Depends(get_pool)
+):
+    "List all the forks of repository"
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    id = None
+    if(current_user is not None): id = current_user["id"]
+    return await list_fork_repositories(pool, repo.id, id)
 
 @router.get("/{owner_name}/{repo_name}/branches", response_model=list[BranchResponse])
 async def list_branches(

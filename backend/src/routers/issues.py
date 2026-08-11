@@ -8,7 +8,7 @@ from services.database import get_pool
 from schemas.issues import IssueCreateRequest, IssueResponse
 from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
-from services.repository_crud import get_repository, can_access_repository
+from services.repository_crud import can_access_repository
 from services.issues import (
     create_issue_in_repo,
     get_all_issues_in_repo,
@@ -16,22 +16,14 @@ from services.issues import (
     delete_issue_by_number,
     close_issue_by_no
 )
-from auth.auth import get_current_user
+from auth.auth import get_current_user, get_optional_current_user
+from auth.repository_auth import _viewable_repo, _get_viewable_repo
 from typing import List
 
 router = APIRouter(
     prefix="/issues",
     tags=["issues"]
 )
-
-async def _viewable_repo(pool: asyncpg.Pool, owner_name: str, repo_name: str, user: dict):
-    repo: RepositoryResponse = await get_repository(pool, owner_name, repo_name)
-    if repo.is_private and not await can_access_repository(pool, repo.id, user["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Private repository",
-        )
-    return repo
 
 @router.post("/{owner_name}/{repo_name}",response_model=IssueResponse,status_code=status.HTTP_201_CREATED,)
 async def create_issue(
@@ -48,7 +40,7 @@ async def create_issue(
     
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
 
@@ -57,11 +49,11 @@ async def create_issue(
 async def get_all_issues(
     owner_name: str,
     repo_name: str,
-    current_user = Depends(get_current_user),
+    current_user = Depends(get_optional_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+        repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
         issues = await get_all_issues_in_repo(pool, repo.id, repo.name)
         return issues
     
@@ -85,8 +77,8 @@ async def delete_issue(
 
         issue : IssueResponse = await get_issue_by_number(pool, repo.id, repo.name, issue_number)
         
-        if issue.author_username != current_user["username"]:
-            raise  HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
+        if issue.author_username != current_user["username"] and not await can_access_repository(pool, repo.id, current_user["id"]):
+            raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
             detail="You don't have permission to delete this issue")
         
         return await delete_issue_by_number(pool, repo.id, repo.name, issue_number)

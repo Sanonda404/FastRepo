@@ -18,20 +18,12 @@ from services.pull_request import (
 )
 from services.git_merge import merge_pull_request, MergeConflictError
 from auth.auth import get_current_user
+from auth.repository_auth import _viewable_repo
 
 router = APIRouter(
     prefix="/pulls",
     tags=["pull-requests"],
 )
-
-async def _viewable_repo(pool: asyncpg.Pool, owner_name: str, repo_name: str, user: dict):
-    repo = await get_repository(pool, owner_name, repo_name)
-    if repo.is_private and not await can_access_repository(pool, repo.id, user["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Private repository",
-        )
-    return repo
 
 async def _can_write(pool: asyncpg.Pool, repo_id: int, current_user: dict) -> None:
     if not await can_access_repository(pool, repo_id, current_user["id"]):

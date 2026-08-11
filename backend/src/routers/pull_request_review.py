@@ -13,20 +13,12 @@ from services.pull_request import (
     delete_pr_review,
 )
 from auth.auth import get_current_user
+from auth.repository_auth import _viewable_repo
 
 router = APIRouter(
     prefix="/pulls",
     tags=["pull-request-reviews"],
 )
-
-async def _viewable_repo(pool: asyncpg.Pool, owner_name: str, repo_name: str, user: dict):
-    repo = await get_repository(pool, owner_name, repo_name)
-    if repo.is_private and not await can_access_repository(pool, repo.id, user["id"]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Private repository",
-        )
-    return repo
 
 async def _get_pr(pool: asyncpg.Pool, repo, pull_request_id: int):
     pr = await get_pull_request(pool, repo.id, pull_request_id)

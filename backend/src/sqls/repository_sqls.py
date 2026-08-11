@@ -8,8 +8,47 @@ CREATE_REPOSITORY = """
 GET_REPO_BY_USER_AND_REPOSIRY_NAME = """
     SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
     FROM repositories r
-    JOIN users u ON r.owner_id = u.id
+    INNER JOIN users u ON r.owner_id = u.id
     WHERE u.username = $1 AND r.name = $2
+"""
+GET_ALL_REPOS_OF_OWNER_BY_OWNER_ID = """
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
+    FROM repositories r
+    WHERE r.owner_id = $1
+"""
+
+GET_ALL_PUBLIC_OF_OWNER_BY_OWNER_NAME = """
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
+    FROM repositories r
+    INNER JOIN USERS u
+    ON r.owner_id = u.id
+    WHERE u.username = $1
+    AND r.is_private = FALSE
+"""
+
+#user is not owner of the repositories, either collaborator or none
+GET_ACCESIBLE_REPOS_OF_OWNER_BY_USERNAME = """
+    SELECT
+        r.id,
+        r.name,
+        r.description,
+        r.is_private,
+        r.owner_id,
+        r.default_branch,
+        r.parent_repository_id,
+        r.created_at
+    FROM repositories r
+    INNER JOIN users u ON u.id = r.owner_id
+    WHERE u.username = $1
+    AND (
+        r.is_private = FALSE
+        OR EXISTS (
+            SELECT 1
+            FROM repository_collaborators rc
+            WHERE rc.repository_id = r.id AND rc.user_id = $2
+        )
+    )
+    ORDER BY r.created_at DESC;
 """
 
 
@@ -46,6 +85,23 @@ FORK_REPOSITORY = """
     VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id, owner_id, name, description, is_private, default_branch, parent_repository_id, created_at
 """
+GET_LIST_OF_ACCESSIBLE_FORKS = """
+    SELECT
+        c.id, c.name, c.description, c.is_private, c.owner_id, c.default_branch, c.parent_repository_id, c.created_at
+    FROM repositories c
+    WHERE c.parent_repository_id = $1
+    AND (
+        c.is_private = FALSE
+        OR c.owner_id = $2
+        OR EXISTS (
+            SELECT 1
+            FROM repository_collaborators rc
+            WHERE rc.repository_id = c.id AND rc.user_id = $2
+        )
+    )
+    ORDER BY c.created_at DESC
+"""
+
 
 COPY_FORK_COMMITS = """
     INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
