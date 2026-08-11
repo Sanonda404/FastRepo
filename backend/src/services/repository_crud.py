@@ -1,5 +1,7 @@
 import asyncpg
 from fastapi import HTTPException
+from datetime import datetime, timezone
+from dulwich.objects import Commit
 
 from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest
 from sqls.repository_sqls import (
@@ -16,23 +18,49 @@ from sqls.repository_sqls import (
     DELETE_REPOSITORY,
     CHECK_REPO_ACCESS,
 )
+from models.git import EMPTY_TREE_SHA
 
-from sqls.git_sqls import INSERT_HEAD_REF
+from sqls.git_sqls import INSERT_HEAD_REF, INSERT_COMMIT, SET_SYMREF
 
-async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest, owner_id : int) -> RepositoryResponse:
+async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest, current_user : dict) -> RepositoryResponse:
     
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(
-                CREATE_REPOSITORY, owner_id, payload.name, payload.description, payload.is_private
+                CREATE_REPOSITORY, current_user["id"], payload.name, payload.description, payload.is_private
             )
             if row is None:
                 raise RuntimeError("Failed to create repository")
+            repo_id = row["id"]
+            branch = f"refs/heads/{row['default_branch']}"
             await conn.execute(
                 INSERT_HEAD_REF,
-                row["id"],
-                f"ref: refs/heads/{row['default_branch']}".encode(),
+                repo_id,
+                f"ref: {branch}".encode(),
             )
+            now = int(datetime.now(timezone.utc).timestamp())
+            commit = Commit()
+            commit.tree = EMPTY_TREE_SHA
+            commit.parents = []
+            identity = f"{current_user['username']} <{current_user['email']}>".encode()
+            commit.author = identity
+            commit.committer = identity
+            commit.author_time = now
+            commit.commit_time = now
+            commit.author_timezone = 0
+            commit.commit_timezone = 0
+            commit.message = b"Repository Creation"
+            await conn.execute(
+                INSERT_COMMIT,
+                repo_id,
+                commit.id,
+                commit.as_raw_string(),
+                EMPTY_TREE_SHA,
+                current_user["username"].encode(),
+                datetime.fromtimestamp(now, tz=timezone.utc),
+                commit.message,
+            )
+            await conn.execute(SET_SYMREF, repo_id, branch.encode(), commit.id)
             return RepositoryResponse(**dict(row))
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")
