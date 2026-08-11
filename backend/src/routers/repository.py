@@ -52,7 +52,7 @@ async def register(payload: RepositoryCreateRequest,
     pool: asyncpg.Pool = Depends(get_pool)):
     """API endpoint to create a new repository."""
     try:
-        new_repository = await create_repository(pool, payload, current_user["id"])
+        new_repository = await create_repository(pool, payload, current_user)
         return new_repository
     except ValueError as e:
         raise HTTPException(

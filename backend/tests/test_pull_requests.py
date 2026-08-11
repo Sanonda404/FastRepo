@@ -79,14 +79,14 @@ def clone_and_push(url: str, clone_dir: Path, commit_fn) -> None:
     )
     assert result.returncode == 0, result.stderr
     commit_fn(clone_dir)
-    push_branch(url, clone_dir, "master")
+    push_branch(url, clone_dir, "main")
 
 
 def make_pr(base: str, token: str, source: str, target: str,
             source_repository_id: int | None = None, body: str = "pr body") -> dict:
     with httpx.Client(base_url=SERVER_URL) as client:
         r = client.post(
-            f"/pulls/{base}/",
+                f"/pulls/{base}",
             json={
                 "body": body,
                 "source_branch": source,
@@ -112,10 +112,10 @@ class TestPullRequestCRUD:
             make_commit(clone, "b.txt", "b", "feature work")
             push_branch(url, clone, "feature")
 
-            pr = make_pr(f"{username}/{repo_name}", token, "feature", "master")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
             assert pr["state"] == "open"
             assert pr["source_branch"] == "feature"
-            assert pr["target_branch"] == "master"
+            assert pr["target_branch"] == "main"
             assert pr["source_repository_id"] is None
             assert pr["author_username"] == username
             assert pr["closed_at"] is None
@@ -125,7 +125,7 @@ class TestPullRequestCRUD:
             assert got.status_code == 200
             assert got.json()["id"] == pr["id"]
 
-            listing = client.get(f"/pulls/{username}/{repo_name}/", headers=auth(token))
+            listing = client.get(f"/pulls/{username}/{repo_name}", headers=auth(token))
             assert listing.status_code == 200
             assert [p["id"] for p in listing.json()] == [pr["id"]]
         finally:
@@ -141,12 +141,12 @@ class TestPullRequestCRUD:
             clone_and_push(url, clone, lambda d: make_commit(d, "a.txt", "a", "base"))
 
             base = f"{username}/{repo_name}"
-            r = client.post(f"/pulls/{base}/",
-                            json={"source_branch": "nope", "target_branch": "master"},
+            r = client.post(f"/pulls/{base}",
+                            json={"source_branch": "nope", "target_branch": "main"},
                             headers=auth(token))
             assert r.status_code == 400
-            r = client.post(f"/pulls/{base}/",
-                            json={"source_branch": "master", "target_branch": "master"},
+            r = client.post(f"/pulls/{base}",
+                            json={"source_branch": "main", "target_branch": "main"},
                             headers=auth(token))
             assert r.status_code == 400
         finally:
@@ -163,7 +163,7 @@ class TestPullRequestCRUD:
             run_git(clone, "checkout", "-b", "feature")
             make_commit(clone, "b.txt", "b", "feature work")
             push_branch(url, clone, "feature")
-            pr = make_pr(f"{username}/{repo_name}", token, "feature", "master")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
 
             base = f"/pulls/{username}/{repo_name}/{pr['id']}"
             r = client.patch(base, json={"body": "updated"}, headers=auth(token))
@@ -190,7 +190,7 @@ class TestPullRequestCRUD:
             run_git(clone, "checkout", "-b", "feature")
             make_commit(clone, "b.txt", "b", "feature work")
             push_branch(url, clone, "feature")
-            pr = make_pr(f"{owner}/{repo_name}", token, "feature", "master")
+            pr = make_pr(f"{owner}/{repo_name}", token, "feature", "main")
 
             base = f"/pulls/{owner}/{repo_name}/{pr['id']}"
             assert client.delete(base, headers=auth(intruder_token)).status_code == 403
@@ -217,8 +217,8 @@ class TestPullRequestCRUD:
             client.patch(f"/repositories/{owner}/{repo_name}", json={"is_private": True},
                          headers=auth(token))
 
-            r = client.post(f"/pulls/{owner}/{repo_name}/",
-                            json={"source_branch": "feature", "target_branch": "master"},
+            r = client.post(f"/pulls/{owner}/{repo_name}",
+                            json={"source_branch": "feature", "target_branch": "main"},
                             headers=auth(intruder_token))
             assert r.status_code == 403
         finally:
@@ -235,13 +235,13 @@ class TestPullRequestMerge:
             url = repo_url(server_url, username, repo_name, GIT_PASSWORD)
             clone = TMP_DIR / f"pm_{repo_name}"
             clone_and_push(url, clone, lambda d: make_commit(d, "a.txt", "a", "base"))
-            master_head = fetch_ref(repo_id, "refs/heads/master")
+            main_head = fetch_ref(repo_id, "refs/heads/main")
 
             run_git(clone, "checkout", "-b", "feature")
             make_commit(clone, "a.txt", "a v2", "change a")
             make_commit(clone, "b.txt", "b", "add b")
             push_branch(url, clone, "feature")
-            pr = make_pr(f"{username}/{repo_name}", token, "feature", "master")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
 
             r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
                             headers=auth(token))
@@ -252,8 +252,8 @@ class TestPullRequestMerge:
             assert body["closed_at"] is not None
 
             merged_sha = body["merge_commit_sha"]
-            assert fetch_ref(repo_id, "refs/heads/master") == merged_sha
-            assert merged_sha != master_head
+            assert fetch_ref(repo_id, "refs/heads/main") == merged_sha
+            assert merged_sha != main_head
 
             detail = client.get(
                 f"/repositories/{username}/{repo_name}/commits/{merged_sha}",
@@ -279,20 +279,20 @@ class TestPullRequestMerge:
             clone = TMP_DIR / f"pmc_{repo_name}"
             clone_and_push(url, clone, lambda d: make_commit(d, "a.txt", "a", "base"))
 
-            # branch: change a.txt, then advance master separately
+            # branch: change a.txt, then advance main separately
             run_git(clone, "checkout", "-b", "feature")
             make_commit(clone, "a.txt", "conflicting", "feature change")
             push_branch(url, clone, "feature")
-            run_git(clone, "checkout", "master")
-            make_commit(clone, "a.txt", "master change", "master advance")
-            push_branch(url, clone, "master")
-            master_head = fetch_ref(repo_id, "refs/heads/master")
-            pr = make_pr(f"{username}/{repo_name}", token, "feature", "master")
+            run_git(clone, "checkout", "main")
+            make_commit(clone, "a.txt", "main change", "main advance")
+            push_branch(url, clone, "main")
+            main_head = fetch_ref(repo_id, "refs/heads/main")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
 
             r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
                             headers=auth(token))
             assert r.status_code == 409
-            assert fetch_ref(repo_id, "refs/heads/master") == master_head
+            assert fetch_ref(repo_id, "refs/heads/main") == main_head
             assert client.get(f"/pulls/{username}/{repo_name}/{pr['id']}",
                               headers=auth(token)).json()["state"] == "open"
         finally:
@@ -328,7 +328,7 @@ class TestPullRequestMerge:
                            capture_output=True, text=True)
             push_branch(fork_url, fork_clone, "feature")
 
-            pr = make_pr(f"{owner}/{repo_name}", fork_token, "feature", "master",
+            pr = make_pr(f"{owner}/{repo_name}", fork_token, "feature", "main",
                          source_repository_id=fork_id)
 
             def _collab_exists():
@@ -370,7 +370,7 @@ class TestPullRequestMerge:
             run_git(clone, "checkout", "-b", "feature")
             make_commit(clone, "b.txt", "b", "feature work")
             push_branch(url, clone, "feature")
-            pr = make_pr(f"{owner}/{repo_name}", owner_token, "feature", "master")
+            pr = make_pr(f"{owner}/{repo_name}", owner_token, "feature", "main")
 
             base = f"/pulls/{owner}/{repo_name}/{pr['id']}/merge"
             assert client.post(base, headers=auth(intruder_token)).status_code == 403

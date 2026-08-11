@@ -42,7 +42,7 @@ class TestPullRequestReviews:
             run_git(clone, "checkout", "-b", "feature")
             make_commit(clone, "b.txt", "b", "feature work")
             push_branch(url, clone, "feature")
-            pr = make_pr(f"{owner}/{repo_name}", token, "feature", "master")
+            pr = make_pr(f"{owner}/{repo_name}", token, "feature", "main")
 
             reviews_base = f"/pulls/{owner}/{repo_name}/{pr['id']}/reviews"
             r = client.post(reviews_base, json={"decision": "approved", "body": "looks good"},

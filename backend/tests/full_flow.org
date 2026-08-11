@@ -52,7 +52,7 @@ Alice token:
 
 #+RESULTS:
 : {
-:   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsInVzZXJfaWQiOjEsImV4cCI6MTc4NjQ0ODg3M30.2NtFVXkrotqMhf-wMOTs07SIq9bJ4yQ3sUeiKqksDOw",
+:   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsInVzZXJfaWQiOjEsImV4cCI6MTc4NjQ2OTQyNX0.HQP3TAVmRgY_eh3ndNw_4Denc32Ngf5tV6WOney1uhY",
 :   "token_type": "bearer"
 : }
 
@@ -65,12 +65,12 @@ Bob token:
 
 #+RESULTS:
 : {
-:   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJ1c2VyX2lkIjoyLCJleHAiOjE3ODY0NDg4NzR9.f38JSxQnxDKl68jVZSTbLMZiCIrP5PKRvuOuiisibfg",
+:   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJ1c2VyX2lkIjoyLCJleHAiOjE3ODY0Njk0Mjd9.FDhTNTNkk8f0VQyV7oZ08GNDkCvCv4YiqTXgcd7C4ho",
 :   "token_type": "bearer"
 : }
 
-#+PROPERTY: header-args:http+ :var aliceToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsInVzZXJfaWQiOjEsImV4cCI6MTc4NjQ0ODg3M30.2NtFVXkrotqMhf-wMOTs07SIq9bJ4yQ3sUeiKqksDOw"
-#+PROPERTY: header-args:http+ :var bobToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJ1c2VyX2lkIjoyLCJleHAiOjE3ODY0NDg4NzR9.f38JSxQnxDKl68jVZSTbLMZiCIrP5PKRvuOuiisibfg"
+#+PROPERTY: header-args:http+ :var aliceToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsInVzZXJfaWQiOjEsImV4cCI6MTc4NjQ2OTQyNX0.HQP3TAVmRgY_eh3ndNw_4Denc32Ngf5tV6WOney1uhY"
+#+PROPERTY: header-args:http+ :var bobToken="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJib2IiLCJ1c2VyX2lkIjoyLCJleHAiOjE3ODY0Njk0Mjd9.FDhTNTNkk8f0VQyV7oZ08GNDkCvCv4YiqTXgcd7C4ho"
 
 Testing whether they work
 #+begin_src http :exports both
@@ -121,7 +121,7 @@ Alice will create two repositories. One public and another is private.
   "owner_id": 1,
   "default_branch": "main",
   "parent_repository_id": null,
-  "created_at": "2026-08-10T15:40:46.835466"
+  "created_at": "2026-08-11T23:01:09.348959"
 }
 #+end_example
 
@@ -140,14 +140,14 @@ Alice will create two repositories. One public and another is private.
 #+RESULTS:
 #+begin_example
 {
-  "id": 3,
+  "id": 2,
   "name": "test-private",
   "description": "Test repo",
   "is_private": true,
   "owner_id": 1,
   "default_branch": "main",
   "parent_repository_id": null,
-  "created_at": "2026-08-10T16:42:36.581338"
+  "created_at": "2026-08-11T23:01:16.428375"
 }
 #+end_example
 
@@ -167,22 +167,20 @@ Someone not logged in will try to clone both public and private repositories. Pu
 : Cloning into 'test-private'...
 : fatal: could not read Username for 'http://127.0.0.1:8000': No such device or address
 
-But logging in with alice will successfully clone it. Alice will create an empty commit in main to make main not an /unborn/ reference, as bob will create pr into main
+But logging in with alice will successfully clone it. Alice will create an empty commit in main.
 #+begin_src shell :exports both
   git -C /tmp clone http://alice:alice123@$host/alice/test-private
   git -C /tmp/test-private config user.name "alice"
   git -C /tmp/test-private config user.email "alice123@test.com"
-  git -C /tmp/test-private checkout -b main
   git -C /tmp/test-private commit --allow-empty -m "First Commmit"
   git -C /tmp/test-private push origin main
 #+end_src
 
 #+RESULTS:
-: [main (root-commit) 502a176] First Commmit
+: [main 2caa0c2] First Commmit
 
 * Adding Collaborators
 Now bob will be added to collaborators and then he can clone too.
-#+TODO: Fix idenifier typo
 
 #+begin_src http :exports both
   POST /collaborators/alice/test-private
@@ -190,15 +188,15 @@ Now bob will be added to collaborators and then he can clone too.
   Content-Type: application/json
 
   {
-      "idenifier" : "bob",
+      "identifier" : "bob",
       "role": "write"
   }
 #+end_src
 
 #+RESULTS:
 : {
-:   "id": 2,
-:   "repository_id": 3,
+:   "id": 1,
+:   "repository_id": 2,
 :   "user_id": 2,
 :   "username": "bob",
 :   "email": "bob123@test.com",
@@ -209,6 +207,9 @@ Now clone it as bob
 #+begin_src shell :exports both
   git -C /tmp clone http://bob:bob123@$host/alice/test-private test-private-bob
 #+end_src
+
+#+RESULTS:
+
 Now bob creates branch, commit and pushes
 #+begin_src shell :exports both
   git -C /tmp/test-private-bob config user.name "bob"
@@ -220,7 +221,7 @@ Now bob creates branch, commit and pushes
 #+end_src
 
 #+RESULTS:
-: [bob-branch (root-commit) 154e7e2] Test commit from bob
+: [bob-branch 0cc333b] Test commit from bob
 :  1 file changed, 1 insertion(+)
 :  create mode 100644 foo.txt
 
@@ -234,15 +235,24 @@ Main(defualt) branch:
 #+end_src
 
 #+RESULTS:
-: [
-:   {
-:     "sha": "502a176d9452afe1784b581362654fbbbef5a599",
-:     "author": "alice",
-:     "author_email": "alice123@test.com",
-:     "author_date": "2026-08-11T17:15:06Z",
-:     "message": "First Commmit"
-:   }
-: ]
+#+begin_example
+[
+  {
+    "sha": "2caa0c209e265c4b476dce7858143da284e15411",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T23:03:19Z",
+    "message": "First Commmit"
+  },
+  {
+    "sha": "9308c6713d09ad783771c758b15b4bc671b7c17f",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T17:01:16Z",
+    "message": "Repository Creation"
+  }
+]
+#+end_example
 
 Bob’s branch
 #+begin_src http :exports both
@@ -251,30 +261,49 @@ Bob’s branch
 #+end_src
 
 #+RESULTS:
-: [
-:   {
-:     "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
-:     "author": "bob",
-:     "author_email": "bob123@test.com",
-:     "author_date": "2026-08-10T21:24:42Z",
-:     "message": "Test commit from bob"
-:   }
-: ]
+#+begin_example
+[
+  {
+    "sha": "0cc333b9923d59bd227df83728f666b6bf1558a7",
+    "author": "bob",
+    "author_email": "bob123@test.com",
+    "author_date": "2026-08-11T23:04:01Z",
+    "message": "Test commit from bob"
+  },
+  {
+    "sha": "2caa0c209e265c4b476dce7858143da284e15411",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T23:03:19Z",
+    "message": "First Commmit"
+  },
+  {
+    "sha": "9308c6713d09ad783771c758b15b4bc671b7c17f",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T17:01:16Z",
+    "message": "Repository Creation"
+  }
+]
+#+end_example
 
+Examine latest commit from bob
 #+begin_src http :exports both
-  GET /repositories/alice/test-private/commits/154e7e273c218eebeb58568c421fd3ed17211ebe
+  GET /repositories/alice/test-private/commits/0cc333b9923d59bd227df83728f666b6bf1558a7
   Authorization: Bearer ${aliceToken}
 #+end_src
 
 #+RESULTS:
 #+begin_example
 {
-  "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+  "sha": "0cc333b9923d59bd227df83728f666b6bf1558a7",
   "author": "bob",
   "author_email": "bob123@test.com",
-  "author_date": "2026-08-10T21:24:42Z",
+  "author_date": "2026-08-11T23:04:01Z",
   "message": "Test commit from bob",
-  "parents": [],
+  "parents": [
+    "2caa0c209e265c4b476dce7858143da284e15411"
+  ],
   "root_tree_sha": "dc6464cf1692b7b0506b368fa44f5c6714a808c5",
   "diff": [
     {
@@ -300,12 +329,12 @@ Bob’s branch
 [
   {
     "name": "bob-branch",
-    "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+    "sha": "0cc333b9923d59bd227df83728f666b6bf1558a7",
     "is_default": false
   },
   {
     "name": "main",
-    "sha": "502a176d9452afe1784b581362654fbbbef5a599",
+    "sha": "2caa0c209e265c4b476dce7858143da284e15411",
     "is_default": true
   }
 ]
@@ -319,7 +348,7 @@ Bob’s branch
 #+RESULTS:
 #+begin_example
 {
-  "commit": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+  "commit": "0cc333b9923d59bd227df83728f666b6bf1558a7",
   "tree": "dc6464cf1692b7b0506b368fa44f5c6714a808c5",
   "path": "",
   "entries": [
@@ -352,7 +381,7 @@ Now bob will create a pull requst from bob-branch to main.
 #+begin_example
 {
   "id": 1,
-  "repository_id": 3,
+  "repository_id": 2,
   "author_id": 2,
   "author_username": "bob",
   "body": "Testing pull request",
@@ -360,7 +389,7 @@ Now bob will create a pull requst from bob-branch to main.
   "source_branch": "bob-branch",
   "target_branch": "main",
   "source_repository_id": null,
-  "created_at": "2026-08-11T17:23:13.563466",
+  "created_at": "2026-08-11T23:05:44.976266",
   "closed_at": null
 }
 #+end_example
@@ -376,7 +405,7 @@ Alice will see all the pull requests.
 [
   {
     "id": 1,
-    "repository_id": 3,
+    "repository_id": 2,
     "author_id": 2,
     "author_username": "bob",
     "body": "Testing pull request",
@@ -384,7 +413,7 @@ Alice will see all the pull requests.
     "source_branch": "bob-branch",
     "target_branch": "main",
     "source_repository_id": null,
-    "created_at": "2026-08-11T17:23:13.563466",
+    "created_at": "2026-08-11T23:05:44.976266",
     "closed_at": null
   }
 ]
@@ -399,7 +428,7 @@ Alice will see all the pull requests.
 #+begin_example
 {
   "id": 1,
-  "repository_id": 3,
+  "repository_id": 2,
   "author_id": 2,
   "author_username": "bob",
   "body": "Testing pull request",
@@ -407,7 +436,7 @@ Alice will see all the pull requests.
   "source_branch": "bob-branch",
   "target_branch": "main",
   "source_repository_id": null,
-  "created_at": "2026-08-11T17:23:13.563466",
+  "created_at": "2026-08-11T23:05:44.976266",
   "closed_at": null
 }
 #+end_example
@@ -421,7 +450,7 @@ Alice will see all the pull requests.
 #+begin_example
 {
   "id": 1,
-  "repository_id": 3,
+  "repository_id": 2,
   "author_id": 2,
   "author_username": "bob",
   "body": "Testing pull request",
@@ -429,9 +458,9 @@ Alice will see all the pull requests.
   "source_branch": "bob-branch",
   "target_branch": "main",
   "source_repository_id": null,
-  "created_at": "2026-08-11T17:23:13.563466",
-  "closed_at": "2026-08-11T17:34:38.034144",
-  "merge_commit_sha": "4dc30cdcfcd816aeb3b9be28530098db9b351e53"
+  "created_at": "2026-08-11T23:05:44.976266",
+  "closed_at": "2026-08-11T23:05:58.980405",
+  "merge_commit_sha": "d42932fa9dd32d325f345b4a071955817421d71a"
 }
 #+end_example
 
@@ -445,25 +474,32 @@ Now check tree and commits of main branch.
 #+begin_example
 [
   {
-    "sha": "4dc30cdcfcd816aeb3b9be28530098db9b351e53",
+    "sha": "d42932fa9dd32d325f345b4a071955817421d71a",
     "author": "alice",
     "author_email": "alice123@test.com",
-    "author_date": "2026-08-11T11:34:38Z",
+    "author_date": "2026-08-11T17:05:58Z",
     "message": "Merge pull request #1: bob-branch into main"
   },
   {
-    "sha": "502a176d9452afe1784b581362654fbbbef5a599",
+    "sha": "2caa0c209e265c4b476dce7858143da284e15411",
     "author": "alice",
     "author_email": "alice123@test.com",
-    "author_date": "2026-08-11T17:15:06Z",
+    "author_date": "2026-08-11T23:03:19Z",
     "message": "First Commmit"
   },
   {
-    "sha": "154e7e273c218eebeb58568c421fd3ed17211ebe",
+    "sha": "0cc333b9923d59bd227df83728f666b6bf1558a7",
     "author": "bob",
     "author_email": "bob123@test.com",
-    "author_date": "2026-08-10T21:24:42Z",
+    "author_date": "2026-08-11T23:04:01Z",
     "message": "Test commit from bob"
+  },
+  {
+    "sha": "9308c6713d09ad783771c758b15b4bc671b7c17f",
+    "author": "alice",
+    "author_email": "alice123@test.com",
+    "author_date": "2026-08-11T17:01:16Z",
+    "message": "Repository Creation"
   }
 ]
 #+end_example
@@ -476,7 +512,7 @@ Now check tree and commits of main branch.
 #+RESULTS:
 #+begin_example
 {
-  "commit": "4dc30cdcfcd816aeb3b9be28530098db9b351e53",
+  "commit": "d42932fa9dd32d325f345b4a071955817421d71a",
   "tree": "dc6464cf1692b7b0506b368fa44f5c6714a808c5",
   "path": "",
   "entries": [

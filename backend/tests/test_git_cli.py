@@ -152,21 +152,45 @@ class TestGitCliHTTP:
             env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         )
         assert result.returncode == 0, result.stderr
-        assert run_git(clone_dir, "symbolic-ref", "--short", "HEAD").stdout.strip() == "master"
+        assert run_git(clone_dir, "symbolic-ref", "--short", "HEAD").stdout.strip() == "main"
 
         head = make_commit(clone_dir, "README.md", "# Test\n", "Initial commit")
         push = subprocess.run(
-            ["git", "-C", str(clone_dir), "push", "origin", "master"],
+            ["git", "-C", str(clone_dir), "push", "origin", "main"],
             capture_output=True,
             text=True,
             env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         )
         assert push.returncode == 0, push.stderr
 
-        assert fetch_ref(repo["id"], "refs/heads/master") == head
+        assert fetch_ref(repo["id"], "refs/heads/main") == head
         assert count_rows(repo["id"], "commits") >= 1
         assert count_rows(repo["id"], "blobs") >= 1
         assert count_rows(repo["id"], "tree_entries") >= 1
+
+    def test_new_repo_has_creation_commit(self, repo):
+        TMP_DIR.mkdir(parents=True, exist_ok=True)
+        clone_dir = TMP_DIR / f"clone_init_{repo['name']}"
+        result = subprocess.run(
+            ["git", "clone", repo["url"], str(clone_dir)],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        assert result.returncode == 0, result.stderr
+
+        ident = run_git(
+            clone_dir, "log", "-1", "--format=%an|%ae|%cn|%ce|%s"
+        ).stdout.strip()
+        expected = f"{repo['username']}|{repo['username']}@test.com|" \
+                   f"{repo['username']}|{repo['username']}@test.com|Repository Creation"
+        assert ident == expected
+
+        count = run_git(clone_dir, "rev-list", "--count", "HEAD").stdout.strip()
+        assert count == "1"
+
+        trees = run_git(clone_dir, "ls-tree", "-r", "HEAD").stdout.strip()
+        assert trees == ""
 
     def test_non_fast_forward_push_rejected(self, repo):
         clone1 = TMP_DIR / f"clone1_{repo['name']}"
@@ -174,7 +198,7 @@ class TestGitCliHTTP:
         subprocess.run(["git", "clone", repo["url"], str(clone1)],
                        capture_output=True, text=True, env=env)
         make_commit(clone1, "a.txt", "a", "commit a")
-        push1 = subprocess.run(["git", "-C", str(clone1), "push", "origin", "master"],
+        push1 = subprocess.run(["git", "-C", str(clone1), "push", "origin", "main"],
                                capture_output=True, text=True, env=env)
         assert push1.returncode == 0
 
@@ -183,17 +207,17 @@ class TestGitCliHTTP:
                                  capture_output=True, text=True, env=env)
         assert result2.returncode == 0
         make_commit(clone2, "b.txt", "b", "commit b")
-        push2 = subprocess.run(["git", "-C", str(clone2), "push", "origin", "master"],
+        push2 = subprocess.run(["git", "-C", str(clone2), "push", "origin", "main"],
                                capture_output=True, text=True, env=env)
         assert push2.returncode == 0
-        head2 = fetch_ref(repo["id"], "refs/heads/master")
+        head2 = fetch_ref(repo["id"], "refs/heads/main")
         assert head2 is not None
 
         make_commit(clone1, "c.txt", "c", "commit c")
-        stale_push = subprocess.run(["git", "-C", str(clone1), "push", "origin", "master"],
+        stale_push = subprocess.run(["git", "-C", str(clone1), "push", "origin", "main"],
                                     capture_output=True, text=True, env=env)
         assert stale_push.returncode != 0, "Stale push should fail"
-        assert fetch_ref(repo["id"], "refs/heads/master") == head2
+        assert fetch_ref(repo["id"], "refs/heads/main") == head2
 
     def test_branch_push_and_delete(self, repo):
         clone = TMP_DIR / f"cloneb_{repo['name']}"
@@ -220,17 +244,17 @@ class TestGitCliHTTP:
         subprocess.run(["git", "clone", repo["url"], str(clone)],
                        capture_output=True, text=True, env=env)
         make_commit(clone, "f1.txt", "f1", "First")
-        push = subprocess.run(["git", "-C", str(clone), "push", "origin", "master"],
+        push = subprocess.run(["git", "-C", str(clone), "push", "origin", "main"],
                               capture_output=True, text=True, env=env)
         assert push.returncode == 0
-        first = fetch_ref(repo["id"], "refs/heads/master")
+        first = fetch_ref(repo["id"], "refs/heads/main")
 
         run_git(clone, "reset", "--hard", "HEAD~1")
         new_head = make_commit(clone, "f2.txt", "f2", "Rewritten")
-        force_push = subprocess.run(["git", "-C", str(clone), "push", "--force", "origin", "master"],
+        force_push = subprocess.run(["git", "-C", str(clone), "push", "--force", "origin", "main"],
                                     capture_output=True, text=True, env=env)
         assert force_push.returncode == 0, force_push.stderr
-        ref = fetch_ref(repo["id"], "refs/heads/master")
+        ref = fetch_ref(repo["id"], "refs/heads/main")
         assert ref == new_head
         # history re write
         assert ref != first
@@ -259,10 +283,10 @@ class TestGitCliHTTP:
                        capture_output=True, text=True, env=env)
 
         first_commit = make_commit(cl1, "u1.txt", "u1", "User 1")
-        subprocess.run(["git", "-C", str(cl1), "push", "origin", "master"],
+        subprocess.run(["git", "-C", str(cl1), "push", "origin", "main"],
                        capture_output=True, text=True, env=env)
 
-        pull = run_git(cl2, "pull", "origin", "master")
+        pull = run_git(cl2, "pull", "origin", "main")
         assert pull.returncode == 0, pull.stderr
         assert run_git(cl2, "rev-parse", "HEAD").stdout.strip() == first_commit
 
@@ -321,10 +345,10 @@ class TestGitCliHTTP:
 
             # push works with credentials
             head = make_commit(clone_dir, "p.txt", "private", "Private commit")
-            push = subprocess.run(["git", "-C", str(clone_dir), "push", "origin", "master"],
+            push = subprocess.run(["git", "-C", str(clone_dir), "push", "origin", "main"],
                                   capture_output=True, text=True, env=env)
             assert push.returncode == 0, push.stderr
-            assert fetch_ref(repo_id, "refs/heads/master") == head
+            assert fetch_ref(repo_id, "refs/heads/main") == head
         finally:
             if repo_id is not None:
                 cleanup_repo(username, repo_name)
@@ -343,7 +367,7 @@ class TestReadEndpoints:
         make_commit(clone, "README.md", "# Test\n", "Add readme")
         make_commit(clone, "src/app.py", "print('hi')\n", "Add app")
         make_commit(clone, "README.md", "# Test v2\n", "Update readme")
-        push = subprocess.run(["git", "-C", str(clone), "push", "origin", "master"],
+        push = subprocess.run(["git", "-C", str(clone), "push", "origin", "main"],
                               capture_output=True, text=True,
                               env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
         assert push.returncode == 0, push.stderr
@@ -355,7 +379,7 @@ class TestReadEndpoints:
         assert r.status_code == 200
         branches = r.json()
         names = [b["name"] for b in branches]
-        assert names == ["master"]
+        assert names == ["main"]
         assert len(branches[0]["sha"]) == 40
         assert isinstance(branches[0]["is_default"], bool)
 
@@ -364,10 +388,14 @@ class TestReadEndpoints:
         r = client.get(f"/repositories/{repo['username']}/{repo['name']}/commits")
         assert r.status_code == 200
         commits = r.json()
-        assert len(commits) == 3
+        assert len(commits) == 4
         assert commits[0]["message"] == "Update readme"
-        assert commits[-1]["message"] == "Add readme"
-        for c in commits:
+        assert commits[1]["message"] == "Add app"
+        assert commits[2]["message"] == "Add readme"
+        assert commits[-1]["message"] == "Repository Creation"
+        assert commits[-1]["author"] == repo["username"]
+        assert commits[-1]["author_email"] == f"{repo['username']}@test.com"
+        for c in commits[:-1]:
             assert set(c) == {"sha", "author", "author_email", "author_date", "message"}
             assert c["author"] == "Test User"
             assert c["author_date"]
@@ -402,12 +430,14 @@ class TestReadEndpoints:
         assert changed["deletions"] == 1
         assert "+# Test v" in changed["diff"]
 
-        # root commit: no parents, all files added
+        # creation commit: root, empty tree
         root = commits[-1]["sha"]
         r2 = client.get(f"{base}/commits/{root}")
         assert r2.status_code == 200
         assert r2.json()["parents"] == []
-        assert {f["status"] for f in r2.json()["diff"]} == {"added"}
+        assert r2.json()["message"] == "Repository Creation"
+        assert r2.json()["author"] == repo["username"]
+        assert r2.json()["diff"] == []
 
     def test_commit_author_email_from_users(self, client, repo, server_url):
         clone = self._push_repo(repo)
@@ -418,7 +448,7 @@ class TestReadEndpoints:
         run_git(clone, "add", "who.txt")
         committed = run_git(clone, "commit", "-m", "Username-author commit")
         assert committed.returncode == 0, committed.stderr
-        pushed = subprocess.run(["git", "-C", str(clone), "push", "origin", "master"],
+        pushed = subprocess.run(["git", "-C", str(clone), "push", "origin", "main"],
                                 capture_output=True, text=True,
                                 env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
         assert pushed.returncode == 0, pushed.stderr
@@ -446,7 +476,7 @@ class TestReadEndpoints:
         assert sub.status_code == 200
         assert [e["name"] for e in sub.json()["entries"]] == ["app.py"]
 
-        byref = client.get(f"{base}/tree", params={"ref": "master"})
+        byref = client.get(f"{base}/tree", params={"ref": "main"})
         assert byref.status_code == 200
         assert byref.json()["tree"] == tree["tree"]
 
@@ -465,7 +495,7 @@ class TestReadEndpoints:
                            capture_output=True, text=True,
                            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
             make_commit(clone_dir, "a.txt", "a", "priv")
-            subprocess.run(["git", "-C", str(clone_dir), "push", "origin", "master"],
+            subprocess.run(["git", "-C", str(clone_dir), "push", "origin", "main"],
                            capture_output=True, text=True,
                            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
             token = client.post(
