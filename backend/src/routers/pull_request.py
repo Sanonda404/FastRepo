@@ -42,7 +42,6 @@ async def create_pull(
 ):
     try:
         repo = await get_repository(pool, owner_name, repo_name)
-        print(payload)
         if repo.is_private and not await can_access_repository(pool, repo.id, current_user["id"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Private repository"
