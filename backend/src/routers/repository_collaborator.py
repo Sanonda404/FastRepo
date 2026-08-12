@@ -8,6 +8,7 @@ from services.repository_collaborator import add_collaborator_to_repo, get_colla
 from services.repository_crud import get_repository, can_access_repository
 from services.user import get_user_by_username_or_email
 from auth.auth import get_current_user, get_optional_current_user
+from auth.repository_auth import _get_viewable_repo, _viewable_repo
 from typing import List
 
 router = APIRouter(
@@ -24,12 +25,7 @@ async def list_collaborators(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        repo = await get_repository(pool, owner_name, repo_name)
-        if repo.is_private and not await can_access_repository(pool, repo.id, current_user["id"] if current_user else None):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Private repository",
-            )
+        repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
         return await get_collaborators(pool, repo.id)
 
     except ValueError as e:
