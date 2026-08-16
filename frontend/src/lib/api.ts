@@ -22,7 +22,6 @@ export interface UserResponse {
   id: number;
   username: string;
   email: string;
-  created_at: string;
 }
 
 export async function registerApi(payload: RegisterPayload): Promise<UserResponse> {
