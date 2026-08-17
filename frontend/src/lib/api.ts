@@ -1,3 +1,5 @@
+import type { RegisterPayload, UserResponse, RepositoryResponse } from "./interfaces";
+
 const TOKEN_COOKIE = "fastrepo_token"
 const AUTH_CHANGE_EVENT = "fastrepo:auth-change"
 
@@ -56,18 +58,6 @@ export async function loginApi(formData: FormData) {
   }
 
   return response.json() as Promise<{ access_token: string; token_type: string }>;
-}
-
-export interface RegisterPayload {
-  username: string;
-  email: string;
-  password: string;
-}
-
-export interface UserResponse {
-  id: number;
-  username: string;
-  email: string;
 }
 
 export async function registerApi(payload: RegisterPayload): Promise<UserResponse> {

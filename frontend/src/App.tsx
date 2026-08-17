@@ -4,6 +4,7 @@ import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";
 import { useAuth } from "@/lib/use-auth";
+import RepositoryCreatePage from "./pages/RepositoryCreatePage";
 
 export default function App() {
   const { isLoggedIn } = useAuth();
@@ -20,6 +21,10 @@ export default function App() {
 
         {/* Default Route */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* Repository Create Route */}
+        <Route path="/create/repository" element={<RepositoryCreatePage />} />
+
       </Routes>
     </BrowserRouter>
   );

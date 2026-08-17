@@ -5,8 +5,10 @@ import {
   Folder,
   Users,
   Star,
+  Plus,
 } from "lucide-react"
 
+import { Link } from "react-router-dom"
 import { useAuth } from "@/lib/use-auth"
 import { mockRepositories, mockStats } from "@/lib/mock-data"
 import StatCard from "@/components/stat-card"
@@ -42,7 +44,19 @@ export default function Dashboard() {
         </section>
 
         <section data-testid="repositories" className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold">Your repositories</h2>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold">Your repositories</h2>
+
+            <Link
+              to="/create/repository"
+              aria-label="Create new repository"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4" />
+              New
+            </Link>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             {mockRepositories.map((repo) => (
               <RepositoryCard key={repo.id} repo={repo} />
