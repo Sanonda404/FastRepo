@@ -15,6 +15,7 @@ from models.issues import ensure_issues_table
 from models.issue_comments import ensure_issues_comments_table
 from models.pull_request import ensure_pull_requests_table
 from models.pr_reviews import ensure_pr_reviews_table
+from models.stars import ensure_stars_table
 
 load_dotenv()
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/fastrepo")
@@ -34,6 +35,7 @@ async def init_pool() -> None:
     await ensure_issues_comments_table(_pool)
     await ensure_pull_requests_table(_pool)
     await ensure_pr_reviews_table(_pool)
+    await ensure_stars_table(_pool)
 
 async def close_pool() -> None:
     global _pool

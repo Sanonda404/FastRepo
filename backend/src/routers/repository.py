@@ -14,6 +14,7 @@ from schemas.repository import (
     CommitSummary,
     CommitDetail,
     TreeResponse,
+    StarResponse
 )
 from services.repository_crud import (
     create_repository,
@@ -26,6 +27,7 @@ from services.repository_crud import (
     delete_repository,
     fork_repository,
     can_access_repository,
+    manage_star
 )
 from services.git_read import (
     get_branches,
@@ -37,7 +39,7 @@ from services.git_read import (
 )
 
 from auth.auth import get_current_user, get_optional_current_user
-from auth.repository_auth import _get_viewable_repo
+from auth.repository_auth import _get_viewable_repo, _viewable_repo
 from models.git import EMPTY_TREE_SHA
 
 router = APIRouter(
@@ -235,3 +237,15 @@ async def view_tree(
     if tree is None:
         raise HTTPException(status_code=404, detail="Tree not found")
     return tree
+
+
+@router.post("/{owner_name}/{repo_name}/star", response_model=StarResponse)
+async def add_or_remove_star(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Insert Star / remove star from a repository."""
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    return await manage_star(pool, current_user["id"], repo.id)

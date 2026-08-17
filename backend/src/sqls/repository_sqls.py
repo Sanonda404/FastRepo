@@ -132,3 +132,24 @@ COPY_FORK_REFS = """
     INSERT INTO refs (repo_id, name, value)
     SELECT $1, name, value FROM refs WHERE repo_id = $2
 """
+
+GET_STAR = """
+    SELECT 1 FROM stars
+    WHERE user_id = $1 AND repository_id = $2
+"""
+
+REMOVE_STAR = """
+    DELETE FROM stars
+    WHERE user_id = $1 AND repository_id = $2
+    RETURNING user_id
+"""
+INSERT_STAR = """
+    INSERT INTO stars (user_id, repository_id)
+    VALUES ($1, $2)
+    ON CONFLICT DO NOTHING
+    RETURNING user_id;
+"""
+GET_REPOSITORY_STAR_COUNT = """
+    SELECT count(*) FROM stars
+    WHERE repository_id = $1
+"""

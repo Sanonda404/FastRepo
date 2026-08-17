@@ -82,3 +82,7 @@ class TreeResponse(BaseModel):
     tree: str
     path: str
     entries: list[TreeEntrySchema]
+
+class StarResponse(BaseModel):
+    is_starred : bool
+    star_count : int

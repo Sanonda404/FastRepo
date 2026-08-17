@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from typing import List
 from datetime import datetime, timezone
 from dulwich.objects import Commit
-from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest
+from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest, StarResponse
 from sqls.repository_sqls import (
     CREATE_REPOSITORY, 
     GET_REPO_BY_USER_AND_REPOSIRY_NAME,
@@ -21,6 +21,10 @@ from sqls.repository_sqls import (
     UPDATE_REPOSITORY,
     DELETE_REPOSITORY,
     CHECK_REPO_ACCESS,
+    GET_STAR,
+    INSERT_STAR,
+    REMOVE_STAR,
+    GET_REPOSITORY_STAR_COUNT
 )
 from models.git import EMPTY_TREE_SHA
 
@@ -185,3 +189,24 @@ async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: in
             except asyncpg.UniqueViolationError:
                 raise ValueError("Repository with same name already exists")
 
+async def manage_star(pool: asyncpg.Pool, user_id: int, repo_id: int) -> StarResponse:
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            try:
+                # Check if star exists
+                is_starred = await conn.fetchval(GET_STAR, user_id, repo_id) is not None
+
+                if not is_starred:
+                    await conn.execute(INSERT_STAR, user_id, repo_id)
+                    is_starred = True
+                else:
+                    await conn.execute(REMOVE_STAR, user_id, repo_id)
+                    is_starred = False
+
+                # Get updated count directly as integer
+                star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
+
+                return StarResponse(is_starred=is_starred, star_count=star_count)
+
+            except asyncpg.PostgresError as e:
+                raise HTTPException(status_code=500, detail="Database error occurred")
