@@ -26,6 +26,18 @@
   --auth-foreground: #0d2440;
   --auth-body: #52647a;
   --auth-muted: #718197;
+  --auth-title: #102943;
+  --auth-hero-title: #0b2742;
+  --auth-hero-desc: #597087;
+  --auth-panel-bg: #fbfdff;
+  --auth-feature-text: #60738a;
+  --auth-label-color: #43566c;
+  --auth-input-color: #20354c;
+  --auth-placeholder: #9aa8b8;
+  --auth-input-icon-color: #8292a5;
+  --auth-switch-color: #718197;
+  --auth-link: #426fba;
+  --auth-lock-color: #8492a3;
 
   --auth-feature-bg: rgba(255, 255, 255, 0.74);
   --auth-feature-border: rgba(217, 225, 234, 0.86);
@@ -40,6 +52,41 @@
   --auth-radius-md: 0.85rem;
   --auth-shadow: 0 16px 50px rgba(51, 75, 103, 0.06);
   --auth-error: #dc2626;
+}
+
+.dark {
+  --auth-hero-bg: linear-gradient(
+    150deg,
+    #0e1f23 0%,
+    #111827 38%,
+    #131c29 63%,
+    #1b1b30 100%
+  );
+
+  --auth-surface: #0b0f16;
+  --auth-panel-bg: #0b0f16;
+  --auth-title: #e8eef5;
+  --auth-hero-title: #f2f7fc;
+  --auth-hero-desc: #93a1b1;
+  --auth-feature-text: #94a3b3;
+  --auth-label-color: #c2cdd9;
+  --auth-input-color: #e8eef5;
+  --auth-placeholder: #5d6a7a;
+  --auth-input-icon-color: #6d7a8c;
+  --auth-switch-color: #8a97a6;
+  --auth-link: #6ca5f8;
+  --auth-lock-color: #6d7a8c;
+
+  --auth-feature-bg: rgba(19, 26, 38, 0.72);
+  --auth-feature-border: rgba(80, 94, 112, 0.45);
+  --auth-feature-icon: #2dd4bf;
+
+  --auth-input-bg: #0c1119;
+  --auth-input-border: #283243;
+  --auth-input-border-focus: #2dd4bf;
+  --auth-input-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+
+  --auth-error: #f87171;
 }
 
 .auth-shell {
@@ -87,7 +134,7 @@
   align-items: center;
   gap: 10px;
   width: fit-content;
-  color: #102943;
+  color: var(--auth-title);
   font-size: 18px;
   line-height: 1;
   font-weight: 750;
@@ -113,7 +160,7 @@
 
 .auth-hero-title {
   margin: 0;
-  color: #0b2742;
+  color: var(--auth-hero-title);
   font-size: clamp(2.7rem, 3.6vw, 4rem);
   line-height: 1.09;
   letter-spacing: -0.045em;
@@ -123,7 +170,7 @@
 .auth-hero-description {
   max-width: 600px;
   margin: 20px 0 0;
-  color: #597087;
+  color: var(--auth-hero-desc);
   font-size: 16px;
   line-height: 1.48;
 }
@@ -162,7 +209,7 @@
 
 .auth-feature-card h2 {
   margin: 0;
-  color: #102943;
+  color: var(--auth-title);
   font-size: 16px;
   line-height: 1.25;
   font-weight: 750;
@@ -171,7 +218,7 @@
 
 .auth-feature-card p {
   margin: 4px 0 0;
-  color: #60738a;
+  color: var(--auth-feature-text);
   font-size: 14px;
   line-height: 1.35;
 }
@@ -193,7 +240,7 @@
   justify-content: center;
   padding: 48px;
   box-sizing: border-box;
-  background: #fbfdff;
+  background: var(--auth-panel-bg);
 }
 
 .auth-card {
@@ -207,7 +254,7 @@
 
 .auth-form-header h2 {
   margin: 0;
-  color: #102943;
+  color: var(--auth-title);
   font-size: 30px;
   line-height: 1.18;
   font-weight: 800;
@@ -216,7 +263,7 @@
 
 .auth-form-header p {
   margin: 8px 0 0;
-  color: #62748a;
+  color: var(--auth-hero-desc);
   font-size: 15px;
   line-height: 1.45;
 }
@@ -230,7 +277,7 @@
 .auth-label {
   display: block;
   margin-bottom: 8px;
-  color: #43566c;
+  color: var(--auth-label-color);
   font-size: 13px;
   font-weight: 550;
 }
@@ -245,7 +292,7 @@
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #8292a5;
+  color: var(--auth-input-icon-color);
   pointer-events: none;
 }
 
@@ -258,7 +305,7 @@
   border: 1px solid var(--auth-input-border);
   border-radius: 15px;
   background: var(--auth-input-bg);
-  color: #20354c;
+  color: var(--auth-input-color);
   box-shadow: var(--auth-input-shadow);
   font-size: 15px;
   outline: none;
@@ -268,7 +315,7 @@
 }
 
 .auth-input::placeholder {
-  color: #9aa8b8;
+  color: var(--auth-placeholder);
 }
 
 .auth-input:focus,
@@ -326,7 +373,7 @@
   align-items: center;
   gap: 5px;
   margin-top: 23px;
-  color: #718197;
+  color: var(--auth-switch-color);
   font-size: 13px;
 }
 
@@ -334,7 +381,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #426fba;
+  color: var(--auth-link);
   font: inherit;
   font-weight: 650;
   cursor: pointer;
@@ -350,7 +397,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 19px;
-  color: #8492a3;
+  color: var(--auth-lock-color);
   font-size: 12px;
 }
 
