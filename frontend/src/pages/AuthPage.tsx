@@ -31,7 +31,7 @@ import {
   type LoginInput,
   type RegisterInput,
 } from "@/lib/schemas/auth";
-import { loginApi, registerApi } from "@/lib/api";
+import { loginApi, registerApi, setAuthToken, getErrorMessage } from "@/lib/api";
 
 import "@/css/auth_theme.css";
 
@@ -66,10 +66,10 @@ export default function AuthPage() {
       formData.append("password", values.password);
 
       const data = await loginApi(formData);
-      localStorage.setItem("token", data.access_token);
+      setAuthToken(data.access_token);
       navigate("/");
-    } catch (err: any) {
-      setErrorMessage(err.message);
+    } catch (err: unknown) {
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -91,10 +91,10 @@ export default function AuthPage() {
       formData.append("password", values.password);
 
       const data = await loginApi(formData);
-      localStorage.setItem("token", data.access_token);
+      setAuthToken(data.access_token);
       navigate("/");
-    } catch (err: any) {
-      setErrorMessage(err.message);
+    } catch (err: unknown) {
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
