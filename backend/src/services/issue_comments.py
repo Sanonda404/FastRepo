@@ -94,7 +94,7 @@ async def get_repo_id_by_issue_comment_id(pool : asyncpg.Pool, issue_cmnt_id: in
                 raise HTTPException(
                     status_code= status.HTTP_404_NOT_FOUND, detail="Issue comment not found"
                 )
-            return row["repo_id"]
+            return row["repository_id"]
         except asyncpg.ForeignKeyViolationError:
             raise HTTPException(
                 status_code= status.HTTP_404_NOT_FOUND, detail="Issue Not Found"
