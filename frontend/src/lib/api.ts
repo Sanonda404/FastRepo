@@ -1,16 +1,28 @@
 const TOKEN_COOKIE = "fastrepo_token"
+const AUTH_CHANGE_EVENT = "fastrepo:auth-change"
 
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
   return match ? decodeURIComponent(match[1]) : null
 }
 
-function getAuthToken(): string | null {
+export function getAuthToken(): string | null {
   return getCookie(TOKEN_COOKIE)
 }
 
 export function setAuthToken(token: string): void {
   document.cookie = `${TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; SameSite=Lax`
+  window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
+}
+
+export function clearAuthToken(): void {
+  document.cookie = `${TOKEN_COOKIE}=; path=/; SameSite=Lax; Max-Age=0`
+  window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
+}
+
+export function subscribeAuthChange(callback: () => void): () => void {
+  window.addEventListener(AUTH_CHANGE_EVENT, callback)
+  return () => window.removeEventListener(AUTH_CHANGE_EVENT, callback)
 }
 
 export function getErrorMessage(err: unknown): string {

@@ -4,8 +4,11 @@ async function themeVar(page: Page, name: string): Promise<string> {
   return page.evaluate((v) => getComputedStyle(document.documentElement).getPropertyValue(v), name)
 }
 
-test("auth page renders and root redirects to /login", async ({ page }) => {
+test("login page renders and root shows homepage when logged out", async ({ page }) => {
   await page.goto("/")
+  await expect(page.getByRole("heading", { name: /org chart/ })).toBeVisible()
+
+  await page.goto("/login")
   await expect(page).toHaveURL(/\/login/)
   await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible()
   await expect(page.getByPlaceholder("username")).toBeVisible()
@@ -64,4 +67,50 @@ test("toggle returns to light", async ({ page }) => {
   await toggle.click()
   await expect(html).not.toHaveClass(/dark/)
   await expect(page.locator("header svg.lucide-moon")).toBeVisible()
+})
+
+test("login with mocked backend lands on the dashboard", async ({ page }) => {
+  await page.route("**/api/users/login", (route) =>
+    route.fulfill({
+      json: { access_token: "fake-jwt", token_type: "bearer" },
+    })
+  )
+
+  await page.goto("/login")
+  await page.getByPlaceholder("username").fill("jane")
+  await page.getByPlaceholder("••••••••").fill("secret123")
+  await page.getByRole("button", { name: "Sign In" }).click()
+
+  await expect(page.getByRole("heading", { name: "Welcome back, jane" })).toBeVisible()
+  await expect(page.locator("header")).toContainText("jane")
+  await expect(page.locator("header").getByRole("button", { name: "Log out" })).toBeVisible()
+
+  const cookie = await page.evaluate(() => document.cookie)
+  expect(cookie).toContain("fastrepo_token")
+})
+
+test("register with mocked backend lands on the dashboard", async ({ page }) => {
+  await page.route("**/api/users/register", (route) =>
+    route.fulfill({
+      status: 201,
+      json: { id: 1, username: "jane", email: "jane@example.com" },
+    })
+  )
+  await page.route("**/api/users/login", (route) =>
+    route.fulfill({
+      json: { access_token: "fake-jwt", token_type: "bearer" },
+    })
+  )
+
+  await page.goto("/login")
+  await page.getByRole("button", { name: "Register" }).click()
+
+  await page.getByPlaceholder("your-username").fill("jane")
+  await page.getByPlaceholder("you@example.com").fill("jane@example.com")
+  await page.getByPlaceholder("••••••••").first().fill("secret123")
+  await page.getByPlaceholder("••••••••").nth(1).fill("secret123")
+  await page.getByRole("button", { name: "Create Account" }).click()
+
+  await expect(page.getByRole("heading", { name: "Welcome back, jane" })).toBeVisible()
+  await expect(page.locator("header")).toContainText("jane")
 })

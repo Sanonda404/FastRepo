@@ -37,7 +37,10 @@ import "@/css/auth_theme.css";
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const initialMode = new URLSearchParams(window.location.search).get("mode") === "register"
+    ? "register"
+    : "login";
+  const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

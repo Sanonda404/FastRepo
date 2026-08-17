@@ -1,8 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/navbar";
-import AuthPage from "./pages/AuthPage"
+import AuthPage from "./pages/AuthPage";
+import HomePage from "./pages/HomePage";
+import Dashboard from "./pages/Dashboard";
+import { useAuth } from "@/lib/use-auth";
 
 export default function App() {
+  const { isLoggedIn } = useAuth();
+
   return (
     <BrowserRouter>
       <Navbar />
@@ -10,8 +15,11 @@ export default function App() {
         {/* Auth Route */}
         <Route path="/login" element={<AuthPage />} />
 
-        {/* Default Route: Redirect to /login for now */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Root Route: dashboard for logged-in users, homepage otherwise */}
+        <Route path="/" element={isLoggedIn ? <Dashboard /> : <HomePage />} />
+
+        {/* Default Route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
