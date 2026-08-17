@@ -1,7 +1,8 @@
 #+title: Test & Demonstration With a Full Workflow of the API
 
-#+PROPERTY: header-args:http :pretty :host 127.0.0.1:8000
-#+PROPERTY: header-args:shell :var host="127.0.0.1:8000" :results output
+#+PROPERTY: header-args:http :pretty :host 127.0.0.1:8000/api
+#+PROPERTY: header-args:shell :var host="127.0.0.1:8000/api" :results output
+#+PROPERTY: header-args:shell :var host-git-cli="127.0.0.1:8000" :results output
 
 * Register and Login
 Create two new users Alice and Bob. Alice will be owner of repositories and bob will be outsider, collaborator etc.
@@ -154,13 +155,13 @@ Alice will create two repositories. One public and another is private.
 * Cloning
 Someone not logged in will try to clone both public and private repositories. Public will pass, private will not
 #+begin_src shell :exports both
-  git -C /tmp clone http://$host/alice/test-public
+  git -C /tmp clone http://$host-git-cli/alice/test-public
 #+end_src
 
 #+RESULTS:
 
 #+begin_src shell :exports both
-  git -C /tmp clone http://$host/alice/test-private 2>&1
+  git -C /tmp clone http://$host-git-cli/alice/test-private 2>&1
 #+end_src
 
 #+RESULTS:
@@ -169,7 +170,7 @@ Someone not logged in will try to clone both public and private repositories. Pu
 
 But logging in with alice will successfully clone it. Alice will create an empty commit in main.
 #+begin_src shell :exports both
-  git -C /tmp clone http://alice:alice123@$host/alice/test-private
+  git -C /tmp clone http://alice:alice123@$host-git-cli/alice/test-private
   git -C /tmp/test-private config user.name "alice"
   git -C /tmp/test-private config user.email "alice123@test.com"
   git -C /tmp/test-private commit --allow-empty -m "First Commmit"
@@ -205,7 +206,7 @@ Now bob will be added to collaborators and then he can clone too.
 
 Now clone it as bob
 #+begin_src shell :exports both
-  git -C /tmp clone http://bob:bob123@$host/alice/test-private test-private-bob
+  git -C /tmp clone http://bob:bob123@$host-git-cli/alice/test-private test-private-bob
 #+end_src
 
 #+RESULTS:

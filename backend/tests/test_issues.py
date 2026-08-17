@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from test_pull_requests import (
-    SERVER_URL,
+    API_URL,
     unique,
     token_for,
     auth,
@@ -13,7 +13,7 @@ from test_pull_requests import (
 )
 from test_git_cli import seed_repo, cleanup_repo, GIT_PASSWORD
 
-TEST_SERVER_URL = SERVER_URL
+TEST_SERVER_URL = API_URL
 
 
 @pytest.fixture
@@ -421,7 +421,7 @@ class TestIssueDelete:
             r = client.delete(
                 f"/issues/{owner}/{repo_name}/{issue['number']}", headers=auth(other_token)
             )
-            assert r.status_code == 401
+            assert r.status_code == 403
         finally:
             cleanup_repo(owner, repo_name)
             cleanup_repo(other, unique("junk"))
@@ -514,7 +514,7 @@ class TestIssueComments:
             ).json()
 
             r = client.delete(f"/issues-comments/{comment['id']}", headers=auth(other_token))
-            assert r.status_code == 401
+            assert r.status_code == 403
         finally:
             cleanup_repo(owner, repo_name)
             cleanup_repo(other, unique("junk"))

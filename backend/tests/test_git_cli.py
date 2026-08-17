@@ -43,7 +43,7 @@ def _run_async(coro):
 
 def seed_repo(username: str, repo_name: str, password: str = GIT_PASSWORD) -> int:
     """Create user + repo through the public API. Return repo_id."""
-    with httpx.Client(base_url=SERVER_URL) as client:
+    with httpx.Client(base_url=SERVER_URL+"/api") as client:
         reg = client.post(
             "/users/register",
             json={"username": username, "email": f"{username}@test.com", "password": password},
@@ -112,8 +112,14 @@ def server_url():
 
 @pytest.fixture
 def client(server_url):
-    """HTTP client for endpoint-level checks."""
-    return httpx.Client(base_url=server_url)
+    """HTTP client for endpoint-level checks (API mounted under /api)."""
+    return httpx.Client(base_url=SERVER_URL + "/api")
+
+
+@pytest.fixture
+def git_client():
+    """Root-level client for git smart-HTTP endpoints (served outside /api)."""
+    return httpx.Client(base_url=SERVER_URL)
 
 
 @pytest.fixture
@@ -290,8 +296,8 @@ class TestGitCliHTTP:
         assert pull.returncode == 0, pull.stderr
         assert run_git(cl2, "rev-parse", "HEAD").stdout.strip() == first_commit
 
-    def test_advertise_refs(self, client, repo):
-        resp = client.get(
+    def test_advertise_refs(self, git_client, repo):
+        resp = git_client.get(
             f"/{repo['username']}/{repo['name']}/info/refs",
             params={"service": "git-upload-pack"},
         )
@@ -299,14 +305,14 @@ class TestGitCliHTTP:
         assert resp.headers["content-type"].startswith("application/x-git-upload-pack-advertisement")
         assert b"# service=git-upload-pack" in resp.content
 
-        bad = client.get(
+        bad = git_client.get(
             f"/{repo['username']}/{repo['name']}/info/refs",
             params={"service": "git-receive-pack"},
         )
         assert bad.status_code == 401, "Anonymous push must be rejected"
 
-    def test_missing_repo_404(self, client, repo):
-        r = client.get("/fake/naai/info/refs", params={"service": "git-upload-pack"})
+    def test_missing_repo_404(self, git_client, repo):
+        r = git_client.get("/fake/naai/info/refs", params={"service": "git-upload-pack"})
         assert r.status_code == 404
 
     def test_private_repo_clone_requires_auth(self, client, server_url):

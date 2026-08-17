@@ -20,6 +20,7 @@ from test_git_cli import (
 from services.database import DATABASE_URL
 
 SERVER_URL = os.getenv("TEST_SERVER_URL", "http://127.0.0.1:8000")
+API_URL = SERVER_URL + "/api"
 
 _unique_counter = 0
 
@@ -40,11 +41,11 @@ def server_url():
 
 @pytest.fixture
 def client(server_url):
-    return httpx.Client(base_url=server_url)
+    return httpx.Client(base_url=API_URL)
 
 
 def token_for(username: str, password: str = GIT_PASSWORD) -> str:
-    with httpx.Client(base_url=SERVER_URL) as client:
+    with httpx.Client(base_url=API_URL) as client:
         login = client.post("/users/login", data={"username": username, "password": password})
         assert login.status_code == 200, login.text
         return login.json()["access_token"]
@@ -84,7 +85,7 @@ def clone_and_push(url: str, clone_dir: Path, commit_fn) -> None:
 
 def make_pr(base: str, token: str, source: str, target: str,
             source_repository_id: int | None = None, body: str = "pr body") -> dict:
-    with httpx.Client(base_url=SERVER_URL) as client:
+    with httpx.Client(base_url=API_URL) as client:
         r = client.post(
                 f"/pulls/{base}",
             json={

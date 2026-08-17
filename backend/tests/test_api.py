@@ -9,6 +9,7 @@ import pytest
 from services.database import DATABASE_URL
 
 SERVER_URL = os.getenv("TEST_SERVER_URL", "http://127.0.0.1:8000")
+API_URL = SERVER_URL + "/api"
 
 PASSWORD = "testpass123"
 
@@ -34,6 +35,12 @@ def cleanup_user(username: str) -> None:
 
 @pytest.fixture
 def client():
+    return httpx.Client(base_url=API_URL)
+
+
+@pytest.fixture
+def git_client():
+    """Root-level client for git smart-HTTP endpoints (served outside /api)."""
     return httpx.Client(base_url=SERVER_URL)
 
 
@@ -189,7 +196,7 @@ class TestUserUpdateDelete:
     def test_update_me_requires_auth(self, client):
         assert client.patch("/users/me", json={"email": "x@y.com"}).status_code == 401
 
-    def test_delete_me(self, client):
+    def test_delete_me(self, client, git_client):
         username = unique("user")
         repo_name = unique("repo")
         try:
@@ -202,8 +209,8 @@ class TestUserUpdateDelete:
             assert login(client, username).status_code == 401
             assert client.get(f"/users/{username}").status_code == 404
             # repo gone too (cascade)
-            assert client.get(f"/{username}/{repo_name}/info/refs",
-                              params={"service": "git-upload-pack"}).status_code == 404
+            assert git_client.get(f"/{username}/{repo_name}/info/refs",
+                                  params={"service": "git-upload-pack"}).status_code == 404
         finally:
             cleanup_user(username)
 
@@ -329,7 +336,7 @@ class TestRepositoryViewUpdateDelete:
             cleanup_user(other)
             cleanup_user(owner)
 
-    def test_fork_copies_git_data(self, client):
+    def test_fork_copies_git_data(self, client, git_client):
         owner, token = make_user(client, "owner")
         repo_name = unique("repo")
         fork_name = unique("fork")
@@ -359,7 +366,7 @@ class TestRepositoryViewUpdateDelete:
             assert head["value"] == b"ref: refs/heads/main"
             assert fork_id != src_id
             # fork is cloneable via git with owner creds
-            r = client.get(
+            r = git_client.get(
                 f"/{owner}/{fork_name}/info/refs",
                 params={"service": "git-upload-pack"},
                 auth=(owner, PASSWORD),
@@ -370,7 +377,7 @@ class TestRepositoryViewUpdateDelete:
 
 
 class TestGitAuthOverHTTP:
-    def test_private_repo_git_requires_basic_auth(self, client):
+    def test_private_repo_git_requires_basic_auth(self, client, git_client):
         owner, token = make_user(client, "owner")
         other, other_token = make_user(client, "other")
         repo_name = unique("repo")
@@ -379,19 +386,19 @@ class TestGitAuthOverHTTP:
             url = f"/{owner}/{repo_name}/info/refs"
 
             # anonymous (no auth) -> 401
-            r = client.get(url, params={"service": "git-upload-pack"})
+            r = git_client.get(url, params={"service": "git-upload-pack"})
             assert r.status_code == 401
 
             # wrong password -> 401
-            r = client.get(url, params={"service": "git-upload-pack"}, auth=(owner, "wrongpass"))
+            r = git_client.get(url, params={"service": "git-upload-pack"}, auth=(owner, "wrongpass"))
             assert r.status_code == 401
 
             # non-collaborator -> 403
-            r = client.get(url, params={"service": "git-upload-pack"}, auth=(other, PASSWORD))
+            r = git_client.get(url, params={"service": "git-upload-pack"}, auth=(other, PASSWORD))
             assert r.status_code == 403
 
             # owner -> 200
-            r = client.get(url, params={"service": "git-upload-pack"}, auth=(owner, PASSWORD))
+            r = git_client.get(url, params={"service": "git-upload-pack"}, auth=(owner, PASSWORD))
             assert r.status_code == 200
 
             # collaborator -> 200
@@ -401,30 +408,30 @@ class TestGitAuthOverHTTP:
                 headers=auth(token),
             )
             assert add.status_code == 201, add.text
-            r = client.get(url, params={"service": "git-upload-pack"}, auth=(other, PASSWORD))
+            r = git_client.get(url, params={"service": "git-upload-pack"}, auth=(other, PASSWORD))
             assert r.status_code == 200
         finally:
             cleanup_user(other)
             cleanup_user(owner)
 
-    def test_public_repo_push_requires_auth(self, client):
+    def test_public_repo_push_requires_auth(self, client, git_client):
         owner, token = make_user(client, "owner")
         repo_name = unique("repo")
         try:
             assert create_repo(client, repo_name, token).status_code == 201
             url = f"/{owner}/{repo_name}/info/refs"
             # anonymous clone of public repo -> 200
-            r = client.get(url, params={"service": "git-upload-pack"})
+            r = git_client.get(url, params={"service": "git-upload-pack"})
             assert r.status_code == 200
             # anonymous push advertisement -> 401
-            r = client.get(url, params={"service": "git-receive-pack"})
+            r = git_client.get(url, params={"service": "git-receive-pack"})
             assert r.status_code == 401
             # owner push advertisement -> 200
-            r = client.get(url, params={"service": "git-receive-pack"}, auth=(owner, PASSWORD))
+            r = git_client.get(url, params={"service": "git-receive-pack"}, auth=(owner, PASSWORD))
             assert r.status_code == 200
             # authenticated non-owner push -> 403
             other, other_token = make_user(client, "other")
-            r = client.get(url, params={"service": "git-receive-pack"}, auth=(other, PASSWORD))
+            r = git_client.get(url, params={"service": "git-receive-pack"}, auth=(other, PASSWORD))
             assert r.status_code == 403
             cleanup_user(other)
         finally:
