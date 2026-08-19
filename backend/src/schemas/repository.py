@@ -86,3 +86,15 @@ class TreeResponse(BaseModel):
 class StarResponse(BaseModel):
     is_starred : bool
     star_count : int
+    
+class FileRequest(BaseModel):
+    path: str
+    ref: Optional[str] = None
+
+class FileResponse(BaseModel):
+    name: str
+    path: str
+    sha: str
+    size: int
+    binary: bool
+    content: str

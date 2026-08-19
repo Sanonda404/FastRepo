@@ -1,3 +1,4 @@
+import base64
 import difflib
 import re
 import stat
@@ -287,4 +288,47 @@ async def get_tree(
         "tree": tree_sha.decode("ascii"),
         "path": path.strip("/"),
         "entries": entries,
+    }
+
+
+async def get_file(
+    pool: asyncpg.Pool, repo_id: int, ref: str | None, path: str
+) -> dict | None:
+    commit_sha = await resolve_ref(pool, repo_id, ref)
+    if commit_sha is None:
+        return None
+    parts = [p.encode() for p in path.split("/") if p]
+    if not parts:
+        return None
+    async with pool.acquire() as conn:
+        commit_row = await conn.fetchrow(GET_COMMIT_META, repo_id, commit_sha)
+        if commit_row is None:
+            return None
+        tree_sha = commit_row["root_tree_sha"]
+        for part in parts[:-1]:
+            row = await conn.fetchrow(
+                "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
+                repo_id, tree_sha, part,
+            )
+            if row is None or not stat.S_ISDIR(row["mode"]):
+                return None
+            tree_sha = row["sha"]
+        leaf = await conn.fetchrow(
+            "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
+            repo_id, tree_sha, parts[-1],
+        )
+        if leaf is None or stat.S_ISDIR(leaf["mode"]):
+            return None
+        blob_row = await conn.fetchrow(GET_BLOBS, repo_id, [leaf["sha"]])
+    if blob_row is None or blob_row["content"] is None:
+        return None
+    data = _blob_data(blob_row["content"])
+    binary = b"\x00" in data
+    return {
+        "name": parts[-1].decode("utf-8", "replace"),
+        "path": path.strip("/"),
+        "sha": leaf["sha"].decode("ascii"),
+        "size": len(data),
+        "binary": binary,
+        "content": base64.b64encode(data).decode("ascii") if binary else data.decode("utf-8", "replace"),
     }
