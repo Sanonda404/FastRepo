@@ -20,6 +20,8 @@ from models.labels import ensure_labels_table
 from models.issue_assignees import ensure_issue_assignees_table
 from models.issue_pull_requests import ensure_issue_pull_requests_table
 from models.issue_labels import ensure_issue_labels_table
+from models.permission import ensure_permission_table
+from models.profile_pic import ensure_profile_picss_table
 
 load_dotenv()
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/fastrepo")
@@ -44,6 +46,8 @@ async def init_pool() -> None:
     await ensure_issue_assignees_table(_pool)
     await ensure_issue_pull_requests_table(_pool)
     await ensure_issue_labels_table(_pool)
+    await ensure_profile_picss_table(_pool)
+    await ensure_permission_table(_pool)
 
 async def close_pool() -> None:
     global _pool
