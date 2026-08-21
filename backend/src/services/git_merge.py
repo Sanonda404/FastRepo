@@ -72,7 +72,7 @@ async def _copy_reachable(
             row["author_date"],
             row["message"],
         )
-        if row["root_tree_sha"] != EMPTY_TREE_SHA:
+        if row["root_tree_sha"] is not None:
             await _copy_tree(conn, src_repo, dst_repo, row["root_tree_sha"])
         parents = await conn.fetch(GET_PARENTS, src_repo, [sha])
         for parent in parents:
@@ -81,8 +81,10 @@ async def _copy_reachable(
 
 
 async def _tree_map(
-    conn: asyncpg.Connection, repo_id: int, tree_sha: bytes
+    conn: asyncpg.Connection, repo_id: int, tree_sha: bytes | None
 ) -> dict[bytes, tuple[int, bytes]]:
+    if tree_sha is None:
+        return {}
     result: dict[bytes, tuple[int, bytes]] = {}
     stack = [(b"", tree_sha)]
     while stack:
@@ -262,6 +264,7 @@ async def merge_pull_request(
             merged, contents = await _three_way_map(conn, target_repo_id, base_map, ours_map, theirs_map)
 
             trees, root_sha = _build_trees(merged)
+            stored_root = None if root_sha is None or root_sha == EMPTY_TREE_SHA else root_sha
             if root_sha is None:
                 root_sha = EMPTY_TREE_SHA
 
@@ -295,7 +298,7 @@ async def merge_pull_request(
                 target_repo_id,
                 merge_sha,
                 raw,
-                root_sha,
+                stored_root,
                 actor["username"].encode(),
                 datetime.fromtimestamp(now, tz=timezone.utc),
                 message,

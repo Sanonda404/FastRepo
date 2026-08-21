@@ -63,7 +63,7 @@ async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest
                 repo_id,
                 commit.id,
                 commit.as_raw_string(),
-                EMPTY_TREE_SHA,
+                None,
                 current_user["username"].encode(),
                 datetime.fromtimestamp(now, tz=timezone.utc),
                 commit.message,

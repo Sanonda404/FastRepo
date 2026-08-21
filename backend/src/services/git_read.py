@@ -16,6 +16,7 @@ from dulwich.diff_tree import (
 )
 from dulwich.objects import ShaFile
 
+from models.git import EMPTY_TREE_SHA
 from services.git_backend import ObjectStore
 from sqls.git_sqls import (
     GET_BLOBS,
@@ -154,6 +155,7 @@ async def get_commit(pool: asyncpg.Pool, repo_id: int, sha: bytes) -> dict | Non
         if row is None:
             return None
         parents = await conn.fetch(GET_PARENTS, repo_id, [sha])
+    rt = row["root_tree_sha"]
     return {
         "sha": sha.decode("ascii"),
         "author": _to_str(row["author_name"]) or "",
@@ -161,7 +163,7 @@ async def get_commit(pool: asyncpg.Pool, repo_id: int, sha: bytes) -> dict | Non
         "author_date": row["author_date"],
         "message": (_to_str(row["message"]) or "").rstrip("\n"),
         "parents": [p["parent_sha"].decode("ascii") for p in parents],
-        "root_tree_sha": row["root_tree_sha"].decode("ascii"),
+        "root_tree_sha": rt.decode("ascii") if rt is not None else EMPTY_TREE_SHA.decode("ascii"),
     }
 
 
@@ -262,6 +264,15 @@ async def get_tree(
         if commit_row is None:
             return None
         tree_sha = commit_row["root_tree_sha"]
+        if tree_sha is None:
+            if path.strip("/"):
+                return None
+            return {
+                "commit": commit_sha.decode("ascii"),
+                "tree": EMPTY_TREE_SHA.decode("ascii"),
+                "path": path.strip("/"),
+                "entries": [],
+            }
         parts = [p.encode() for p in path.split("/") if p]
         for part in parts:
             row = await conn.fetchrow(
@@ -305,6 +316,8 @@ async def get_file(
         if commit_row is None:
             return None
         tree_sha = commit_row["root_tree_sha"]
+        if tree_sha is None:
+            return None
         for part in parts[:-1]:
             row = await conn.fetchrow(
                 "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",

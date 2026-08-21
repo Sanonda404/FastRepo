@@ -197,7 +197,7 @@ class ObjectStore(BaseObjectStore):
     async def _add_one(self, conn: asyncpg.Connection, obj: ShaFile) -> None:
         raw = obj.as_raw_string()
         if obj.type_num == _OBJ_COMMIT:
-            root_tree = obj.tree
+            root_tree = None if obj.tree == EMPTY_TREE_SHA else obj.tree
             author = getattr(obj, "author", None) or b""
             name = author.split(b" <", 1)[0] if b" <" in author else author
             await conn.execute(

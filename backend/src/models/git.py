@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS commits (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     sha BYTEA NOT NULL,
     content BYTEA NOT NULL,
-    root_tree_sha BYTEA NOT NULL,
+    root_tree_sha BYTEA,
     author_name BYTEA,
     author_date TIMESTAMPTZ,
     message BYTEA,
