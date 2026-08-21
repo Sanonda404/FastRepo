@@ -33,7 +33,7 @@ test("homepage CTAs link to the login page", async ({ page }) => {
 
   const main = page.locator("main");
   await main.getByRole("link", { name: "Get started" }).click();
-  await expect(page).toHaveURL(/\/register/);
+  await expect(page).toHaveURL(/\/login/);
 
   await page.goBack();
   await main.getByRole("link", { name: "Sign in" }).click();

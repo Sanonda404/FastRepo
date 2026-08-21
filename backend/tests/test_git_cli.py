@@ -489,6 +489,32 @@ class TestReadEndpoints:
         bad = client.get(f"{base}/tree", params={"path": "nope"})
         assert bad.status_code == 404
 
+    def test_file_endpoint(self, client, repo):
+        self._push_repo(repo)
+        base = f"/repositories/{repo['username']}/{repo['name']}"
+        r = client.post(f"{base}/file", json={"path": "README.md"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["name"] == "README.md"
+        assert body["path"] == "README.md"
+        assert body["binary"] is False
+        assert body["content"] == "# Test v2\n"
+        assert body["size"] == len("# Test v2\n")
+        assert len(body["sha"]) == 40
+
+        nested = client.post(f"{base}/file", json={"path": "src/app.py"})
+        assert nested.status_code == 200, nested.text
+        assert nested.json()["content"] == "print('hi')\n"
+
+        byref = client.post(f"{base}/file", json={"path": "README.md", "ref": "main"})
+        assert byref.status_code == 200
+
+        missing = client.post(f"{base}/file", json={"path": "nope.txt"})
+        assert missing.status_code == 404
+
+        dir_path = client.post(f"{base}/file", json={"path": "src"})
+        assert dir_path.status_code == 404
+
     def test_private_repo_read_403_anonymous(self, client, server_url):
         username = unique("priv")
         repo_name = unique("priv")

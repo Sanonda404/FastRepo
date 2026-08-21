@@ -1,6 +1,4 @@
-from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import OAuth2PasswordRequestForm
 from typing import List
 import asyncpg
 
@@ -14,7 +12,9 @@ from schemas.repository import (
     CommitSummary,
     CommitDetail,
     TreeResponse,
-    StarResponse
+    StarResponse,
+    FileRequest,
+    FileResponse,
 )
 from services.repository_crud import (
     create_repository,
@@ -33,6 +33,7 @@ from services.git_read import (
     get_branches,
     get_commit,
     get_diff,
+    get_file,
     get_history,
     get_tree,
     resolve_ref,
@@ -249,3 +250,18 @@ async def add_or_remove_star(
     """Insert Star / remove star from a repository."""
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
     return await manage_star(pool, current_user["id"], repo.id)
+
+@router.post("/{owner_name}/{repo_name}/file", response_model=FileResponse)
+async def view_file(
+    owner_name: str,
+    repo_name: str,
+    payload: FileRequest,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Fetch a file's content from the repository."""
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    file = await get_file(pool, repo.id, payload.ref, payload.path)
+    if file is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    return file

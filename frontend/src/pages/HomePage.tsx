@@ -60,7 +60,7 @@ export default function HomePage() {
           </p>
           <div className="mt-10 flex items-center justify-center gap-3">
             <Link
-              to="/register"
+              to="/login?mode=register"
               className={buttonVariants({ variant: "default", size: "lg" })}
             >
               Get started
