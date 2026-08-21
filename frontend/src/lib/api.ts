@@ -1,4 +1,4 @@
-import type { RegisterPayload, UserResponse, RepositoryResponse } from "./interfaces";
+import type { RegisterPayload, UserResponse} from "./interfaces";
 
 const TOKEN_COOKIE = "fastrepo_token"
 const AUTH_CHANGE_EVENT = "fastrepo:auth-change"
