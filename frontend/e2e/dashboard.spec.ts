@@ -1,10 +1,6 @@
-import { test, expect, type Page } from "@playwright/test"
+import { test, expect } from "@playwright/test"
 
-async function loginAs(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    document.cookie = "fastrepo_token=fake-jwt-token; path=/; SameSite=Lax"
-  })
-}
+import { loginAs } from "./helpers"
 
 test("dashboard shows welcome message and username in navbar when logged in", async ({
   page,
@@ -21,25 +17,27 @@ test("dashboard shows welcome message and username in navbar when logged in", as
   await expect(header.getByRole("button", { name: "Log out" })).toBeVisible()
 })
 
-test("dashboard shows stats from mock data", async ({ page }) => {
+test("dashboard shows stats derived from the API data", async ({ page }) => {
   await loginAs(page)
   await page.goto("/")
 
-  const stats = page.getByTestId("stats")
-  for (const [label, value] of [
-    ["Commits", "1.3k"],
-    ["Open issues", "23"],
-    ["Open pull requests", "7"],
-    ["Repositories", "8"],
-    ["Collaborators", "5"],
-    ["Stars", "342"],
+  const stat = (label: string) =>
+    page.getByTestId(`stat-${label.toLowerCase().replace(/\s+/g, "-")}`)
+
+  await expect(stat("Repositories")).toContainText("2")
+  for (const label of [
+    "Commits",
+    "Open issues",
+    "Open pull requests",
+    "Collaborators",
+    "Stars",
   ]) {
-    await expect(stats.getByText(value, { exact: true })).toBeVisible()
-    await expect(stats.getByText(label, { exact: true })).toBeVisible()
+    await expect(stat(label)).toContainText("0")
+    await expect(stat(label).getByText(label, { exact: true })).toBeVisible()
   }
 })
 
-test("dashboard lists all repositories with GitHub-like details", async ({ page }) => {
+test("dashboard lists repositories returned by the API", async ({ page }) => {
   await loginAs(page)
   await page.goto("/")
 
@@ -48,22 +46,14 @@ test("dashboard lists all repositories with GitHub-like details", async ({ page 
   ).toBeVisible()
 
   const repositories = page.getByTestId("repositories")
-
-  for (const repo of [
-    ["jane/fastrepo", "Code hosting with fine-grained"],
-    ["jane/payments-service", "Internal billing and payments"],
-    ["jane/dotfiles", "shell, editor and tmux"],
-    ["jane/api-gateway", "Edge routing, auth and rate limiting"],
-    ["jane/devops-playbook", "Runbooks and on-call"],
-    ["jane/frontend", "React, Vite and Tailwind"],
-    ["jane/mobile-app", "React Native client"],
-    ["jane/data-pipeline", "Batch ETL jobs"],
-  ]) {
-    await expect(
-      repositories.getByRole("link", { name: repo[0], exact: true })
-    ).toBeVisible()
-    await expect(repositories.getByText(repo[1])).toBeVisible()
-  }
+  await expect(
+    repositories.getByRole("link", { name: "jane/fastrepo", exact: true })
+  ).toBeVisible()
+  await expect(repositories.getByText("Code hosting with fine-grained")).toBeVisible()
+  await expect(
+    repositories.getByRole("link", { name: "jane/payments-service", exact: true })
+  ).toBeVisible()
+  await expect(repositories.getByText("Internal billing and payments")).toBeVisible()
 })
 
 test("repository cards show private badges only for private repos", async ({ page }) => {
@@ -71,15 +61,19 @@ test("repository cards show private badges only for private repos", async ({ pag
   await page.goto("/")
 
   const repositories = page.getByTestId("repositories")
-  await expect(repositories.getByText("Private", { exact: true })).toHaveCount(3)
-  for (const repo of ["payments-service", "api-gateway", "mobile-app"]) {
-    await expect(
-      repositories.locator("a", { hasText: repo }).locator("..").getByText("Private")
-    ).toBeVisible()
-  }
+  await expect(repositories.getByText("Private", { exact: true })).toHaveCount(1)
+  const card = (name: string) =>
+    repositories
+      .getByRole("link", { name })
+      .locator("xpath=ancestor::div[contains(@class,'rounded-xl')]")
+
+  await expect(card("jane/payments-service").getByText("Private")).toBeVisible()
+  await expect(
+    card("jane/fastrepo").getByText("Private")
+  ).toHaveCount(0)
 })
 
-test("repository cards show counts and updated timestamps", async ({ page }) => {
+test("repository cards show creation timestamps from the API", async ({ page }) => {
   await loginAs(page)
   await page.goto("/")
 
@@ -89,13 +83,8 @@ test("repository cards show counts and updated timestamps", async ({ page }) => 
       .getByRole("link", { name })
       .locator("xpath=ancestor::div[contains(@class,'rounded-xl')]")
 
-  const fastrepo = card("jane/fastrepo")
-  await expect(fastrepo.getByText("187")).toBeVisible()
-  await expect(fastrepo.getByText("42")).toBeVisible()
-  await expect(fastrepo.getByText("Updated 2 hours ago")).toBeVisible()
-
-  const frontend = card("jane/frontend")
-  await expect(frontend.getByText("45")).toBeVisible()
+  await expect(card("jane/fastrepo").getByText("Created 2 hours ago")).toBeVisible()
+  await expect(card("jane/payments-service").getByText("Created 1 day ago")).toBeVisible()
 })
 
 test("dashboard persists across reload while logged in", async ({ page }) => {

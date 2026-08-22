@@ -1,3 +1,4 @@
+import axios from "axios"
 import type { RegisterPayload, UserResponse} from "./interfaces";
 
 const TOKEN_COOKIE = "fastrepo_token"
@@ -27,71 +28,38 @@ export function subscribeAuthChange(callback: () => void): () => void {
   return () => window.removeEventListener(AUTH_CHANGE_EVENT, callback)
 }
 
-export function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message
-  return "Something went wrong"
-}
+export const apiClient = axios.create({
+  baseURL: "/api",
+  headers: { "Content-Type": "application/json" },
+})
 
-async function errorDetail(response: Response): Promise<string | null> {
-  try {
-    const data = await response.json()
-    return typeof data?.detail === "string" ? data.detail : null
-  } catch {
-    return null
-  }
-}
-
-function authHeaders(): Record<string, string> {
+apiClient.interceptors.request.use((config) => {
   const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
 
 export async function loginApi(formData: FormData) {
-  const response = await fetch("/api/users/login", {
-    method: "POST",
-    body: formData,
-    credentials: "same-origin",
-  });
-
-  if (!response.ok) {
-    throw new Error((await errorDetail(response)) ?? "Failed to log in");
-  }
-
-  return response.json() as Promise<{ access_token: string; token_type: string }>;
+  const response = await apiClient.post<{ access_token: string; token_type: string }>("/users/login", formData);
+  return response.data;
 }
 
 export async function registerApi(payload: RegisterPayload): Promise<UserResponse> {
-  const response = await fetch("/api/users/register", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-    credentials: "same-origin",
-  });
-
-  if (!response.ok) {
-    throw new Error((await errorDetail(response)) ?? "Registration failed");
-  }
-
-  return response.json();
+  const response = await apiClient.post<UserResponse>("/users/register", payload);
+  return response.data;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-      ...init.headers,
-    },
-    credentials: "same-origin",
-  });
+export async function api<T>(path: string, init: { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; body?: unknown } = {}): Promise<T> {
+  const response = await apiClient.request<T>({ url: path, method: init.method ?? "GET", data: init.body });
+  return response.data;
+}
 
-  if (!response.ok) {
-    throw new Error((await errorDetail(response)) ?? "Request failed");
+export function getErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const detail: unknown = err.response?.data?.detail
+    if (typeof detail === "string") return detail
+    return err.message
   }
-
-  if (response.status === 204) return undefined as T;
-  return response.json();
+  if (err instanceof Error) return err.message
+  return "Something went wrong"
 }

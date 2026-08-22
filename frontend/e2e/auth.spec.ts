@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 
+import { stubBackend } from "./helpers"
+
 async function themeVar(page: Page, name: string): Promise<string> {
   return page.evaluate((v) => getComputedStyle(document.documentElement).getPropertyValue(v), name)
 }
@@ -70,6 +72,7 @@ test("toggle returns to light", async ({ page }) => {
 })
 
 test("login with mocked backend lands on the dashboard", async ({ page }) => {
+  await stubBackend(page)
   await page.route("**/api/users/login", (route) =>
     route.fulfill({
       json: { access_token: "fake-jwt", token_type: "bearer" },
@@ -90,6 +93,7 @@ test("login with mocked backend lands on the dashboard", async ({ page }) => {
 })
 
 test("register with mocked backend lands on the dashboard", async ({ page }) => {
+  await stubBackend(page)
   await page.route("**/api/users/register", (route) =>
     route.fulfill({
       status: 201,

@@ -1,26 +1,41 @@
-import { useSyncExternalStore } from "react"
-import { getAuthToken, clearAuthToken, subscribeAuthChange } from "@/lib/api"
-import { mockUser } from "@/lib/mock-data"
+import { useEffect, useState, useSyncExternalStore } from "react"
+import { api, clearAuthToken, getAuthToken, subscribeAuthChange } from "@/lib/api"
+import type { UserResponse } from "@/lib/interfaces"
 
-export interface AuthState {
-  isLoggedIn: boolean
-  username: string | null
-  logout: () => void
-}
+let cachedUsername: string | null = null
 
 function getIsLoggedIn(): boolean {
   return getAuthToken() !== null
 }
 
-export function useAuth(): AuthState {
+export function useAuth() {
   const isLoggedIn = useSyncExternalStore(
     subscribeAuthChange,
     getIsLoggedIn,
     getIsLoggedIn
   )
+  const [username, setUsername] = useState<string | null>(cachedUsername)
+
+  useEffect(() => {
+    if (!isLoggedIn || cachedUsername) return
+    let active = true
+    api<UserResponse>("/users/me")
+      .then((user) => {
+        cachedUsername = user.username
+        if (active) setUsername(user.username)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [isLoggedIn])
+
+  const logout = () => {
+    cachedUsername = null
+    clearAuthToken()
+  }
+
   return {
     isLoggedIn,
-    username: isLoggedIn ? mockUser.username : null,
-    logout: clearAuthToken,
+    username: isLoggedIn ? username : null,
+    logout,
   }
 }

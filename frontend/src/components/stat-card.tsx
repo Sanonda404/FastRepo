@@ -13,7 +13,10 @@ function formatCount(value: number): string {
 
 export default function StatCard({ label, value, icon: Icon }: Stat) {
   return (
-    <div className="flex items-center gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/10">
+    <div
+      data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      className="flex items-center gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/10"
+    >
       <div className="flex size-11 items-center justify-center rounded-lg bg-muted text-foreground">
         <Icon className="size-5" />
       </div>

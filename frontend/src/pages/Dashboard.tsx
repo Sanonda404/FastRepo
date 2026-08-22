@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import {
   GitCommitHorizontal,
   CircleDot,
@@ -10,22 +11,41 @@ import {
 
 import { Link } from "react-router-dom"
 import { useAuth } from "@/lib/use-auth"
-import { mockRepositories, mockStats } from "@/lib/mock-data"
+import { api, getErrorMessage } from "@/lib/api"
+import type { RepositoryResponse } from "@/lib/interfaces"
 import StatCard from "@/components/stat-card"
 import RepositoryCard from "@/components/repository-card"
 import Footer from "@/components/footer"
 
-const stats = [
-  { label: "Commits", value: mockStats.totalCommits, icon: GitCommitHorizontal },
-  { label: "Open issues", value: mockStats.openIssues, icon: CircleDot },
-  { label: "Open pull requests", value: mockStats.openPullRequests, icon: GitPullRequest },
-  { label: "Repositories", value: mockStats.totalRepos, icon: Folder },
-  { label: "Collaborators", value: mockStats.collaborators, icon: Users },
-  { label: "Stars", value: mockStats.totalStars, icon: Star },
-]
-
 export default function Dashboard() {
   const { username } = useAuth()
+  const [reposByUsername, setReposByUsername] = useState<Record<string, RepositoryResponse[]>>({})
+  const [errorsByUsername, setErrorsByUsername] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!username || reposByUsername[username] || errorsByUsername[username]) return
+    let active = true
+    api<RepositoryResponse[]>(`/repositories/${username}`)
+      .then((data) => {
+        if (active) setReposByUsername((prev) => ({ ...prev, [username]: data }))
+      })
+      .catch((err) => {
+        if (active) setErrorsByUsername((prev) => ({ ...prev, [username]: getErrorMessage(err) }))
+      })
+    return () => { active = false }
+  }, [username, reposByUsername, errorsByUsername])
+
+  const repos = username ? reposByUsername[username] ?? null : null
+  const error = username ? errorsByUsername[username] ?? null : null
+
+  const stats = [
+    { label: "Commits", value: 0, icon: GitCommitHorizontal },
+    { label: "Open issues", value: 0, icon: CircleDot },
+    { label: "Open pull requests", value: 0, icon: GitPullRequest },
+    { label: "Repositories", value: repos?.length ?? 0, icon: Folder },
+    { label: "Collaborators", value: 0, icon: Users },
+    { label: "Stars", value: 0, icon: Star },
+  ]
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -57,11 +77,19 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {mockRepositories.map((repo) => (
-              <RepositoryCard key={repo.id} repo={repo} />
-            ))}
-          </div>
+          {error && (
+            <p className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</p>
+          )}
+          {!error && repos === null && (
+            <p className="text-sm text-muted-foreground">Loading repositories…</p>
+          )}
+          {repos !== null && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {repos.map((repo) => (
+                <RepositoryCard key={repo.id} repo={repo} owner={username ?? ""} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
       <Footer />
