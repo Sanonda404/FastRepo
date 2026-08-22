@@ -31,6 +31,7 @@ _pool: asyncpg.Pool | None = None
 async def init_pool() -> None:
     global _pool
     _pool = await asyncpg.create_pool(DATABASE_URL)
+    await ensure_profile_picss_table(_pool)
     await ensure_users_table(_pool)
     await ensure_repositories_table(_pool)
     await ensure_repository_collaborators_table(_pool)
@@ -46,7 +47,6 @@ async def init_pool() -> None:
     await ensure_issue_assignees_table(_pool)
     await ensure_issue_pull_requests_table(_pool)
     await ensure_issue_labels_table(_pool)
-    await ensure_profile_picss_table(_pool)
     await ensure_permission_table(_pool)
 
 async def close_pool() -> None:
