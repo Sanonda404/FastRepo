@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(30) NOT NULL UNIQUE,
     email VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    profile_pic_id INT REFERENCES profile_pics(id) ON DELETE SET NULL,
 
     CONSTRAINT users_email_format_chk CHECK (
         email LIKE '%_@_%'
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     )
 )
 """
+
 
 async def ensure_users_table(pool: asyncpg.Pool) -> None:
     await pool.execute(USERS_TABLE_DDL)
