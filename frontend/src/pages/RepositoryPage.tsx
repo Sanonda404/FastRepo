@@ -34,7 +34,17 @@ const tree: Record<string, Record<string, Entry[]>> = {
     src: [
       { name: "__init__.py", type: "blob", message: "Create application package", updated: "2 weeks ago" },
       { name: "api.py", type: "blob", message: "Add repository browser", updated: "3 hours ago" },
+      { name: "lib", type: "tree", message: "Extract shared helpers", updated: "6 hours ago" },
       { name: "models.py", type: "blob", message: "Add repository models", updated: "4 days ago" },
+    ],
+    "src/lib": [
+      { name: "formatters", type: "tree", message: "Add table formatting", updated: "2 days ago" },
+      { name: "config.py", type: "blob", message: "Extract shared helpers", updated: "6 hours ago" },
+      { name: "utils.py", type: "blob", message: "Extract shared helpers", updated: "6 hours ago" },
+    ],
+    "src/lib/formatters": [
+      { name: "tables.py", type: "blob", message: "Add table formatting", updated: "2 days ago" },
+      { name: "time.py", type: "blob", message: "Format relative timestamps", updated: "3 days ago" },
     ],
     docs: [{ name: "architecture.md", type: "blob", message: "Clarify API setup", updated: "yesterday" }],
     tests: [{ name: "test_tree.py", type: "blob", message: "Cover branch selection", updated: "3 hours ago" }],
@@ -72,6 +82,7 @@ const tree: Record<string, Record<string, Entry[]>> = {
 const contents: Record<string, string> = {
   "README.md": "# FastRepo\n\nA small, self-hosted home for source code and collaboration.\n\n## Getting started\n\nSee `API.md` for the repository API reference.\n",
   "src/api.py": "from fastapi import APIRouter\n\nrouter = APIRouter(prefix='/repositories')\n\n@router.get('/{owner}/{repository}/tree')\ndef get_tree(owner: str, repository: str):\n    return {'owner': owner, 'repository': repository}\n",
+  "src/lib/formatters/time.py": "def relative_time(seconds: int) -> str:\n    minutes = seconds // 60\n    if minutes < 60:\n        return f'{minutes} minutes ago'\n    return f'{minutes // 60} hours ago'\n",
   "src/search.py": "def search_branches(branches, query):\n    return [branch for branch in branches if query.lower() in branch.lower()]\n",
   "API.md": "# FastRepo API\n\nThe repository tree accepts a ref and an optional path.\n",
   ".gitignore": ".venv/\n__pycache__/\n.env\n",
@@ -96,7 +107,7 @@ export default function RepositoryPage() {
   }, [branch, owner, repository])
 
   const currentPath = path.join("/")
-  const entries = tree[branch][currentPath] ?? []
+  const entries = tree[branch]?.[currentPath] ?? []
   const visibleBranches = useMemo(
     () => branches.filter(({ name }) => name.toLowerCase().includes(branchSearch.toLowerCase())),
     [branchSearch],
@@ -158,8 +169,16 @@ export default function RepositoryPage() {
             <span className="ml-auto flex items-center gap-2 text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha}<span>·</span><Clock3 className="size-4" />{latest.time}<button className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</button></span>
           </div>
 
-          {selectedFile ? <FileView owner={owner} repository={repository} branch={branch} path={path} file={selectedFile} content={contents[filePath] ?? "# File preview\n\nMock content is available for this file in the production API."} onBack={() => setSelectedFile(null)} /> : <>
-            <div className="flex items-center gap-1 border-b px-4 py-3 text-sm"><button className="font-medium text-primary hover:underline" onClick={() => setPath([])}>{repository}</button>{path.map((segment, index) => <span key={segment} className="flex items-center gap-1"><span className="text-muted-foreground">/</span><button className="font-medium text-primary hover:underline" onClick={() => setPath(path.slice(0, index + 1))}>{segment}</button></span>)}</div>
+          {selectedFile ? <FileView owner={owner} repository={repository} branch={branch} path={path} file={selectedFile} content={contents[filePath] ?? "# File preview\n\nMock content is available for this file in the production API."} onBack={() => { setPath([]); setSelectedFile(null) }} onOpenDir={(index) => { setPath(path.slice(0, index + 1)); setSelectedFile(null) }} /> : <>
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1 border-b px-4 py-3 text-sm">
+              <button className="font-medium text-primary hover:underline" onClick={() => { setPath([]); setSelectedFile(null) }}>{repository}</button>
+              {path.map((segment, index) => (
+                <span key={segment} className="flex items-center gap-1">
+                  <span className="text-muted-foreground">/</span>
+                  <button className="font-medium text-primary hover:underline" onClick={() => { setPath(path.slice(0, index + 1)); setSelectedFile(null) }}>{segment}</button>
+                </span>
+              ))}
+            </nav>
             <div role="table" aria-label="Repository file explorer">
               <div role="row" className="hidden grid-cols-[minmax(14rem,2fr)_minmax(12rem,2fr)_9rem] gap-4 border-b px-4 py-2 text-xs font-medium text-muted-foreground sm:grid"><span role="columnheader">Name</span><span role="columnheader">Latest commit message</span><span role="columnheader">Last update</span></div>
               {path.length > 0 && <button role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b px-4 py-3 text-left text-sm hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_minmax(12rem,2fr)_9rem]" onClick={() => setPath(path.slice(0, -1))}><span className="flex items-center gap-2 text-primary"><Folder className="size-4 fill-current/20" />..</span><span className="hidden sm:block" /><span className="text-muted-foreground">Up one level</span></button>}
@@ -172,10 +191,10 @@ export default function RepositoryPage() {
   )
 }
 
-function FileView({ owner, repository, branch, path, file, content, onBack }: { owner: string; repository: string; branch: string; path: string[]; file: string; content: string; onBack: () => void }) {
+function FileView({ owner, repository, branch, path, file, content, onBack, onOpenDir }: { owner: string; repository: string; branch: string; path: string[]; file: string; content: string; onBack: () => void; onOpenDir: (index: number) => void }) {
   const lines = content.split("\n")
   return <>
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"><div className="flex items-center gap-1"><button onClick={onBack} className="font-medium text-primary hover:underline">{repository}</button><span className="text-muted-foreground">/</span>{path.map((segment) => <span key={segment} className="flex items-center gap-1"><span className="font-medium text-primary">{segment}</span><span className="text-muted-foreground">/</span></span>)}<span className="font-medium">{file}</span></div><div className="flex gap-2"><button className={baseButton}>Raw</button><button className={baseButton}><Copy className="size-4" /> Copy</button><button className={baseButton}><MoreHorizontal className="size-4" /></button></div></div>
+    <nav aria-label="File breadcrumb" className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"><div className="flex items-center gap-1"><button onClick={onBack} className="font-medium text-primary hover:underline">{repository}</button><span className="text-muted-foreground">/</span>{path.map((segment, index) => <span key={segment} className="flex items-center gap-1"><button onClick={() => onOpenDir(index)} className="font-medium text-primary hover:underline">{segment}</button><span className="text-muted-foreground">/</span></span>)}<span className="font-medium">{file}</span></div><div className="flex gap-2"><button className={baseButton}>Raw</button><button className={baseButton}><Copy className="size-4" /> Copy</button><button className={baseButton}><MoreHorizontal className="size-4" /></button></div></nav>
     <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"><FileText className="size-4" />{[...path, file].join("/")}<span>·</span><span>{content.length} bytes</span><span>·</span><span>{branch}</span><span className="ml-auto flex items-center gap-1"><History className="size-4" /> File history</span></div>
     <pre className="overflow-x-auto bg-[#0d1117] p-4 text-sm leading-6 text-[#c9d1d9]">{lines.map((line, index) => <code key={index} className="block"><span className="mr-5 inline-block w-6 select-none text-right text-[#6e7681]">{index + 1}</span>{line || " "}</code>)}</pre>
     <p className="sr-only">Viewing {owner}/{repository}</p>
