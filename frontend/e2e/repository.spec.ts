@@ -163,6 +163,21 @@ async function stubRepoApi(page: Page): Promise<void> {
       })
     }
 
+    if (path === "/api/collaborators/jane/fastrepo") {
+      return route.fulfill({
+        json: [
+          {
+            id: 1,
+            repository_id: 1,
+            user_id: 2,
+            username: "bob",
+            email: "bob@example.com",
+            role: "write",
+          },
+        ],
+      })
+    }
+
     return route.fulfill({ status: 404, json: { detail: "Not found" } })
   })
 }
@@ -189,6 +204,20 @@ test("repository explorer keeps its tree while selecting branches and files", as
   await page.getByRole("row", { name: "search.py" }).click()
   await expect(page.getByText("def search_branches", { exact: false })).toBeVisible()
   await expect(page.getByText("File history")).toBeVisible()
+})
+
+test("sidebar shows the description and contributors including the owner", async ({ page }) => {
+  await page.goto("/jane/fastrepo")
+
+  const sidebar = page.getByTestId("repo-sidebar")
+  await expect(sidebar.getByRole("heading", { name: "About" })).toBeVisible()
+  await expect(sidebar.getByText("Code hosting with fine-grained permissions.")).toBeVisible()
+
+  await expect(sidebar.getByRole("heading", { name: "Contributors" })).toBeVisible()
+  const jane = sidebar.locator("li").filter({ hasText: "jane" })
+  await expect(jane).toContainText("Owner")
+  const bob = sidebar.locator("li").filter({ hasText: "bob" })
+  await expect(bob).toContainText("write")
 })
 
 test("latest commit bar shows the branch head commit from the API", async ({ page }) => {

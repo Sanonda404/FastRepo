@@ -1,6 +1,7 @@
 import type { NewRepositoryInput } from "./schemas/repository";
 import type {
   BranchResponse,
+  CollaboratorResponse,
   CommitSummary,
   FileResponse,
   RepositoryResponse,
@@ -36,4 +37,8 @@ export function getFile(owner: string, name: string, filePath: string, ref: stri
 export function listCommits(owner: string, name: string, ref: string, limit = 1): Promise<CommitSummary[]> {
   const params = new URLSearchParams({ ref, limit: String(limit) });
   return api<CommitSummary[]>(`/repositories/${owner}/${name}/commits?${params}`);
+}
+
+export function listCollaborators(owner: string, name: string): Promise<CollaboratorResponse[]> {
+  return api<CollaboratorResponse[]>(`/collaborators/${owner}/${name}`);
 }

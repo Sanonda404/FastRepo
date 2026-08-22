@@ -58,3 +58,12 @@ export interface FileResponse {
   binary: boolean;
   content: string;
 }
+
+export interface CollaboratorResponse {
+  id: number;
+  repository_id: number;
+  user_id: number;
+  username: string;
+  email: string;
+  role: string;
+}
