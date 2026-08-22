@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS pull_requests (
     id SERIAL PRIMARY KEY,
     repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     author_id INT REFERENCES users(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
     body TEXT,
     state VARCHAR(20) NOT NULL DEFAULT 'open'
         CONSTRAINT pull_requests_state_chk CHECK (state IN ('open', 'closed')),
