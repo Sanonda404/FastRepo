@@ -27,8 +27,18 @@ packages = [
   {include = "routers", from = "src"},
   {include = "services", from = "src"},
   {include = "schemas", from = "src"},
-  {include = "app.py", from = "src"}
+  {include = "sqls", from = "src"},
+  {include = "app.py", from = "src"},
+  {include = "scripts"}
 ]
+
+[tool.poetry.scripts]
+serve = "scripts.serve:main"
+gen-schema = "scripts.generate_schema:main"
+
+[project.scripts]
+serve = "scripts.serve:main"
+gen-schema = "scripts.generate_schema:main"
 
 
 [build-system]

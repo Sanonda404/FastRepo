@@ -1078,6 +1078,21 @@ files = [
 ]
 
 [[package]]
+name = "merge3"
+version = "0.0.16"
+description = "Python implementation of 3-way merge"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "merge3-0.0.16-py3-none-any.whl", hash = "sha256:b9d907b7281213a5dca1d711d168c4f8fe8aca20d74e2456bb177c4f31dfd927"},
+    {file = "merge3-0.0.16.tar.gz", hash = "sha256:0852de4381cb46be5ef4ed49e3ac20c5a4a0cd46a8ff4bbb870bc27aab543306"},
+]
+
+[package.extras]
+dev = ["mypy (>=1.0.0)", "ruff (==0.14.0)"]
+
+[[package]]
 name = "packaging"
 version = "26.2"
 description = "Core utilities for Python packages"
@@ -2213,4 +2228,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "ead0d69b26c7c7a5aac7c9682b1695272cd765a2fd834e385ac707a7151ab876"
+content-hash = "4ce463950f56ada42803c945269671e1f03a0710fd355e38638f08d9ef870f6a"
