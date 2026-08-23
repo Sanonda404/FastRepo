@@ -355,7 +355,7 @@ class TestRepositoryViewUpdateDelete:
                 conn = await asyncpg.connect(DATABASE_URL)
                 try:
                     return await conn.fetchrow(
-                        "SELECT name, value FROM refs WHERE repo_id = $1 AND name = 'HEAD'",
+                        "SELECT name, symref FROM refs WHERE repo_id = $1 AND name = 'HEAD'",
                         fork_id,
                     )
                 finally:
@@ -363,7 +363,7 @@ class TestRepositoryViewUpdateDelete:
 
             head = _run_async(heads())
             assert head is not None
-            assert head["value"] == "ref: refs/heads/main"
+            assert head["symref"] == "refs/heads/main"
             assert fork_id != src_id
             # fork is cloneable via git with owner creds
             r = git_client.get(

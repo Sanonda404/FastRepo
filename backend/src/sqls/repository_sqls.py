@@ -103,11 +103,6 @@ GET_LIST_OF_ACCESSIBLE_FORKS = """
 """
 
 
-COPY_FORK_COMMITS = """
-    INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
-    SELECT $1, sha, content, root_tree_sha, author_name, author_date, message FROM commits WHERE repo_id = $2
-"""
-
 COPY_FORK_BLOBS = """
     INSERT INTO blobs (repo_id, sha, content, size)
     SELECT $1, sha, content, size FROM blobs WHERE repo_id = $2
@@ -119,8 +114,13 @@ COPY_FORK_TAGS = """
 """
 
 COPY_FORK_TREE_ENTRIES = """
-    INSERT INTO tree_entries (repo_id, tree_sha, name, mode, sha)
-    SELECT $1, tree_sha, name, mode, sha FROM tree_entries WHERE repo_id = $2
+    INSERT INTO tree_entries (repo_id, tree_sha, name, mode, blob_sha, subtree_sha)
+    SELECT $1, tree_sha, name, mode, blob_sha, subtree_sha FROM tree_entries WHERE repo_id = $2
+"""
+
+COPY_FORK_COMMITS = """
+    INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
+    SELECT $1, sha, content, root_tree_sha, author_name, author_date, message FROM commits WHERE repo_id = $2
 """
 
 COPY_FORK_COMMIT_PARENTS = """
@@ -129,8 +129,8 @@ COPY_FORK_COMMIT_PARENTS = """
 """
 
 COPY_FORK_REFS = """
-    INSERT INTO refs (repo_id, name, value)
-    SELECT $1, name, value FROM refs WHERE repo_id = $2
+    INSERT INTO refs (repo_id, name, commit_sha, tag_sha, symref)
+    SELECT $1, name, commit_sha, tag_sha, symref FROM refs WHERE repo_id = $2
 """
 
 GET_STAR = """

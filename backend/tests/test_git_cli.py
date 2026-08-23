@@ -81,7 +81,8 @@ def fetch_ref(repo_id: int, ref_name: str) -> str | None:
         conn = await asyncpg.connect(DATABASE_URL)
         try:
             row = await conn.fetchrow(
-                "SELECT value FROM refs WHERE repo_id = $1 AND name = $2",
+                "SELECT COALESCE(CASE WHEN symref IS NOT NULL THEN 'ref: ' || symref END, tag_sha, commit_sha) AS value "
+                "FROM refs WHERE repo_id = $1 AND name = $2",
                 repo_id,
                 ref_name,
             )

@@ -357,10 +357,22 @@ class TestGitBackend:
     def test_refs_cas_and_symref(self, bridge, repo_id):
         refs = RefContainer(repo_id, bridge=bridge)
 
+        async def _seed_commit(sha_hex: str) -> None:
+            conn = await asyncpg.connect(DATABASE_URL)
+            try:
+                await conn.execute(
+                    "INSERT INTO commits (repo_id, sha, content) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+                    repo_id, sha_hex, b"commit 0\n",
+                )
+            finally:
+                await conn.close()
+
         head_ref = b"HEAD"
         master_ref = b"refs/heads/master"
         feature_ref = b"refs/heads/feature"
         commit_sha = b"a" * 40
+        for sha in (commit_sha, b"b" * 40, b"c" * 40):
+            asyncio.new_event_loop().run_until_complete(_seed_commit(sha.decode("ascii")))
 
         assert refs.add_if_new(master_ref, commit_sha) is True
         assert refs.add_if_new(master_ref, commit_sha) is False
@@ -443,9 +455,11 @@ class TestGitBackend:
             dulwich_src = __import__("dulwich.repo").repo.Repo(str(src_path))
             head_sha = dulwich_src[b"HEAD"].id
 
-            for sha in dulwich_src.object_store:
-                obj = dulwich_src.object_store[sha]
-                repo.object_store.add_objects([(obj, None)])
+            # single transaction: FKs are deferred, so all objects (commits
+            # referencing trees etc.) must land together, like a real pack push
+            repo.object_store.add_objects(
+                [(dulwich_src.object_store[sha], None) for sha in dulwich_src.object_store]
+            )
             repo.refs.add_if_new(b"refs/heads/master", head_sha)
             repo.refs.set_symbolic_ref(b"HEAD", b"refs/heads/master")
 

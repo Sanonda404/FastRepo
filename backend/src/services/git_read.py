@@ -271,7 +271,7 @@ async def get_tree(
         parts = [p for p in path.split("/") if p]
         for part in parts:
             row = await conn.fetchrow(
-                "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
+                "SELECT COALESCE(subtree_sha, blob_sha) AS sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
                 repo_id, tree_sha, part,
             )
             if row is None or not stat.S_ISDIR(row["mode"]):
@@ -315,14 +315,14 @@ async def get_file(
             return None
         for part in parts[:-1]:
             row = await conn.fetchrow(
-                "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
+                "SELECT COALESCE(subtree_sha, blob_sha) AS sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
                 repo_id, tree_sha, part,
             )
             if row is None or not stat.S_ISDIR(row["mode"]):
                 return None
             tree_sha = row["sha"]
         leaf = await conn.fetchrow(
-            "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
+            "SELECT COALESCE(subtree_sha, blob_sha) AS sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
             repo_id, tree_sha, parts[-1],
         )
         if leaf is None or stat.S_ISDIR(leaf["mode"]):

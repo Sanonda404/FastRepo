@@ -54,7 +54,7 @@ CLOSE_PULL_REQUEST = """
 """
 
 GET_BRANCH_REF = """
-    SELECT value FROM refs
+    SELECT COALESCE(tag_sha, commit_sha) FROM refs
     WHERE repo_id = $1 AND name = $2
 """
 

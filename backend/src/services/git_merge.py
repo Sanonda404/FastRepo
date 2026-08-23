@@ -5,7 +5,7 @@ import asyncpg
 from dulwich.objects import Blob, Commit, Tree
 from dulwich.merge import merge_blobs
 
-from models.git import EMPTY_TREE_SHA, EMPTY_TREE_SHA_HEX
+from models.git import EMPTY_TREE_SHA
 from sqls.git_sqls import (
     GET_TREE_ENTRIES,
     GET_PARENTS,
@@ -13,7 +13,7 @@ from sqls.git_sqls import (
     INSERT_COMMIT,
     INSERT_COMMIT_PARENT,
     INSERT_BLOB,
-    INSERT_TREE_ENTRIES,
+    INSERT_TREE_ENTRY,
     SET_REF_IF_EQUALS,
 )
 from sqls.pull_request_sqls import (
@@ -40,10 +40,12 @@ async def _copy_blob(conn: asyncpg.Connection, src_repo: int, dst_repo: int, sha
 async def _copy_tree(conn: asyncpg.Connection, src_repo: int, dst_repo: int, tree_sha: str) -> None:
     if await conn.fetchval(CHECK_OBJECT_EXISTS, dst_repo, tree_sha):
         return
+    await conn.execute(INSERT_TREE_ENTRY, dst_repo, tree_sha, "", 0o040000, None, tree_sha)
     rows = await conn.fetch(GET_TREE_ENTRIES, src_repo, tree_sha)
     for r in rows:
+        blob_sha, subtree_sha = (None, r["sha"]) if stat.S_ISDIR(r["mode"]) else (r["sha"], None)
         await conn.execute(
-            INSERT_TREE_ENTRIES, dst_repo, tree_sha, r["name"], r["mode"], r["sha"]
+            INSERT_TREE_ENTRY, dst_repo, tree_sha, r["name"], r["mode"], blob_sha, subtree_sha
         )
         if stat.S_ISDIR(r["mode"]):
             await _copy_tree(conn, src_repo, dst_repo, r["sha"])
@@ -279,9 +281,14 @@ async def merge_pull_request(
                 await conn.execute(INSERT_BLOB, target_repo_id, sha, content, len(content))
             if trees:
                 for tree in trees:
+                    tid = tree.id.decode("ascii")
+                    await conn.execute(
+                        INSERT_TREE_ENTRY, target_repo_id, tid, "", 0o040000, None, tid
+                    )
                     for name, mode, sha in tree.items():
+                        blob_sha, subtree_sha = (None, sha.decode("ascii")) if stat.S_ISDIR(mode) else (sha.decode("ascii"), None)
                         await conn.execute(
-                            INSERT_TREE_ENTRIES, target_repo_id, tree.id.decode("ascii"), name.decode("utf-8", "replace"), mode, sha.decode("ascii")
+                            INSERT_TREE_ENTRY, target_repo_id, tid, name.decode("utf-8", "replace"), mode, blob_sha, subtree_sha
                         )
 
             message = f"Merge pull request #{pull_id}: {source_branch} into {target_branch}"
@@ -315,7 +322,7 @@ async def merge_pull_request(
                     INSERT_COMMIT_PARENT, target_repo_id, merge_sha, parent.decode("ascii"), index
                 )
 
-            updated = await conn.fetchval(SET_REF_IF_EQUALS, target_repo_id, target_ref, merge_sha, target_head)
+            updated = await conn.fetchval(SET_REF_IF_EQUALS, target_repo_id, target_ref, merge_sha, None, target_head)
             if updated is None:
                 raise ValueError("Target branch changed during merge")
 

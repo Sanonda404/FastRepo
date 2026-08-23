@@ -31,7 +31,7 @@ from sqls.git_sqls import (
     INSERT_COMMIT,
     INSERT_BLOB,
     INSERT_TAG,
-    INSERT_TREE_ENTRIES,
+    INSERT_TREE_ENTRY,
     DELETE_TREE_ENTRIES,
     INSERT_COMMIT_PARENT,
     DELETE_COMMIT_PARENTS,
@@ -58,6 +58,13 @@ _OBJ_TAG = 4
 def _db_sha(sha: ObjectID | str) -> str:
     """dulwich object id (hex bytes) -> DB varchar value"""
     return sha.decode("ascii") if isinstance(sha, bytes) else sha
+
+
+def _entry_target(mode: int, sha: str) -> tuple[str | None, str | None]:
+    """convert a tree entry into (blob_sha, subtree_sha) columns"""
+    if stat.S_ISDIR(mode):
+        return None, sha
+    return sha, None
 
 class _AsyncBridge:
     """Utility class to make non async methods use async methods"""
@@ -230,10 +237,15 @@ class ObjectStore(BaseObjectStore):
             await conn.execute(INSERT_TAG, self._repo_id, _db_sha(obj.id), raw.decode("utf-8", "replace"))
         elif obj.type_num == _OBJ_TREE:
             await conn.execute(DELETE_TREE_ENTRIES, self._repo_id, _db_sha(obj.id))
+            blob_sha, subtree_sha = _entry_target(0o040000, _db_sha(obj.id))
+            await conn.execute(
+                INSERT_TREE_ENTRY, self._repo_id, _db_sha(obj.id), "", 0o040000, blob_sha, subtree_sha
+            )
             entries = list(obj.items())
             for name, mode, entry_sha in entries:
+                blob_sha, subtree_sha = _entry_target(mode, _db_sha(entry_sha))
                 await conn.execute(
-                    INSERT_TREE_ENTRIES, self._repo_id, _db_sha(obj.id), name.decode("utf-8", "replace"), mode, _db_sha(entry_sha)
+                    INSERT_TREE_ENTRY, self._repo_id, _db_sha(obj.id), name.decode("utf-8", "replace"), mode, blob_sha, subtree_sha
                 )
 
     def _async_add_object(self, obj: ShaFile) -> None:
@@ -322,6 +334,13 @@ class RefContainer(RefsContainer):
     def _run(self, coro):
         return self._bridge.run(coro)
 
+    async def _classify_ref_target(self, conn: asyncpg.Connection, oid: ObjectID | str) -> tuple[str | None, str | None]:
+        """(commit_sha, tag_sha) for an object id; unknown ids treated as commits"""
+        s = _db_sha(oid)
+        if await conn.fetchval("SELECT 1 FROM tags WHERE repo_id = $1 AND sha = $2", self._repo_id, s):
+            return None, s
+        return s, None
+
     def read_loose_ref(self, name: Ref) -> bytes | None:
         async def _inner():
             async with self._bridge.pool.acquire() as conn:
@@ -352,7 +371,7 @@ class RefContainer(RefsContainer):
         value = SYMREF + other
         async def _inner():
             async with self._bridge.pool.acquire() as conn:
-                await conn.execute(SET_SYMREF, self._repo_id, _db_sha(name), _db_sha(value))
+                await conn.execute(SET_SYMREF, self._repo_id, _db_sha(name), _db_sha(other))
 
         self._run(_inner())
         self._log(name, None, value, committer, timestamp, timezone, message)
@@ -370,13 +389,21 @@ class RefContainer(RefsContainer):
         async def _inner():
             async with self._bridge.pool.acquire() as conn:
                 async with conn.transaction():
-                    updated = await conn.execute(SET_REF_IF_EQUALS, self._repo_id, _db_sha(name), _db_sha(new_ref), _db_sha(old_ref) if old_ref is not None else None)
+                    new_commit, new_tag = await self._classify_ref_target(conn, new_ref)
+                    updated = await conn.execute(
+                        SET_REF_IF_EQUALS,
+                        self._repo_id,
+                        _db_sha(name),
+                        new_commit,
+                        new_tag,
+                        _db_sha(old_ref) if old_ref is not None else None,
+                    )
                     if updated == "UPDATE 1":
                         return True
                     if old_ref is not None and old_ref != ZERO_SHA:
                         return False
-                    inserted = await conn.execute(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), _db_sha(new_ref))
-                    return inserted == "INSERT 0 1"
+                    inserted = await conn.fetchrow(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), new_commit, new_tag)
+                    return inserted is not None
         result = self._run(_inner())
         if result:
             self._log(name, old_ref, new_ref, committer, timestamp, timezone, message)
@@ -394,7 +421,7 @@ class RefContainer(RefsContainer):
     ) -> bool:
         async def _inner():
             async with self._bridge.pool.acquire() as conn:
-                row = await conn.fetchrow(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), _db_sha(ref))
+                row = await conn.fetchrow(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), *(await self._classify_ref_target(conn, ref)))
                 return row is not None
 
         result = self._run(_inner())
@@ -421,7 +448,12 @@ class RefContainer(RefsContainer):
                         return old_ref is None or old_ref == ZERO_SHA
                     if old_ref is not None and row["value"] != _db_sha(old_ref):
                         return False
-                    await conn.execute(REMOVE_REF_IF_EQUALS, self._repo_id, _db_sha(name), _db_sha(old_ref) if old_ref is not None else None)
+                    await conn.execute(
+                        REMOVE_REF_IF_EQUALS,
+                        self._repo_id,
+                        _db_sha(name),
+                        _db_sha(old_ref) if old_ref is not None else None,
+                    )
                     return True
         result = self._run(_inner())
         if result:

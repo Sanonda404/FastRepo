@@ -31,9 +31,15 @@ INSERT_TAG = """
 """
 
 INSERT_HEAD_REF = """
-    INSERT INTO refs (repo_id, name, value)
+    INSERT INTO refs (repo_id, name, symref)
     VALUES ($1, 'HEAD', $2)
     ON CONFLICT (repo_id, name) DO NOTHING
+"""
+
+UPSERT_REF = """
+    INSERT INTO refs (repo_id, name, commit_sha)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (repo_id, name) DO UPDATE SET commit_sha = $3, tag_sha = NULL, symref = NULL
 """
 
 INSERT_COMMIT_PARENT = """
@@ -46,10 +52,10 @@ DELETE_COMMIT_PARENTS = """
     DELETE FROM commit_parent WHERE repo_id = $1 AND commit_sha = $2
 """
 
-INSERT_TREE_ENTRIES = """
-    INSERT INTO tree_entries (repo_id, tree_sha, name, mode, sha)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT (repo_id, tree_sha, name) DO UPDATE SET mode = $4, sha = $5
+INSERT_TREE_ENTRY = """
+    INSERT INTO tree_entries (repo_id, tree_sha, name, mode, blob_sha, subtree_sha)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    ON CONFLICT (repo_id, tree_sha, name) DO UPDATE SET mode = $4, blob_sha = $5, subtree_sha = $6
 """
 
 DELETE_TREE_ENTRIES = """
@@ -78,47 +84,52 @@ ITER_OBJECT_SHAS = """
 """
 
 GET_TREE_ENTRIES = """
-    SELECT name, mode, sha FROM tree_entries
-    WHERE repo_id = $1 AND tree_sha = $2
+    SELECT name, mode, COALESCE(subtree_sha, blob_sha) AS sha FROM tree_entries
+    WHERE repo_id = $1 AND tree_sha = $2 AND name <> ''
     ORDER BY name
 """
 
 READ_LOOSE_REF = """
-    SELECT value FROM refs WHERE repo_id = $1 AND name = $2
+    SELECT COALESCE(CASE WHEN symref IS NOT NULL THEN 'ref: ' || symref END, tag_sha, commit_sha) AS value
+    FROM refs WHERE repo_id = $1 AND name = $2
 """
 
 ALL_REFS = """
-    SELECT name, value FROM refs WHERE repo_id = $1
+    SELECT name FROM refs WHERE repo_id = $1
 """
 
 SET_SYMREF = """
-    INSERT INTO refs (repo_id, name, value)
+    INSERT INTO refs (repo_id, name, symref)
     VALUES ($1, $2, $3)
-    ON CONFLICT (repo_id, name) DO UPDATE SET value = $3
+    ON CONFLICT (repo_id, name) DO UPDATE SET symref = $3, commit_sha = NULL, tag_sha = NULL
 """
 
 SET_REF_IF_EQUALS = """
     UPDATE refs
-    SET value = $3::text
-    WHERE repo_id = $1 AND name = $2 AND ($4::text IS NULL OR value = $4::text)
+    SET commit_sha = $3, tag_sha = $4, symref = NULL
+    WHERE repo_id = $1 AND name = $2
+      AND ($5::text IS NULL OR $5::text IN (commit_sha, tag_sha))
     RETURNING 1
 """
 
 ADD_REF_IF_NEW = """
-    INSERT INTO refs (repo_id, name, value)
-    VALUES ($1, $2, $3::text)
+    INSERT INTO refs (repo_id, name, commit_sha, tag_sha)
+    VALUES ($1, $2, $3, $4)
     ON CONFLICT (repo_id, name) DO NOTHING
     RETURNING 1
 """
 
 REMOVE_REF_IF_EQUALS = """
     DELETE FROM refs
-    WHERE repo_id = $1 AND name = $2 AND ($3::text IS NULL OR value = $3::text)
+    WHERE repo_id = $1 AND name = $2
+      AND ($3::text IS NULL OR $3::text IN (commit_sha, tag_sha) OR $3::text = symref)
     RETURNING 1
 """
 
 GET_BRANCH_REFS = """
-    SELECT name, value FROM refs
+    SELECT name,
+           COALESCE(CASE WHEN symref IS NOT NULL THEN 'ref: ' || symref END, tag_sha, commit_sha) AS value
+    FROM refs
     WHERE repo_id = $1 AND name LIKE 'refs/heads/%'
     ORDER BY name
 """
@@ -150,9 +161,9 @@ GET_BLOBS = """
 """
 
 GET_TREE_ENTRIES_WITH_SIZES = """
-    SELECT t.name, t.mode, t.sha, b.size
+    SELECT t.name, t.mode, COALESCE(t.subtree_sha, t.blob_sha) AS sha, b.size
     FROM tree_entries t
-    LEFT JOIN blobs b ON b.repo_id = t.repo_id AND b.sha = t.sha
-    WHERE t.repo_id = $1 AND t.tree_sha = $2
+    LEFT JOIN blobs b ON b.repo_id = t.repo_id AND b.sha = t.blob_sha
+    WHERE t.repo_id = $1 AND t.tree_sha = $2 AND t.name <> ''
     ORDER BY t.name
 """
