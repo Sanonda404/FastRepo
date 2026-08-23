@@ -151,4 +151,4 @@ async def merge_pull(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     merged_pr = await get_pull_request(pool, repo.id, pull_request_id)
-    return MergeResponse(**merged_pr.model_dump(), merge_commit_sha=merge_sha.decode())
+    return MergeResponse(**merged_pr.model_dump(), merge_commit_sha=merge_sha)

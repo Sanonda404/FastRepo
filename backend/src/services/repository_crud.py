@@ -44,7 +44,7 @@ async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest
             await conn.execute(
                 INSERT_HEAD_REF,
                 repo_id,
-                f"ref: {branch}".encode(),
+                f"ref: {branch}",
             )
             now = int(datetime.now(timezone.utc).timestamp())
             commit = Commit()
@@ -61,14 +61,14 @@ async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest
             await conn.execute(
                 INSERT_COMMIT,
                 repo_id,
-                commit.id,
+                commit.id.decode("ascii"),
                 commit.as_raw_string(),
                 None,
-                current_user["username"].encode(),
+                current_user["username"],
                 datetime.fromtimestamp(now, tz=timezone.utc),
-                commit.message,
+                commit.message.decode("ascii"),
             )
-            await conn.execute(SET_SYMREF, repo_id, branch.encode(), commit.id)
+            await conn.execute(SET_SYMREF, repo_id, branch, commit.id.decode("ascii"))
             return RepositoryResponse(**dict(row))
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")

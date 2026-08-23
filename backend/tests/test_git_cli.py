@@ -83,9 +83,9 @@ def fetch_ref(repo_id: int, ref_name: str) -> str | None:
             row = await conn.fetchrow(
                 "SELECT value FROM refs WHERE repo_id = $1 AND name = $2",
                 repo_id,
-                ref_name.encode(),
+                ref_name,
             )
-            return row["value"].decode() if row else None
+            return row["value"] if row else None
         finally:
             await conn.close()
 

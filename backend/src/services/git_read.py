@@ -16,7 +16,7 @@ from dulwich.diff_tree import (
 )
 from dulwich.objects import ShaFile
 
-from models.git import EMPTY_TREE_SHA
+from models.git import EMPTY_TREE_SHA_HEX
 from services.git_backend import ObjectStore
 from sqls.git_sqls import (
     GET_BLOBS,
@@ -28,7 +28,7 @@ from sqls.git_sqls import (
     READ_LOOSE_REF,
 )
 
-_SHA_RE = re.compile(rb"^[0-9a-f]{40}$")
+_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _CHANGE_STATUS = {
     CHANGE_ADD: "added",
     CHANGE_MODIFY: "modified",
@@ -37,15 +37,15 @@ _CHANGE_STATUS = {
     CHANGE_COPY: "copied",
 }
 
-async def _read_ref(pool: asyncpg.Pool, repo_id: int, name: bytes) -> bytes | None:
+async def _read_ref(pool: asyncpg.Pool, repo_id: int, name: str) -> str | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(READ_LOOSE_REF, repo_id, name)
         return row["value"] if row else None
 
-async def resolve_ref(pool: asyncpg.Pool, repo_id: int, ref: str | None) -> bytes | None:
+async def resolve_ref(pool: asyncpg.Pool, repo_id: int, ref: str | None) -> str | None:
     if ref is None:
-        head = await _read_ref(pool, repo_id, b"HEAD")
-        if head and head.startswith(b"ref: "):
+        head = await _read_ref(pool, repo_id, "HEAD")
+        if head and head.startswith("ref: "):
             target = head[5:]
             value = await _read_ref(pool, repo_id, target)
             if value:
@@ -54,48 +54,43 @@ async def resolve_ref(pool: asyncpg.Pool, repo_id: int, ref: str | None) -> byte
             rows = await conn.fetch(GET_BRANCH_REFS, repo_id)
         return rows[0]["value"] if rows else None
 
-    key = ref.encode()
-    value = await _read_ref(pool, repo_id, b"refs/heads/" + key)
+    value = await _read_ref(pool, repo_id, "refs/heads/" + ref)
     if value is None:
-        value = await _read_ref(pool, repo_id, b"refs/tags/" + key)
+        value = await _read_ref(pool, repo_id, "refs/tags/" + ref)
     if value:
         return await _peel_to_commit(repo_id, value)
-    if _SHA_RE.match(key):
+    if _SHA_RE.match(ref):
         async with pool.acquire() as conn:
-            row = await conn.fetchrow(GET_COMMIT_META, repo_id, key)
+            row = await conn.fetchrow(GET_COMMIT_META, repo_id, ref)
         return row["sha"] if row else None
     return None
 
 
-async def _peel_to_commit(repo_id: int, sha: bytes) -> bytes:
+async def _peel_to_commit(repo_id: int, sha: str) -> str:
     store = ObjectStore(repo_id)
-    current = sha
+    # dulwich treats a 40-char id as raw binary; always index with hex bytes
+    current = sha.encode("ascii")
     for _ in range(10):
         try:
             obj = store[current]
         except KeyError:
-            return current
+            return current.decode("ascii")
         if obj.type_num != 4:
-            return current
+            return current.decode("ascii")
         current = obj.object[1]
-        
-    return current
 
-def _to_str(data: bytes | None) -> str | None:
-    if data is None:
-        return None
-    return data.decode("utf-8", "replace")
+    return current.decode("ascii")
 
 async def get_branches(pool: asyncpg.Pool, repo_id: int) -> list[dict]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_BRANCH_REFS, repo_id)
-    head = await _read_ref(pool, repo_id, b"HEAD")
-    default = head[5:] if head and head.startswith(b"ref: ") else None
-    prefix = len(b"refs/heads/")
+    head = await _read_ref(pool, repo_id, "HEAD")
+    default = head[5:] if head and head.startswith("ref: ") else None
+    prefix = len("refs/heads/")
     return [
         {
-            "name": _to_str(row["name"])[prefix:],
-            "sha": row["value"].decode("ascii"),
+            "name": row["name"][prefix:],
+            "sha": row["value"],
             "is_default": row["name"] == default,
         }
         for row in rows
@@ -103,19 +98,19 @@ async def get_branches(pool: asyncpg.Pool, repo_id: int) -> list[dict]:
 
 
 async def get_history(
-    pool: asyncpg.Pool, repo_id: int, head_sha: bytes, limit: int, offset: int
+    pool: asyncpg.Pool, repo_id: int, head_sha: str, limit: int, offset: int
 ) -> list[dict]:
     """BFS over parent edges"""
-    order: list[bytes] = []
-    seen: set[bytes] = set()
-    pending: list[bytes] = [head_sha]
+    order: list[str] = []
+    seen: set[str] = set()
+    pending: list[str] = [head_sha]
     seen.add(head_sha)
     while pending:
         batch = pending
         pending = []
         async with pool.acquire() as conn:
             edges = await conn.fetch(GET_PARENTS, repo_id, batch)
-        parents: dict[bytes, list[bytes]] = {}
+        parents: dict[str, list[str]] = {}
         for row in edges:
             parents.setdefault(row["commit_sha"], []).append(row["parent_sha"])
         for sha in batch:
@@ -140,16 +135,16 @@ async def get_history(
         if m is None:
             continue
         result.append({
-            "sha": sha.decode("ascii"),
-            "author": _to_str(m["author_name"]) or "",
+            "sha": sha,
+            "author": m["author_name"] or "",
             "author_email": m["author_email"],
             "author_date": m["author_date"],
-            "message": (_to_str(m["message"]) or "").rstrip("\n"),
+            "message": (m["message"] or "").rstrip("\n"),
         })
     return result
 
 
-async def get_commit(pool: asyncpg.Pool, repo_id: int, sha: bytes) -> dict | None:
+async def get_commit(pool: asyncpg.Pool, repo_id: int, sha: str) -> dict | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(GET_COMMIT_META, repo_id, sha)
         if row is None:
@@ -157,29 +152,29 @@ async def get_commit(pool: asyncpg.Pool, repo_id: int, sha: bytes) -> dict | Non
         parents = await conn.fetch(GET_PARENTS, repo_id, [sha])
     rt = row["root_tree_sha"]
     return {
-        "sha": sha.decode("ascii"),
-        "author": _to_str(row["author_name"]) or "",
+        "sha": sha,
+        "author": row["author_name"] or "",
         "author_email": row["author_email"],
         "author_date": row["author_date"],
-        "message": (_to_str(row["message"]) or "").rstrip("\n"),
-        "parents": [p["parent_sha"].decode("ascii") for p in parents],
-        "root_tree_sha": rt.decode("ascii") if rt is not None else EMPTY_TREE_SHA.decode("ascii"),
+        "message": (row["message"] or "").rstrip("\n"),
+        "parents": [p["parent_sha"] for p in parents],
+        "root_tree_sha": rt or EMPTY_TREE_SHA_HEX,
     }
 
 
 async def get_diff(
-    pool: asyncpg.Pool, repo_id: int, old_tree: bytes, new_tree: bytes
+    pool: asyncpg.Pool, repo_id: int, old_tree: str, new_tree: str
 ) -> list[dict]:
     store = ObjectStore(repo_id)
     try:
         changes = list(tree_changes(
             store,
-            old_tree,
-            new_tree,
+            old_tree.encode("ascii"),
+            new_tree.encode("ascii"),
             want_unchanged=False,
             rename_detector=RenameDetector(store),
         ))
-        
+
     except KeyError:
         return []
 
@@ -187,7 +182,7 @@ async def get_diff(
     for change in changes:
         for entry in (change.old, change.new):
             if entry is not None:
-                blob_shas.add(entry.sha)
+                blob_shas.add(entry.sha.decode("ascii"))
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_BLOBS, repo_id, list(blob_shas))
     blob_data = {
@@ -207,8 +202,8 @@ async def get_diff(
         if old_entry is not None and old_entry.path != entry.path:
             old_path = old_entry.path.decode("utf-8", "replace")
 
-        old_bytes = blob_data.get(old_entry.sha) if old_entry else b""
-        new_bytes = blob_data.get(entry.sha)
+        old_bytes = blob_data.get(old_entry.sha.decode("ascii")) if old_entry else b""
+        new_bytes = blob_data.get(entry.sha.decode("ascii"))
         if old_bytes is None:
             old_bytes = b""
         if new_bytes is None:
@@ -268,12 +263,12 @@ async def get_tree(
             if path.strip("/"):
                 return None
             return {
-                "commit": commit_sha.decode("ascii"),
-                "tree": EMPTY_TREE_SHA.decode("ascii"),
+                "commit": commit_sha,
+                "tree": EMPTY_TREE_SHA_HEX,
                 "path": path.strip("/"),
                 "entries": [],
             }
-        parts = [p.encode() for p in path.split("/") if p]
+        parts = [p for p in path.split("/") if p]
         for part in parts:
             row = await conn.fetchrow(
                 "SELECT sha, mode FROM tree_entries WHERE repo_id = $1 AND tree_sha = $2 AND name = $3",
@@ -288,15 +283,15 @@ async def get_tree(
     for r in entries_rows:
         is_dir = stat.S_ISDIR(r["mode"])
         entries.append({
-            "name": r["name"].decode("utf-8", "replace"),
+            "name": r["name"],
             "type": "tree" if is_dir else "blob",
             "mode": r["mode"],
-            "sha": r["sha"].decode("ascii"),
+            "sha": r["sha"],
             "size": None if is_dir else r["size"] or 0,
         })
     return {
-        "commit": commit_sha.decode("ascii"),
-        "tree": tree_sha.decode("ascii"),
+        "commit": commit_sha,
+        "tree": tree_sha,
         "path": path.strip("/"),
         "entries": entries,
     }
@@ -308,7 +303,7 @@ async def get_file(
     commit_sha = await resolve_ref(pool, repo_id, ref)
     if commit_sha is None:
         return None
-    parts = [p.encode() for p in path.split("/") if p]
+    parts = [p for p in path.split("/") if p]
     if not parts:
         return None
     async with pool.acquire() as conn:
@@ -338,9 +333,9 @@ async def get_file(
     data = _blob_data(blob_row["content"])
     binary = b"\x00" in data
     return {
-        "name": parts[-1].decode("utf-8", "replace"),
+        "name": parts[-1],
         "path": path.strip("/"),
-        "sha": leaf["sha"].decode("ascii"),
+        "sha": leaf["sha"],
         "size": len(data),
         "binary": binary,
         "content": base64.b64encode(data).decode("ascii") if binary else data.decode("utf-8", "replace"),

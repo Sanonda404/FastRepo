@@ -195,15 +195,15 @@ class TestGitBackend:
 
             create_commit(repo_path, "base.txt", "base", "base")
             run_git(repo_path, "checkout", "-b", "feature")
-            feature_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            feature_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
             create_commit(repo_path, "feat.txt", "feat", "Feature")
-            feature_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            feature_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
             run_git(repo_path, "checkout", "master")
             create_commit(repo_path, "other.txt", "other", "Other")
-            master_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            master_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
             merge_result = run_git(repo_path, "merge", "--no-ff", "feature", "-m", "Merge feature")
             assert merge_result.returncode == 0, merge_result.stderr
-            merge_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip().encode()
+            merge_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
 
             dulwich_repo = Repo(str(repo_path))
             objects = [dulwich_repo.object_store[sha] for sha in dulwich_repo.object_store]
@@ -225,8 +225,8 @@ class TestGitBackend:
                         repo_id, merge_head,
                     )
                     root_tree = row["root_tree_sha"]
-                    assert row["author_name"] == b"Test User"
-                    assert row["message"] == b"Merge feature\n"
+                    assert row["author_name"] == "Test User"
+                    assert row["message"] == "Merge feature\n"
                     assert row["author_date"] is not None
 
                     parents = await conn.fetch(
@@ -242,7 +242,7 @@ class TestGitBackend:
                     )
                     got = {r["sha"]: r["size"] for r in blob_rows}
                     for sha, size in blobs_expected.items():
-                        assert got.get(sha) == size, f"blob {sha} size mismatch"
+                        assert got.get(sha.decode("ascii")) == size, f"blob {sha} size mismatch"
                 finally:
                     await conn.close()
 

@@ -64,18 +64,18 @@ CREATE TABLE IF NOT EXISTS permissions (
 
 CREATE TABLE IF NOT EXISTS commits (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    sha BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
     content BYTEA NOT NULL,
-    root_tree_sha BYTEA,
-    author_name BYTEA,
+    root_tree_sha VARCHAR(40),
+    author_name VARCHAR(255),
     author_date TIMESTAMPTZ,
-    message BYTEA,
+    message TEXT,
     PRIMARY KEY (repo_id, sha)
 );
 
 CREATE TABLE IF NOT EXISTS blobs (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    sha BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
     content BYTEA NOT NULL,
     size BIGINT NOT NULL,
     PRIMARY KEY (repo_id, sha)
@@ -83,31 +83,31 @@ CREATE TABLE IF NOT EXISTS blobs (
 
 CREATE TABLE IF NOT EXISTS tags (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    sha BYTEA NOT NULL,
-    content BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
+    content TEXT NOT NULL,
     PRIMARY KEY (repo_id, sha)
 );
 
 CREATE TABLE IF NOT EXISTS tree_entries (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    tree_sha BYTEA NOT NULL,
-    name BYTEA NOT NULL,
+    tree_sha VARCHAR(40) NOT NULL,
+    name TEXT NOT NULL,
     mode INT NOT NULL,
-    sha BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
     PRIMARY KEY (repo_id, tree_sha, name)
 );
 
 CREATE TABLE IF NOT EXISTS refs (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    name BYTEA NOT NULL,
-    value BYTEA NOT NULL,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
     PRIMARY KEY (repo_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS commit_parent (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    commit_sha BYTEA NOT NULL,
-    parent_sha BYTEA NOT NULL,
+    commit_sha VARCHAR(40) NOT NULL,
+    parent_sha VARCHAR(40) NOT NULL,
     parent_index INT NOT NULL,
     PRIMARY KEY (repo_id, commit_sha, parent_index),
     FOREIGN KEY (repo_id, commit_sha)
@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS pull_requests (
     id SERIAL PRIMARY KEY,
     repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     author_id INT REFERENCES users(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
     body TEXT,
     state VARCHAR(20) NOT NULL DEFAULT 'open'
         CONSTRAINT pull_requests_state_chk CHECK (state IN ('open', 'closed')),

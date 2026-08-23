@@ -27,7 +27,7 @@ from sqls.pull_request_sqls import (
 async def _branch_exists(pool: asyncpg.Pool, repo_id: int, branch: str) -> bool:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            GET_BRANCH_REF, repo_id, f"refs/heads/{branch}".encode()
+            GET_BRANCH_REF, repo_id, f"refs/heads/{branch}"
         )
         return row is not None
 
@@ -61,6 +61,7 @@ async def create_pull_request(
                 CREATE_PULL_REQUEST,
                 target_r["id"],
                 author_id,
+                payload.title or "",
                 payload.body,
                 payload.source_branch,
                 payload.target_branch,
@@ -92,7 +93,7 @@ async def update_pull_request(
 ) -> PullRequestResponse | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            UPDATE_PULL_REQUEST, pull_request_id, repository_id, payload.body, payload.state
+            UPDATE_PULL_REQUEST, pull_request_id, repository_id, payload.title, payload.body, payload.state
         )
         if row is None:
             return None

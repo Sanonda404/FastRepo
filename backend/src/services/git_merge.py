@@ -5,7 +5,7 @@ import asyncpg
 from dulwich.objects import Blob, Commit, Tree
 from dulwich.merge import merge_blobs
 
-from models.git import EMPTY_TREE_SHA
+from models.git import EMPTY_TREE_SHA, EMPTY_TREE_SHA_HEX
 from sqls.git_sqls import (
     GET_TREE_ENTRIES,
     GET_PARENTS,
@@ -25,11 +25,11 @@ from sqls.pull_request_sqls import (
 )
 
 class MergeConflictError(Exception):
-    def __init__(self, paths: list[bytes]) -> None:
-        self.paths = [p.decode("utf-8", "replace") for p in paths]
+    def __init__(self, paths: list[str]) -> None:
+        self.paths = paths
         super().__init__("Merge conflicts in: " + ", ".join(self.paths))
 
-async def _copy_blob(conn: asyncpg.Connection, src_repo: int, dst_repo: int, sha: bytes) -> None:
+async def _copy_blob(conn: asyncpg.Connection, src_repo: int, dst_repo: int, sha: str) -> None:
     if await conn.fetchval(CHECK_OBJECT_EXISTS, dst_repo, sha):
         return
     row = await conn.fetchrow(GET_BLOB_CONTENT, src_repo, sha)
@@ -37,7 +37,7 @@ async def _copy_blob(conn: asyncpg.Connection, src_repo: int, dst_repo: int, sha
         raise ValueError("Source blob not found")
     await conn.execute(INSERT_BLOB, dst_repo, sha, row["content"], len(row["content"]))
 
-async def _copy_tree(conn: asyncpg.Connection, src_repo: int, dst_repo: int, tree_sha: bytes) -> None:
+async def _copy_tree(conn: asyncpg.Connection, src_repo: int, dst_repo: int, tree_sha: str) -> None:
     if await conn.fetchval(CHECK_OBJECT_EXISTS, dst_repo, tree_sha):
         return
     rows = await conn.fetch(GET_TREE_ENTRIES, src_repo, tree_sha)
@@ -52,7 +52,7 @@ async def _copy_tree(conn: asyncpg.Connection, src_repo: int, dst_repo: int, tre
 
 
 async def _copy_reachable(
-    conn: asyncpg.Connection, src_repo: int, dst_repo: int, root: bytes
+    conn: asyncpg.Connection, src_repo: int, dst_repo: int, root: str
 ) -> None:
     stack = [root]
     while stack:
@@ -81,17 +81,17 @@ async def _copy_reachable(
 
 
 async def _tree_map(
-    conn: asyncpg.Connection, repo_id: int, tree_sha: bytes | None
-) -> dict[bytes, tuple[int, bytes]]:
+    conn: asyncpg.Connection, repo_id: int, tree_sha: str | None
+) -> dict[str, tuple[int, str]]:
     if tree_sha is None:
         return {}
-    result: dict[bytes, tuple[int, bytes]] = {}
-    stack = [(b"", tree_sha)]
+    result: dict[str, tuple[int, str]] = {}
+    stack = [("", tree_sha)]
     while stack:
         prefix, ts = stack.pop()
         rows = await conn.fetch(GET_TREE_ENTRIES, repo_id, ts)
         for r in rows:
-            path = r["name"] if not prefix else prefix + b"/" + r["name"]
+            path = r["name"] if not prefix else prefix + "/" + r["name"]
             if stat.S_ISDIR(r["mode"]):
                 stack.append((path, r["sha"]))
             else:
@@ -100,9 +100,9 @@ async def _tree_map(
 
 
 async def _merge_base(
-    conn: asyncpg.Connection, repo_id: int, a: bytes, b: bytes
-) -> bytes | None:
-    ancestors: set[bytes] = set()
+    conn: asyncpg.Connection, repo_id: int, a: str, b: str
+) -> str | None:
+    ancestors: set[str] = set()
     stack = [a]
     while stack:
         batch = [s for s in stack if s not in ancestors]
@@ -112,7 +112,7 @@ async def _merge_base(
         rows = await conn.fetch(GET_PARENTS, repo_id, batch)
         stack = [r["parent_sha"] for r in rows if r["parent_sha"] not in ancestors]
 
-    seen: set[bytes] = set()
+    seen: set[str] = set()
     stack = [b]
     while stack:
         batch = [s for s in stack if s not in seen]
@@ -130,19 +130,19 @@ async def _merge_base(
 async def _three_way_map(
     conn: asyncpg.Connection,
     repo_id: int,
-    base: dict[bytes, tuple[int, bytes]],
-    ours: dict[bytes, tuple[int, bytes]],
-    theirs: dict[bytes, tuple[int, bytes]],
+    base: dict[str, tuple[int, str]],
+    ours: dict[str, tuple[int, str]],
+    theirs: dict[str, tuple[int, str]],
 ):
-    merged: dict[bytes, tuple[int, bytes]] = {}
-    contents: dict[bytes, bytes] = {}
+    merged: dict[str, tuple[int, str]] = {}
+    contents: dict[str, bytes] = {}
 
-    def _load(sha: bytes | None) -> Blob | None:
+    def _load(sha: str | None) -> Blob | None:
         if sha is None:
             return None
         return Blob.from_string(contents[sha])
 
-    conflicts: list[bytes] = []
+    conflicts: list[str] = []
     for path in sorted(set(base) | set(ours) | set(theirs)):
         b = base.get(path)
         o = ours.get(path)
@@ -175,41 +175,42 @@ async def _three_way_map(
             _load(b[1]) if b else None,
             _load(o[1]),
             _load(t[1]),
-            path,
+            path.encode("utf-8", "replace"),
         )
         if conflict:
             conflicts.append(path)
         mblob = Blob.from_string(content)
-        contents[mblob.id] = content
-        merged[path] = (o[0], mblob.id)
+        merged_sha = mblob.id.decode("ascii")
+        contents[merged_sha] = content
+        merged[path] = (o[0], merged_sha)
 
     if conflicts:
         raise MergeConflictError(conflicts)
     return merged, contents
 
 
-def _build_trees(entries: dict[bytes, tuple[int, bytes]]) -> tuple[list[Tree], bytes | None]:
+def _build_trees(entries: dict[str, tuple[int, str]]) -> tuple[list[Tree], bytes | None]:
     """Build nested dulwich Trees from flat path map. Returns (all_trees, root_sha)."""
-    nested: dict[bytes, object] = {}
+    nested: dict[str, object] = {}
     for path, (mode, sha) in entries.items():
-        parts = path.split(b"/")
-        cur: dict[bytes, object] = nested
+        parts = path.split("/")
+        cur: dict[str, object] = nested
         for part in parts[:-1]:
             cur = cur.setdefault(part, {})  # type: ignore[assignment]
         cur[parts[-1]] = (mode, sha)
 
     trees: list[Tree] = []
 
-    def build(data: dict[bytes, object]) -> bytes | None:
+    def build(data: dict[str, object]) -> bytes | None:
         object_tree = Tree()
         for name, value in data.items():
             if isinstance(value, dict):
                 child_sha = build(value)
                 if child_sha is not None:
-                    object_tree.add(name, 0o040000, child_sha)
+                    object_tree.add(name.encode(), 0o040000, child_sha)
             else:
                 mode, sha = value
-                object_tree.add(name, mode, sha)
+                object_tree.add(name.encode(), mode, sha.encode("ascii"))
         object_tree.id  # ensure sha computed
         trees.append(object_tree)
         return object_tree.id
@@ -227,14 +228,14 @@ async def merge_pull_request(
     source_branch: str,
     target_branch: str,
     source_repository_id: int | None,
-) -> bytes:
+) -> str:
     target_repo_id = target_repo["id"]
     source_repo_id = source_repository_id or target_repo_id
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            target_ref = f"refs/heads/{target_branch}".encode()
-            source_ref = f"refs/heads/{source_branch}".encode()
+            target_ref = f"refs/heads/{target_branch}"
+            source_ref = f"refs/heads/{source_branch}"
             target_head = await conn.fetchval(GET_BRANCH_REF, target_repo_id, target_ref)
             source_head = await conn.fetchval(GET_BRANCH_REF, source_repo_id, source_ref)
             if source_head is None:
@@ -252,7 +253,7 @@ async def merge_pull_request(
                 base_row = await conn.fetchrow(GET_COMMIT_FOR_COPY, target_repo_id, base_commit)
                 base_tree = base_row["root_tree_sha"]
             if base_tree is None:
-                base_map: dict[bytes, tuple[int, bytes]] = {}
+                base_map: dict[str, tuple[int, str]] = {}
             else:
                 base_map = await _tree_map(conn, target_repo_id, base_tree)
 
@@ -263,10 +264,16 @@ async def merge_pull_request(
 
             merged, contents = await _three_way_map(conn, target_repo_id, base_map, ours_map, theirs_map)
 
-            trees, root_sha = _build_trees(merged)
-            stored_root = None if root_sha is None or root_sha == EMPTY_TREE_SHA else root_sha
-            if root_sha is None:
-                root_sha = EMPTY_TREE_SHA
+            trees, raw_root = _build_trees(merged)
+            stored_root = (
+                raw_root.decode("ascii")
+                if raw_root is not None and raw_root != EMPTY_TREE_SHA
+                else None
+            )
+            if stored_root is None:
+                root_for_commit = EMPTY_TREE_SHA
+            else:
+                root_for_commit = raw_root
 
             for sha, content in contents.items():
                 await conn.execute(INSERT_BLOB, target_repo_id, sha, content, len(content))
@@ -274,14 +281,14 @@ async def merge_pull_request(
                 for tree in trees:
                     for name, mode, sha in tree.items():
                         await conn.execute(
-                            INSERT_TREE_ENTRIES, target_repo_id, tree.id, name, mode, sha
+                            INSERT_TREE_ENTRIES, target_repo_id, tree.id.decode("ascii"), name.decode("utf-8", "replace"), mode, sha.decode("ascii")
                         )
 
-            message = (f"Merge pull request #{pull_id}: {source_branch} into {target_branch}").encode()
+            message = f"Merge pull request #{pull_id}: {source_branch} into {target_branch}"
             now = int(datetime.now(timezone.utc).timestamp())
             commit = Commit()
-            commit.tree = root_sha
-            commit.parents = [target_head, source_head]
+            commit.tree = root_for_commit
+            commit.parents = [target_head.encode("ascii"), source_head.encode("ascii")]
             author_line = f"{actor['username']} <{actor['email']}>".encode()
             commit.author = author_line
             commit.committer = author_line
@@ -289,9 +296,9 @@ async def merge_pull_request(
             commit.commit_time = now
             commit.author_timezone = 0
             commit.commit_timezone = 0
-            commit.message = message
+            commit.message = message.encode()
             raw = commit.as_raw_string()
-            merge_sha = commit.id
+            merge_sha = commit.id.decode("ascii")
 
             await conn.execute(
                 INSERT_COMMIT,
@@ -299,13 +306,13 @@ async def merge_pull_request(
                 merge_sha,
                 raw,
                 stored_root,
-                actor["username"].encode(),
+                actor["username"],
                 datetime.fromtimestamp(now, tz=timezone.utc),
                 message,
             )
             for index, parent in enumerate(commit.parents):
                 await conn.execute(
-                    INSERT_COMMIT_PARENT, target_repo_id, merge_sha, parent, index
+                    INSERT_COMMIT_PARENT, target_repo_id, merge_sha, parent.decode("ascii"), index
                 )
 
             updated = await conn.fetchval(SET_REF_IF_EQUALS, target_repo_id, target_ref, merge_sha, target_head)

@@ -3,7 +3,7 @@ GET_RAW_BY_SHA = """
     UNION ALL
     SELECT 3::smallint, content FROM blobs WHERE repo_id = $1 AND sha = $2
     UNION ALL
-    SELECT 4::smallint, content FROM tags WHERE repo_id = $1 AND sha = $2
+    SELECT 4::smallint, content::bytea FROM tags WHERE repo_id = $1 AND sha = $2
     UNION ALL
     SELECT 0::smallint, NULL::bytea
     WHERE EXISTS (
@@ -99,21 +99,21 @@ SET_SYMREF = """
 
 SET_REF_IF_EQUALS = """
     UPDATE refs
-    SET value = $3::bytea
-    WHERE repo_id = $1 AND name = $2 AND ($4::bytea IS NULL OR value = $4::bytea)
+    SET value = $3::text
+    WHERE repo_id = $1 AND name = $2 AND ($4::text IS NULL OR value = $4::text)
     RETURNING 1
 """
 
 ADD_REF_IF_NEW = """
     INSERT INTO refs (repo_id, name, value)
-    VALUES ($1, $2, $3::bytea)
+    VALUES ($1, $2, $3::text)
     ON CONFLICT (repo_id, name) DO NOTHING
     RETURNING 1
 """
 
 REMOVE_REF_IF_EQUALS = """
     DELETE FROM refs
-    WHERE repo_id = $1 AND name = $2 AND ($3::bytea IS NULL OR value = $3::bytea)
+    WHERE repo_id = $1 AND name = $2 AND ($3::text IS NULL OR value = $3::text)
     RETURNING 1
 """
 
@@ -127,7 +127,7 @@ GET_COMMIT_META = """
     SELECT c.sha, c.root_tree_sha, c.author_name, c.author_date, c.message,
            u.email AS author_email
     FROM commits c
-    LEFT JOIN users u ON u.username::bytea = c.author_name
+    LEFT JOIN users u ON u.username = c.author_name
     WHERE c.repo_id = $1 AND c.sha = $2
 """
 
@@ -135,18 +135,18 @@ GET_COMMITS_META = """
     SELECT c.sha, c.root_tree_sha, c.author_name, c.author_date, c.message,
            u.email AS author_email
     FROM commits c
-    LEFT JOIN users u ON u.username::bytea = c.author_name
-    WHERE c.repo_id = $1 AND c.sha = ANY($2::bytea[])
+    LEFT JOIN users u ON u.username = c.author_name
+    WHERE c.repo_id = $1 AND c.sha = ANY($2::text[])
 """
 
 GET_PARENTS = """
     SELECT commit_sha, parent_sha FROM commit_parent
-    WHERE repo_id = $1 AND commit_sha = ANY($2::bytea[])
+    WHERE repo_id = $1 AND commit_sha = ANY($2::text[])
     ORDER BY commit_sha, parent_index
 """
 
 GET_BLOBS = """
-    SELECT sha, content FROM blobs WHERE repo_id = $1 AND sha = ANY($2::bytea[])
+    SELECT sha, content FROM blobs WHERE repo_id = $1 AND sha = ANY($2::text[])
 """
 
 GET_TREE_ENTRIES_WITH_SIZES = """

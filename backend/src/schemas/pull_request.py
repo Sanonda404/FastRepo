@@ -2,12 +2,14 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 class PullRequestCreateRequest(BaseModel):
+    title: str | None = None
     body: str = ""
     source_branch: str = Field(..., min_length=1, max_length=255)
     target_branch: str = Field(..., min_length=1, max_length=255)
     source_repository_id: int | None = None
 
 class PullRequestUpdateRequest(BaseModel):
+    title: str | None = None
     body: str | None = None
     state: str | None = None
 
@@ -15,6 +17,7 @@ class PullRequestResponse(BaseModel):
     id: int
     repository_id: int
     author_id: int | None
+    title: str | None = None
     author_username: str | None
     body: str | None
     state: str

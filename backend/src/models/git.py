@@ -1,16 +1,17 @@
 import asyncpg
 
 EMPTY_TREE_SHA = b"4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+EMPTY_TREE_SHA_HEX = EMPTY_TREE_SHA.decode("ascii")
 
 COMMITS_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS commits (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    sha BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
     content BYTEA NOT NULL,
-    root_tree_sha BYTEA,
-    author_name BYTEA,
+    root_tree_sha VARCHAR(40),
+    author_name VARCHAR(255),
     author_date TIMESTAMPTZ,
-    message BYTEA,
+    message TEXT,
     PRIMARY KEY (repo_id, sha)
 );
 """
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS commits (
 BLOBS_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS blobs (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    sha BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
     content BYTEA NOT NULL,
     size BIGINT NOT NULL,
     PRIMARY KEY (repo_id, sha)
@@ -28,8 +29,8 @@ CREATE TABLE IF NOT EXISTS blobs (
 TAGS_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS tags (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    sha BYTEA NOT NULL,
-    content BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
+    content TEXT NOT NULL,
     PRIMARY KEY (repo_id, sha)
 );
 """
@@ -37,10 +38,10 @@ CREATE TABLE IF NOT EXISTS tags (
 TREE_ENTRIES_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS tree_entries (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    tree_sha BYTEA NOT NULL,
-    name BYTEA NOT NULL,
+    tree_sha VARCHAR(40) NOT NULL,
+    name TEXT NOT NULL,
     mode INT NOT NULL,
-    sha BYTEA NOT NULL,
+    sha VARCHAR(40) NOT NULL,
     PRIMARY KEY (repo_id, tree_sha, name)
 );
 """
@@ -48,8 +49,8 @@ CREATE TABLE IF NOT EXISTS tree_entries (
 REFS_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS refs (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    name BYTEA NOT NULL,
-    value BYTEA NOT NULL,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
     PRIMARY KEY (repo_id, name)
 );
 """
@@ -57,8 +58,8 @@ CREATE TABLE IF NOT EXISTS refs (
 COMMIT_PARENT_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS commit_parent (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    commit_sha BYTEA NOT NULL,
-    parent_sha BYTEA NOT NULL,
+    commit_sha VARCHAR(40) NOT NULL,
+    parent_sha VARCHAR(40) NOT NULL,
     parent_index INT NOT NULL,
     PRIMARY KEY (repo_id, commit_sha, parent_index),
     FOREIGN KEY (repo_id, commit_sha)
@@ -75,3 +76,5 @@ async def ensure_tables(pool: asyncpg.Pool) -> None:
     await pool.execute(TREE_ENTRIES_TABLE_DDL)
     await pool.execute(REFS_TABLE_DDL)
     await pool.execute(COMMIT_PARENT_TABLE_DDL)
+    await pool.execute("ALTER TABLE commits ALTER COLUMN root_tree_sha DROP NOT NULL")
+    await pool.execute("UPDATE commits SET root_tree_sha = NULL WHERE root_tree_sha = $1", EMPTY_TREE_SHA_HEX)

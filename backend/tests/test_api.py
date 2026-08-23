@@ -363,7 +363,7 @@ class TestRepositoryViewUpdateDelete:
 
             head = _run_async(heads())
             assert head is not None
-            assert head["value"] == b"ref: refs/heads/main"
+            assert head["value"] == "ref: refs/heads/main"
             assert fork_id != src_id
             # fork is cloneable via git with owner creds
             r = git_client.get(

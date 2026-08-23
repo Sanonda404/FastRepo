@@ -41,7 +41,7 @@ from services.git_read import (
 
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _get_viewable_repo, _viewable_repo
-from models.git import EMPTY_TREE_SHA
+from models.git import EMPTY_TREE_SHA_HEX
 
 router = APIRouter(
     prefix="/repositories",
@@ -207,19 +207,18 @@ async def view_commit(
     repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
     if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
         raise HTTPException(status_code=404, detail="Commit not found")
-    sha_bytes = sha.encode("ascii")
 
-    commit = await get_commit(pool, repo.id, sha_bytes)
+    commit = await get_commit(pool, repo.id, sha)
     if commit is None:
         raise HTTPException(status_code=404, detail="Commit not found")
 
     if commit["parents"]:
-        parent_meta = await get_commit(pool, repo.id, commit["parents"][0].encode("ascii"))
-        old_tree = parent_meta["root_tree_sha"].encode("ascii") if parent_meta else EMPTY_TREE_SHA
+        parent_meta = await get_commit(pool, repo.id, commit["parents"][0])
+        old_tree = parent_meta["root_tree_sha"] if parent_meta else EMPTY_TREE_SHA_HEX
     else:
-        old_tree = EMPTY_TREE_SHA
+        old_tree = EMPTY_TREE_SHA_HEX
     commit["diff"] = await get_diff(
-        pool, repo.id, old_tree, commit["root_tree_sha"].encode("ascii")
+        pool, repo.id, old_tree, commit["root_tree_sha"]
     )
     return commit
 
