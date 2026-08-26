@@ -96,3 +96,16 @@ export interface Issue {
   created_at: string
   closed_at : string
 }
+
+export interface TeamMember {
+  id: number
+  username: string
+}
+
+export interface Team {
+  id: number
+  repository_id: number
+  name: string
+  parent_team_id: number | null
+  members: TeamMember[]
+}
