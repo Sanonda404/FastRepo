@@ -8,7 +8,8 @@ from services.repository import (
     ref_info_handler,
     pack_handler,
 )
-from services.repository_crud import can_access_repository
+from services.git_backend import RefContainer
+from services.push_policy import PushPolicy, ZERO_SHA
 
 router = APIRouter(
     prefix="/{username}/{repository}",
@@ -26,13 +27,41 @@ def auth_required(user: dict | None) -> dict:
     return user
 
 
-async def ensure_repo_access(repo: dict, user: dict | None, require_access: bool) -> dict:
-    user = auth_required(user) if (require_access or repo["is_private"]) else user
-    if require_access or repo["is_private"]:
-        pool = get_pool()
-        if not await can_access_repository(pool, repo["id"], user["id"]):
-            raise HTTPException(status_code=403, detail="Forbidden")
+async def get_push_role(pool, repo: dict, user: dict) -> str | None:
+    if user["id"] == repo["owner_id"]:
+        return "owner"
+    async with pool.acquire() as conn:
+        role = await conn.fetchval(
+            "SELECT role FROM repository_collaborators WHERE repository_id = $1 AND user_id = $2",
+            repo["id"], user["id"],
+        )
+    return role
+
+
+async def ensure_push_allowed(repo: dict, user: dict | None) -> tuple[dict, str]:
+    user = auth_required(user)
+    role = await get_push_role(get_pool(), repo, user)
+    if role is None or role == "Viewer":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return user, role
+
+
+async def ensure_read_access(repo: dict, user: dict | None) -> dict:
+    if not repo["is_private"]:
+        return user
+    user = auth_required(user)
+    if not await get_push_role(get_pool(), repo, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
     return user
+
+
+def _rollback_refs(repo_id: int, commands) -> None:
+    refs = RefContainer(repo_id)
+    for old_sha, new_sha, name in commands:
+        if old_sha == ZERO_SHA:
+            refs.remove_if_equals(name, new_sha)
+        else:
+            refs.set_if_equals(name, new_sha, old_sha)
 
 
 @router.get("/info/refs")
@@ -46,7 +75,10 @@ async def info_refs(
         raise HTTPException(status_code=403, detail="Unsupported service")
 
     repo = await resolve_repo(username, repository)
-    await ensure_repo_access(repo, user, require_access=(service == "git-receive-pack"))
+    if service == "git-receive-pack":
+        await ensure_push_allowed(repo, user)
+    else:
+        await ensure_read_access(repo, user)
 
     body: bytes = await run_in_threadpool(ref_info_handler, repo["id"], service)
 
@@ -68,7 +100,7 @@ async def git_upload_pack(
     user: dict | None = Depends(get_optional_user_basic),
 ) -> Response:
     repo = await resolve_repo(username, repository)
-    await ensure_repo_access(repo, user, require_access=False)
+    await ensure_read_access(repo, user)
     input_data = await req.body()
 
     output: bytes = await run_in_threadpool(
@@ -90,12 +122,24 @@ async def git_receive_pack(
     user: dict | None = Depends(get_optional_user_basic),
 ) -> Response:
     repo = await resolve_repo(username, repository)
-    await ensure_repo_access(repo, user, require_access=True)
+    user, role = await ensure_push_allowed(repo, user)
     input_data = await req.body()
 
-    output: bytes = await run_in_threadpool(
-        pack_handler, repo["id"], "git-receive-pack", input_data
-    )
+    policy = PushPolicy(repo["id"], role, user)
+
+    def _handle() -> bytes:
+        output = pack_handler(repo["id"], "git-receive-pack", input_data, policy=policy)
+        if policy.violations:
+            _rollback_refs(repo["id"], policy.commands)
+        return output
+
+    output: bytes = await run_in_threadpool(_handle)
+
+    if policy.violations:
+        raise HTTPException(
+            status_code=403,
+            detail="folder write denied: " + ", ".join(sorted(set(policy.violations))),
+        )
 
     return Response(
         content=output,

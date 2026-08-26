@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from services.database import get_pool
 from services.git_backend import FastRepo
+from services.push_policy import PreReceivePolicyHook, UpdatePolicyHook
 
 # End of message/data
 FLUSH_PACKET: bytes = b"0000"
@@ -105,9 +106,13 @@ def ref_info_handler(repo_id: int, action: str) -> bytes:
     body = header + b"".join(lines) + FLUSH_PACKET
     return body
 
-def pack_handler(repo_id: int, action: str, input: bytes) -> bytes:
-    """Send/receive git objects"""
+def pack_handler(repo_id: int, action: str, input: bytes, policy=None) -> bytes:
+    "Send/receive git objects"
     backend = FastRepoBackend(FastRepo(repo_id))
+
+    if policy is not None:
+        backend._repo.hooks["pre-receive"] = PreReceivePolicyHook(policy)
+        backend._repo.hooks["update"] = UpdatePolicyHook(policy)
 
     input_stream = BytesIO(input)
     output_stream = BytesIO()

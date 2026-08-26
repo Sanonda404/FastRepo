@@ -18,6 +18,7 @@ from dulwich.objects import ShaFile
 
 from models.git import EMPTY_TREE_SHA_HEX
 from services.git_backend import ObjectStore
+from models.git import EMPTY_TREE_SHA
 from sqls.git_sqls import (
     GET_BLOBS,
     GET_BRANCH_REFS,
@@ -68,7 +69,6 @@ async def resolve_ref(pool: asyncpg.Pool, repo_id: int, ref: str | None) -> str 
 
 async def _peel_to_commit(repo_id: int, sha: str) -> str:
     store = ObjectStore(repo_id)
-    # dulwich treats a 40-char id as raw binary; always index with hex bytes
     current = sha.encode("ascii")
     for _ in range(10):
         try:
@@ -247,6 +247,38 @@ def _blob_data(content: bytes) -> bytes:
         return ShaFile.from_string(content).data
     except Exception:
         return content.split(b"\x00", 1)[1] if b"\x00" in content else content
+
+
+def changed_paths(
+    repo_id: int, old_commit: str | None, new_commit: str | None
+) -> set[str]:
+    store = ObjectStore(repo_id)
+
+    def _root_tree(sha: str | None) -> bytes | None:
+        if sha is None:
+            return None
+        current = sha.encode("ascii")
+        for _ in range(10):
+            obj = store[current]
+            if obj.type_num == 1:  # commit
+                return obj.tree
+            if obj.type_num == 4:  # annotated tag
+                current = obj.object[1]
+                continue
+            return None
+        return None
+
+    old_tree = _root_tree(old_commit)
+    new_tree = _root_tree(new_commit)
+    if old_tree is None and new_tree is None:
+        return set()
+    empty = EMPTY_TREE_SHA
+    paths: set[str] = set()
+    for change in tree_changes(store, old_tree or empty, new_tree or empty):
+        for entry in (change.old, change.new):
+            if entry is not None and not stat.S_ISDIR(entry.mode):
+                paths.add(entry.path.decode("utf-8", "replace"))
+    return paths
 
 async def get_tree(
     pool: asyncpg.Pool, repo_id: int, ref: str | None, path: str
