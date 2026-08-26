@@ -135,3 +135,54 @@ async def close_issue_by_no(pool: asyncpg.Pool, closed_by_id : int, repo_id: int
         )
 
         return response
+
+async def add_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int, username: str) -> str:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(ADD_ASSIGNEE, repo_id, issue_number, username)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Issue or assignee not found")
+        return username
+
+
+async def remove_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int, username: str) -> str:
+    async with pool.acquire() as conn:
+        removed = await conn.fetchval(REMOVE_ASSIGNEE, repo_id, issue_number, username)
+        if removed is None:
+            raise HTTPException(status_code=404, detail="Assignee not found")
+        return username
+
+
+async def list_issue_assignees(pool: asyncpg.Pool, repo_id: int, issue_number: int) -> List[str]:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(LIST_ASSIGNEES, repo_id, issue_number)
+        return [row["username"] for row in rows]
+
+
+async def attach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, payload) -> LabelResponse:
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            row = await conn.fetchrow(CREATE_LABEL, payload.name, payload.color)
+            if row is None:
+                # name already taken: same color -> reuse it, else reject
+                row = await conn.fetchrow("SELECT id, name, color FROM labels WHERE name = $1", payload.name)
+                if row["color"] != payload.color:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Label with this name already exists with a different color",
+                    )
+            attached = await conn.fetchval(ATTACH_LABEL, repo_id, issue_number, row["id"])
+            if attached is None:
+                raise HTTPException(status_code=404, detail="Issue not found")
+        return LabelResponse(**row)
+
+
+async def detach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, label_id: int) -> LabelResponse:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(DETACH_LABEL, repo_id, issue_number, label_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Label not attached to this issue")
+        return LabelResponse(**row)
+
+async def list_issue_labels(pool: asyncpg.Pool, repo_id: int, issue_number: int) -> List[LabelResponse]:
+    async with pool.acquire() as conn:
+        return [LabelResponse(**row) for row in await conn.fetch(LIST_ISSUE_LABELS, repo_id, issue_number)]

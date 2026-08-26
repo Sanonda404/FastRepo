@@ -21,6 +21,7 @@ class IssueLabel(BaseModel):
     id : int
     name : str
     color : str
+    
 class IssueSummary(BaseModel):
     id: int
     title: str

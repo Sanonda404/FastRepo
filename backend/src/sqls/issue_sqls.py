@@ -70,3 +70,65 @@ GET_ISSUE_REPOSITORY = """
     INNER JOIN repositories r ON i.repository_id = r.id
     WHERE i.id = $1
 """
+
+ADD_ASSIGNEE = """
+    INSERT INTO issue_assignees (issue_id, user_id)
+    SELECT i.id, u.id
+    FROM issues i
+    INNER JOIN users u ON u.username = $3
+    WHERE i.repository_id = $1 AND i.number = $2
+    ON CONFLICT (issue_id, user_id)
+        DO UPDATE SET user_id = EXCLUDED.user_id
+    RETURNING user_id
+"""
+
+REMOVE_ASSIGNEE = """
+    DELETE FROM issue_assignees ia
+    USING issues i, users u
+    WHERE ia.issue_id = i.id AND ia.user_id = u.id
+        AND i.repository_id = $1 AND i.number = $2 AND u.username = $3
+    RETURNING u.username
+"""
+
+LIST_ASSIGNEES = """
+    SELECT u.username
+    FROM issue_assignees ia
+    INNER JOIN issues i ON ia.issue_id = i.id
+    INNER JOIN users u ON ia.user_id = u.id
+    WHERE i.repository_id = $1 AND i.number = $2
+    ORDER BY u.username
+"""
+
+CREATE_LABEL = """
+    INSERT INTO labels (name, color)
+    VALUES ($1, $2)
+    ON CONFLICT (name) DO NOTHING
+    RETURNING id, name, color
+"""
+
+ATTACH_LABEL = """
+    INSERT INTO issue_labels (issue_id, label_id)
+    SELECT i.id, $3
+    FROM issues i
+    WHERE i.repository_id = $1 AND i.number = $2
+    ON CONFLICT (issue_id, label_id)
+        DO UPDATE SET label_id = EXCLUDED.label_id
+    RETURNING label_id
+"""
+
+DETACH_LABEL = """
+    DELETE FROM issue_labels il
+    USING issues i, labels l
+    WHERE il.issue_id = i.id AND il.label_id = l.id
+        AND i.repository_id = $1 AND i.number = $2 AND l.id = $3
+    RETURNING l.id, l.name, l.color
+"""
+
+LIST_ISSUE_LABELS = """
+    SELECT l.id, l.name, l.color
+    FROM issue_labels il
+    INNER JOIN issues i ON il.issue_id = i.id
+    INNER JOIN labels l ON il.label_id = l.id
+    WHERE i.repository_id = $1 AND i.number = $2
+    ORDER BY l.id
+"""

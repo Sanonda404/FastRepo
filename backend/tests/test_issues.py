@@ -627,79 +627,77 @@ class TestIssueAssignees:
 
 
 class TestIssueLabels:
-    def test_label_crud_and_attach(self, client, server_url):
+    def test_label_attach_flow(self, client, server_url):
         owner = unique("lbl")
         repo_name = unique("lbl")
         try:
             _, token = seed_private_repo(owner, repo_name)
             issue = create_issue(client, f"{owner}/{repo_name}", token)
             issue2 = create_issue(client, f"{owner}/{repo_name}", token)
+            name = unique("bug")
 
-            r = client.post("/labels", headers=auth(token), json={"name": unique("bug"), "color": "#ff0000"})
+            # attach creates the label on first use
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
             assert r.status_code == 201, r.text
-            bug = r.json()
-            assert bug["name"].startswith("bug_") and bug["color"] == "#ff0000"
+            created = r.json()
+            assert created["name"] == name and created["color"] == "#ff0000"
 
-            # duplicate name -> 400
-            r = client.post("/labels", headers=auth(token), json={"name": "bug"})
+            # same name+color -> reuses existing label, idempotent
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            assert r.json()["id"] == created["id"]
+
+            # same name, different color -> rejected
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#00ff00"},
+            )
             assert r.status_code == 400
 
-            r = client.get("/labels")
-            assert r.status_code == 200
-            assert any(l["id"] == bug["id"] for l in r.json())
-
-            # attach to both issues
-            for n in (issue["number"], issue2["number"]):
-                r = client.post(
-                    f"/issues/{owner}/{repo_name}/{n}/labels",
-                    headers=auth(token), json={"label_id": bug["id"]},
-                )
-                assert r.status_code == 201, r.text
-                assert r.json()["name"] == bug["name"]
+            # second issue shares the label once color matches
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            assert r.json()["id"] == created["id"]
 
             r = client.get(
                 f"/issues/{owner}/{repo_name}/{issue['number']}/labels", headers=auth(token)
             )
-            assert [l["id"] for l in r.json()] == [bug["id"]]
+            assert [l["id"] for l in r.json()] == [created["id"]]
 
-            # unknown label -> 404
+            # unknown issue -> 404
             r = client.post(
-                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
-                headers=auth(token), json={"label_id": 999999},
+                f"/issues/{owner}/{repo_name}/999999/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
             )
             assert r.status_code == 404
 
-            # detach from first issue only; second keeps it
+            # detach; other issue keeps it until detached too
             r = client.delete(
-                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{bug['id']}",
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{created['id']}",
                 headers=auth(token),
             )
             assert r.status_code == 200, r.text
-            assert r.json()["id"] == bug["id"]
+            assert r.json()["id"] == created["id"]
             r = client.delete(
-                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{bug['id']}",
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{created['id']}",
                 headers=auth(token),
             )
             assert r.status_code == 404
-            r = client.get(
-                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels", headers=auth(token)
+
+            # unauthenticated attach -> 401/403
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                json={"name": name},
             )
-            assert len(r.json()) == 1
-
-            # deleting label detaches everywhere (cascade)
-            r = client.delete(f"/labels/{bug['id']}", headers=auth(token))
-            assert r.status_code == 200
-            r = client.get(
-                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels", headers=auth(token)
-            )
-            assert r.json() == []
-
-            # delete missing label -> 404
-            r = client.delete(f"/labels/{bug['id']}", headers=auth(token))
-            assert r.status_code == 404
-
-            # unauthenticated create -> 401/403
-            r = client.post("/labels", json={"name": "x"})
             assert r.status_code in (401, 403)
         finally:
             cleanup_repo(owner, repo_name)

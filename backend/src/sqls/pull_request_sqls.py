@@ -69,7 +69,7 @@ GET_USERNAME_SQL = """
 
 ADD_COLLABORATOR_IF_MISSING = """
     INSERT INTO repository_collaborators (repository_id, user_id, role)
-    VALUES ($1, $2, 'write')
+    VALUES ($1, $2, 'Member')
     ON CONFLICT (repository_id, user_id) DO NOTHING
 """
 
