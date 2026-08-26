@@ -75,7 +75,7 @@ def add_collaborator(owner: str, repo_name: str, owner_token: str, username: str
     with httpx.Client(base_url=TEST_SERVER_URL) as client:
         r = client.post(
             f"/collaborators/{owner}/{repo_name}",
-            json={"identifier": username, "role": "write"},
+            json={"identifier": username, "role": "Member"},
             headers=auth(owner_token),
         )
         assert r.status_code == 201, r.text
@@ -102,7 +102,7 @@ class TestCollaboratorRoutes:
             r = client.get(f"/collaborators/{owner}/{repo_name}", headers=auth(token))
             assert r.status_code == 200
             users = {c["username"]: c["role"] for c in r.json()}
-            assert users == {collab_a: "write", collab_b: "write"}
+            assert users == {collab_a: "Member", collab_b: "Member"}
             assert {"id", "repository_id", "user_id", "username", "email", "role"} <= set(r.json()[0].keys())
 
             # collaborator can list too
@@ -171,7 +171,7 @@ class TestCollaboratorRoutes:
             assert r.status_code == 200
             removed = r.json()
             assert removed["username"] == collab
-            assert removed["role"] == "write"
+            assert removed["role"] == "Member"
 
             # collaborator loses private access
             r = client.post(
@@ -197,7 +197,7 @@ class TestCollaboratorRoutes:
             # non-owner cannot add
             r = client.post(
                 f"/collaborators/{owner}/{repo_name}",
-                json={"identifier": collab, "role": "write"},
+                json={"identifier": collab, "role": "Member"},
                 headers=auth(other_token),
             )
             assert r.status_code == 403
@@ -221,7 +221,7 @@ class TestCollaboratorRoutes:
             # collaborator user does not exist
             r = client.post(
                 f"/collaborators/{owner}/{repo_name}",
-                json={"identifier": "no_such_user", "role": "read"},
+                json={"identifier": "no_such_user", "role": "Viewer"},
                 headers=auth(token),
             )
             assert r.status_code == 404
@@ -528,3 +528,178 @@ class TestIssueComments:
             assert r.status_code == 404
         finally:
             cleanup_repo(username, unique("junk"))
+
+
+class TestIssueAssignees:
+    def test_assign_list_remove(self, client, server_url):
+        owner = unique("asg")
+        collab = unique("asg")
+        repo_name = unique("asg")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            collab_token = seed_other(collab)
+            add_collaborator(owner, repo_name, token, collab)
+            issue = create_issue(client, f"{owner}/{repo_name}", token)
+
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token), json={"username": collab},
+            )
+            assert r.status_code == 201, r.text
+            assert r.json() == {"username": collab}
+
+            # idempotent re-assign
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token), json={"username": collab},
+            )
+            assert r.status_code == 201, r.text
+
+            r = client.get(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token),
+            )
+            assert r.status_code == 200
+            assert [a["username"] for a in r.json()] == [collab]
+
+            # outsider without repo access -> 400
+            outsider = unique("asg")
+            seed_repo(outsider, unique("junk"))
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token), json={"username": outsider},
+            )
+            assert r.status_code == 400
+
+            # unknown user -> 404
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token), json={"username": "no-such-user"},
+            )
+            assert r.status_code == 404
+
+            # non-author non-collaborator cannot manage assignees
+            outsider_token = token_for(outsider)
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(outsider_token), json={"username": owner},
+            )
+            # private repo: outsider can't even view -> 403
+            assert r.status_code == 403
+
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees/{collab}",
+                headers=auth(token),
+            )
+            assert r.status_code == 200, r.text
+            assert r.json() == {"username": collab}
+
+            # removing again -> 404
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees/{collab}",
+                headers=auth(token),
+            )
+            assert r.status_code == 404
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(collab, unique("junk"))
+            cleanup_repo(outsider, unique("junk"))
+
+    def test_assignee_can_manage_own_issue_assignments(self, client, server_url):
+        owner = unique("asg")
+        author = unique("asg")
+        repo_name = unique("asg")
+        try:
+            _, owner_token = seed_private_repo(owner, repo_name)
+            author_token = seed_other(author)
+            add_collaborator(owner, repo_name, token_for(owner), author)
+            issue = create_issue(client, f"{owner}/{repo_name}", author_token)
+
+            # collaborator is issue author -> may self-assign
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(author_token), json={"username": author},
+            )
+            assert r.status_code == 201, r.text
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(author, unique("junk"))
+
+
+class TestIssueLabels:
+    def test_label_crud_and_attach(self, client, server_url):
+        owner = unique("lbl")
+        repo_name = unique("lbl")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            issue = create_issue(client, f"{owner}/{repo_name}", token)
+            issue2 = create_issue(client, f"{owner}/{repo_name}", token)
+
+            r = client.post("/labels", headers=auth(token), json={"name": unique("bug"), "color": "#ff0000"})
+            assert r.status_code == 201, r.text
+            bug = r.json()
+            assert bug["name"].startswith("bug_") and bug["color"] == "#ff0000"
+
+            # duplicate name -> 400
+            r = client.post("/labels", headers=auth(token), json={"name": "bug"})
+            assert r.status_code == 400
+
+            r = client.get("/labels")
+            assert r.status_code == 200
+            assert any(l["id"] == bug["id"] for l in r.json())
+
+            # attach to both issues
+            for n in (issue["number"], issue2["number"]):
+                r = client.post(
+                    f"/issues/{owner}/{repo_name}/{n}/labels",
+                    headers=auth(token), json={"label_id": bug["id"]},
+                )
+                assert r.status_code == 201, r.text
+                assert r.json()["name"] == bug["name"]
+
+            r = client.get(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels", headers=auth(token)
+            )
+            assert [l["id"] for l in r.json()] == [bug["id"]]
+
+            # unknown label -> 404
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"label_id": 999999},
+            )
+            assert r.status_code == 404
+
+            # detach from first issue only; second keeps it
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{bug['id']}",
+                headers=auth(token),
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["id"] == bug["id"]
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{bug['id']}",
+                headers=auth(token),
+            )
+            assert r.status_code == 404
+            r = client.get(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels", headers=auth(token)
+            )
+            assert len(r.json()) == 1
+
+            # deleting label detaches everywhere (cascade)
+            r = client.delete(f"/labels/{bug['id']}", headers=auth(token))
+            assert r.status_code == 200
+            r = client.get(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels", headers=auth(token)
+            )
+            assert r.json() == []
+
+            # delete missing label -> 404
+            r = client.delete(f"/labels/{bug['id']}", headers=auth(token))
+            assert r.status_code == 404
+
+            # unauthenticated create -> 401/403
+            r = client.post("/labels", json={"name": "x"})
+            assert r.status_code in (401, 403)
+        finally:
+            cleanup_repo(owner, repo_name)
