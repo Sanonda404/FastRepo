@@ -132,3 +132,13 @@ LIST_ISSUE_LABELS = """
     WHERE i.repository_id = $1 AND i.number = $2
     ORDER BY l.id
 """
+
+IS_ISSUE_ASSIGNEE = """
+    SELECT EXISTS (
+        SELECT 1
+        FROM issue_assignees ia
+        INNER JOIN issues i ON ia.issue_id = i.id
+        INNER JOIN users u ON ia.user_id = u.id
+        WHERE i.repository_id = $1 AND i.number = $2 AND u.username = $3
+    )
+"""

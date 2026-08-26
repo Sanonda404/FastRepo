@@ -1,5 +1,5 @@
-from schemas.issues import IssueCreateRequest, IssueResponse,IssueSummary, IssueLabel
-from sqls.issue_sqls import CREATE_ISSUE, GET_ALL_ISSUES, GET_ISSUE_BY_NUMBER, DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER, GET_ISSUE_REPOSITORY
+from schemas.issues import IssueCreateRequest, IssueResponse, LabelResponse, IssueSummary, IssueLabel
+from sqls.issue_sqls import CREATE_ISSUE, GET_ALL_ISSUES, GET_ISSUE_BY_NUMBER, DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER, GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, LIST_ASSIGNEES, CREATE_LABEL, ATTACH_LABEL, DETACH_LABEL, LIST_ISSUE_LABELS
 from fastapi import HTTPException
 from typing import List
 import asyncpg
@@ -186,3 +186,7 @@ async def detach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, labe
 async def list_issue_labels(pool: asyncpg.Pool, repo_id: int, issue_number: int) -> List[LabelResponse]:
     async with pool.acquire() as conn:
         return [LabelResponse(**row) for row in await conn.fetch(LIST_ISSUE_LABELS, repo_id, issue_number)]
+
+async def is_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int, username: str) -> bool:
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval(IS_ISSUE_ASSIGNEE, repo_id, issue_number, username))

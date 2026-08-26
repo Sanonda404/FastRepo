@@ -562,14 +562,14 @@ class TestIssueAssignees:
             assert r.status_code == 200
             assert [a["username"] for a in r.json()] == [collab]
 
-            # outsider without repo access -> 400
+            # assigning any existing user is allowed, even without repo access
             outsider = unique("asg")
             seed_repo(outsider, unique("junk"))
             r = client.post(
                 f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
                 headers=auth(token), json={"username": outsider},
             )
-            assert r.status_code == 400
+            assert r.status_code == 201
 
             # unknown user -> 404
             r = client.post(
@@ -701,3 +701,50 @@ class TestIssueLabels:
             assert r.status_code in (401, 403)
         finally:
             cleanup_repo(owner, repo_name)
+
+
+class TestIssueCloseByAssignee:
+    def test_assignee_without_repo_access_can_close(self, client, server_url):
+        owner = unique("cls")
+        collab = unique("cls")
+        repo_name = unique("cls")
+        try:
+            _, token = seed_repo_and_token(owner, repo_name)
+            seed_other(collab)
+            issue = create_issue(client, f"{owner}/{repo_name}", token)
+
+            # collaborator-less outsider gets assigned directly
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token), json={"username": collab},
+            )
+            assert r.status_code == 201, r.text
+
+            # not a collaborator, but assignee -> can close
+            r = client.patch(
+                f"/issues/{owner}/{repo_name}/{issue['number']}",
+                headers=auth(token_for(collab)),
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["state"] == "closed"
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(collab, unique("junk"))
+
+    def test_unassigned_outsider_cannot_close(self, client, server_url):
+        owner = unique("cls")
+        other = unique("cls")
+        repo_name = unique("cls")
+        try:
+            _, owner_token = seed_private_repo(owner, repo_name)
+            seed_other(other)
+            issue = create_issue(client, f"{owner}/{repo_name}", owner_token)
+
+            r = client.patch(
+                f"/issues/{owner}/{repo_name}/{issue['number']}",
+                headers=auth(token_for(other)),
+            )
+            assert r.status_code == 403
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(other, unique("junk"))

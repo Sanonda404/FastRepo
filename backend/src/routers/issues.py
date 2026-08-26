@@ -28,6 +28,7 @@ from services.issues import (
     attach_label,
     detach_label,
     list_issue_labels,
+    is_issue_assignee,
 )
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _viewable_repo, _get_viewable_repo
@@ -121,7 +122,8 @@ async def close_issue(
                 detail="Issue not found"
             )
         if (issue.author_username != current_user["username"]
-                and not await can_access_repository(pool, repo.id, current_user["id"])):
+                and not await can_access_repository(pool, repo.id, current_user["id"])
+                and not await is_issue_assignee(pool, repo.id, issue_number, current_user["username"])):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to close this issue"
