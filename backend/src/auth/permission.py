@@ -89,3 +89,20 @@ async def can_push_to_folder(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal database error while verifying folder permissions."
             )
+
+async def can_manage_team(
+    pool: asyncpg.Pool, 
+    owner_name: str, 
+    repo_name: str, 
+    current_user: dict
+) -> bool:
+    repo = await get_repository(pool, owner_name, repo_name)
+    if repo.owner_id == current_user["id"]: 
+        return True
+        
+    collaborator = await get_collaborator_details(pool, repo.id, current_user["id"])
+
+    if collaborator.role == 'Admin':
+        return True
+
+    return False

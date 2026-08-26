@@ -7,6 +7,7 @@ from routers.issues import router as issues_router
 from routers.pull_request import router as pull_request_router
 from routers.pull_request_review import router as pull_request_review_router
 from routers.issue_comments import router as issue_comments_router
+from routers.teams import router as teams_router
 from services.database import lifespan
 
 api_routers = APIRouter(
@@ -19,6 +20,7 @@ api_routers.include_router(issues_router)
 api_routers.include_router(pull_request_router)
 api_routers.include_router(pull_request_review_router)
 api_routers.include_router(issue_comments_router)
+api_routers.include_router(teams_router)
 
 app = FastAPI(title="FastRepo", lifespan=lifespan)
 

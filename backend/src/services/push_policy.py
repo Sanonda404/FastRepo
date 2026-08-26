@@ -5,22 +5,9 @@ from services.git_backend import _AsyncBridge
 from services.git_read import changed_paths
 from sqls.permission_sqls import CHECK_BRANCH_PERMISSION, CHECK_FOLDER_PERMISSION
 
+
 ZERO_SHA = b"0" * 40
 
-async def _check_branch(policy: PushPolicy, branch: str) -> bool:
-    async with policy.pool.acquire() as conn:
-        row = await conn.fetchrow(
-            CHECK_BRANCH_PERMISSION, policy.repo_id, policy.user["id"], branch
-        )
-    return bool(row and row["allow_write"])
-
-
-async def _check_folder(policy: PushPolicy, path: str) -> bool:
-    async with policy.pool.acquire() as conn:
-        row = await conn.fetchrow(
-            CHECK_FOLDER_PERMISSION, policy.repo_id, policy.user["id"], path
-        )
-    return bool(row and row["allow_write"])
 
 class PushPolicy:
     def __init__(self, repo_id: int, role: str, user: dict) -> None:
@@ -88,3 +75,20 @@ class UpdatePolicyHook:
             policy.violations.extend(denied)
             raise HookError("folder write denied: " + ", ".join(denied))
         return b"", b""
+
+
+
+async def _check_branch(policy: PushPolicy, branch: str) -> bool:
+    async with policy.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            CHECK_BRANCH_PERMISSION, policy.repo_id, policy.user["id"], branch
+        )
+    return bool(row and row["allow_write"])
+
+
+async def _check_folder(policy: PushPolicy, path: str) -> bool:
+    async with policy.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            CHECK_FOLDER_PERMISSION, policy.repo_id, policy.user["id"], path
+        )
+    return bool(row and row["allow_write"])
