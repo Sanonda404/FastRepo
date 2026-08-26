@@ -30,8 +30,7 @@ export function subscribeAuthChange(callback: () => void): () => void {
 
 export const apiClient = axios.create({
   baseURL: "/api",
-  headers: { "Content-Type": "application/json" },
-})
+});
 
 apiClient.interceptors.request.use((config) => {
   const token = getAuthToken()
@@ -40,7 +39,13 @@ apiClient.interceptors.request.use((config) => {
 })
 
 export async function loginApi(formData: FormData) {
-  const response = await apiClient.post<{ access_token: string; token_type: string }>("/users/login", formData);
+  console.log("loginApi called with formData:", formData);
+
+  const response = await apiClient.post<{
+    access_token: string;
+    token_type: string;
+  }>("/users/login", formData);
+
   return response.data;
 }
 

@@ -6,6 +6,11 @@ import Dashboard from "./pages/Dashboard";
 import RepositoryPage from "./pages/RepositoryPage";
 import { useAuth } from "@/lib/use-auth";
 import RepositoryCreatePage from "./pages/RepositoryCreatePage";
+import RepositoryIssuesPage from "./pages/RepositoryIssuesPage";
+import RepositoryPullsPage from "./pages/RepositoryPullsPage";
+import RepositoryTeamsPage from "./pages/RepositoryTeamsPage";
+import RepositoryActivityPage from "./pages/RepositoryActivityPage";
+import RepositorySettingsPage from "./pages/RepositorySettingsPage";
 
 export default function App() {
   const { isLoggedIn } = useAuth();
@@ -19,7 +24,13 @@ export default function App() {
 
         {/* Root Route: dashboard for logged-in users, homepage otherwise */}
         <Route path="/" element={isLoggedIn ? <Dashboard /> : <HomePage />} />
+
         <Route path="/:owner/:repository" element={<RepositoryPage />} />
+        <Route path="/:owner/:repository/issues" element={<RepositoryIssuesPage />} />
+        <Route path="/:owner/:repository/pulls" element={<RepositoryPullsPage />} />
+        <Route path="/:owner/:repository/teams" element={<RepositoryTeamsPage />} />
+        <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />
+        <Route path="/:owner/:repository/activity" element={<RepositoryActivityPage />} />
 
         {/* Default Route */}
         <Route path="*" element={<Navigate to="/" replace />} />
