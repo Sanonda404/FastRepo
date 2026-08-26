@@ -14,6 +14,13 @@ GET_ALL_COLLABORATORS = """
     WHERE c.repository_id = $1
 """
 
+GET_COLLABORATOR_BY_ID = """
+    SELECT id, repository_id, user_id, role,
+    FROM repository_collaborators
+    WHERE repository_id = $1 AND user_id = $2
+"""
+
+
 REMOVE_COLLABORATOR = """
     DELETE FROM repository_collaborators
     WHERE repository_id = $1 AND user_id = $2

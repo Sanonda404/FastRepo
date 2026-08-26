@@ -1,6 +1,6 @@
 import asyncpg
-from schemas.repository_collaborator import CollaboratorResponse, CollaboratorAddRequest
-from sqls.repository_collaborators_sqls import ADD_COLLABORATOR, GET_ALL_COLLABORATORS, REMOVE_COLLABORATOR
+from schemas.repository_collaborator import CollaboratorResponse, CollaboratorAddRequest, CollaboratorDetails
+from sqls.repository_collaborators_sqls import ADD_COLLABORATOR, GET_ALL_COLLABORATORS,GET_COLLABORATOR_BY_ID, REMOVE_COLLABORATOR
 from fastapi import HTTPException
 
 
@@ -12,7 +12,7 @@ async def add_collaborator_to_repo(pool : asyncpg.Pool, user_id: int, repo_id : 
                 ADD_COLLABORATOR, repo_id, user_id,payload.role
             )
             if row is None:
-                raise HTTPException(status_code=404, detail="Error occured")
+                raise HTTPException(status_code=500, detail="Error occured")
             res = CollaboratorResponse(
                 id= row["id"],
                 repository_id= row["repository_id"],
@@ -40,6 +40,20 @@ async def get_collaborators(pool : asyncpg.Pool, repo_id : int) -> list[Collabor
             )
             for row in rows
         ]
+
+
+async def get_collaborator_details(pool : asyncpg.Pool, repo_id : int, user_id: int) -> CollaboratorDetails:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(GET_COLLABORATOR_BY_ID, repo_id, user_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Collaborator Not found")
+        res = CollaboratorDetails(
+            id= row["id"],
+            repository_id= row["repository_id"],
+            user_id=row["user_id"],
+            role = row["role"]
+        )
+        return res
 
 
 async def remove_collaborator_from_repo(pool : asyncpg.Pool, user_id: int, repo_id : int) -> CollaboratorResponse:
