@@ -1,4 +1,4 @@
-from schemas.issues import IssueCreateRequest, IssueResponse
+from schemas.issues import IssueCreateRequest, IssueResponse,IssueSummary, IssueLabel
 from sqls.issue_sqls import CREATE_ISSUE, GET_ALL_ISSUES, GET_ISSUE_BY_NUMBER, DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER, GET_ISSUE_REPOSITORY
 from fastapi import HTTPException
 from typing import List
@@ -31,18 +31,30 @@ async def create_issue_in_repo(pool: asyncpg.Pool, author_id: int, repo_id: int,
             )
 
 
-async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: str) -> List[IssueResponse]:
+async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: str) -> List[IssueSummary]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_ALL_ISSUES, repo_id)
         if not rows:
             raise HTTPException(status_code=404, detail="No issues found for this repository")
 
-        response: List[IssueResponse] = []
+        response: List[IssueSummary] = []
 
         for row in rows:
-            response.append(IssueResponse(
+            labels : List[IssueLabel] = []
+            assignees : List[str] = []
+            
+            for label in row["labels"]:
+                labels.append(IssueLabel(
+                    id = label["id"],
+                    name = label["name"],
+                    color = label["color"]
+                ))
+            
+            for user in row["assignees"]:
+                assignees.append(user)
+            
+            response.append(IssueSummary(
                 id=row["id"],
-                repository_name=repo_name,
                 author_username=row["author_username"],
                 closed_by_username=row["closed_by_username"],
                 title=row["title"],
@@ -50,7 +62,11 @@ async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: st
                 number=row["number"],
                 state=row["state"],
                 created_at=row["created_at"],
-                closed_at=row["closed_at"]
+                closed_at=row["closed_at"],
+                labels=labels,
+                assignees=[],
+                comments_count=row["comments_count"],
+                pull_requests_count=row["pull_requests_count"]
             ))
 
         return response

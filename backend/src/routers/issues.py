@@ -5,7 +5,7 @@ import asyncpg
 
 from services.database import get_pool
 
-from schemas.issues import IssueCreateRequest, IssueResponse
+from schemas.issues import IssueCreateRequest, IssueResponse, IssueSummary
 from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
 from services.repository_crud import can_access_repository
@@ -45,7 +45,7 @@ async def create_issue(
         )
 
 
-@router.get("/{owner_name}/{repo_name}",response_model=List[IssueResponse],status_code=status.HTTP_200_OK,)
+@router.get("/{owner_name}/{repo_name}",response_model=List[IssueSummary],status_code=status.HTTP_200_OK,)
 async def get_all_issues(
     owner_name: str,
     repo_name: str,

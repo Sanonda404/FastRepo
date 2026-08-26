@@ -12,7 +12,21 @@ CREATE_ISSUE = """
 
 GET_ALL_ISSUES = """
     SELECT i.id, u.username as author_username, u2.username as closed_by_username,
-    i.title, i.body, i.state, i.number, i.created_at, i.closed_at
+    i.title, i.body, i.state, i.number, i.created_at, i.closed_at,
+    (SELECT count(*) FROM issue_comments WHERE issue_id = i.id) as comments_count,
+    (SELECT count(*) FROM issue_pull_requests WHERE issue_id = i.id) as pull_requests_count,
+    COALESCE(
+        (SELECT ARRAY_AGG(ROW(l.id, l.name, l.color))
+        FROM issue_labels il
+        INNER JOIN labels l ON il.label_id = l.id
+        WHERE il.issue_id = i.id), '{}'
+    ) AS labels,
+    COALESCE(
+        (SELECT ARRAY_AGG(u3.username)
+        FROM issue_assignees ia
+        INNER JOIN users u3 ON ia.user_id = u3.id
+        WHERE ia.issue_id = i.id), '{}'
+    ) AS assignees
     FROM issues i
     INNER JOIN users u
     ON i.author_id = u.id
