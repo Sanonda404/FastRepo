@@ -67,3 +67,32 @@ export interface CollaboratorResponse {
   email: string;
   role: string;
 }
+
+
+export type IssueStatus = "open" | "closed"
+
+export interface IssueLabel {
+  id: number
+  name: string
+  color?: string | null
+}
+
+export interface Issue {
+  id: number
+
+  title: string
+  body : string
+
+  state: IssueStatus
+
+  author_username: string
+
+  labels: IssueLabel[]
+  assignees: string[]
+
+  comments_count: number
+  pull_requests_count: number
+
+  created_at: string
+  closed_at : string
+}

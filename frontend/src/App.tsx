@@ -11,6 +11,7 @@ import RepositoryPullsPage from "./pages/RepositoryPullsPage";
 import RepositoryTeamsPage from "./pages/RepositoryTeamsPage";
 import RepositoryActivityPage from "./pages/RepositoryActivityPage";
 import RepositorySettingsPage from "./pages/RepositorySettingsPage";
+import RepositoryIssueNew from './pages/RepositoryIssueCreatePage';
 
 export default function App() {
   const { isLoggedIn } = useAuth();
@@ -27,6 +28,7 @@ export default function App() {
 
         <Route path="/:owner/:repository" element={<RepositoryPage />} />
         <Route path="/:owner/:repository/issues" element={<RepositoryIssuesPage />} />
+        <Route path="/:owner/:repository/issues/create" element={<RepositoryIssueNew />} />
         <Route path="/:owner/:repository/pulls" element={<RepositoryPullsPage />} />
         <Route path="/:owner/:repository/teams" element={<RepositoryTeamsPage />} />
         <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />
