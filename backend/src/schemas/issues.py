@@ -22,6 +22,21 @@ class IssueLabel(BaseModel):
     name : str
     color : str
     
+class IssueAssigneeRequest(BaseModel):
+    username : str
+
+class AssigneeResponse(BaseModel):
+    username : str
+
+class LabelCreateRequest(BaseModel):
+    name : str = Field(..., min_length=1, max_length=50)
+    color : str = Field("#6b7280", pattern=r"^#[0-9a-fA-F]{6}$")
+
+class LabelResponse(BaseModel):
+    id : int
+    name : str
+    color : str
+
 class IssueSummary(BaseModel):
     id: int
     title: str

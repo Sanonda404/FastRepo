@@ -64,7 +64,7 @@ async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: st
                 created_at=row["created_at"],
                 closed_at=row["closed_at"],
                 labels=labels,
-                assignees=[],
+                assignees=assignees,
                 comments_count=row["comments_count"],
                 pull_requests_count=row["pull_requests_count"]
             ))

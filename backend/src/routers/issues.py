@@ -12,6 +12,7 @@ from schemas.issues import (
     LabelResponse,
     AssigneeResponse,
     IssueAssigneeRequest,
+    IssueSummary,
 )
 from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
