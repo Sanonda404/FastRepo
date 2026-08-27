@@ -8,6 +8,10 @@ CREATE TABLE IF NOT EXISTS team_members (
 );
 """
 
+TEAM_MEMBERS_INDEX_DDL = """
+CREATE INDEX IF NOT EXISTS idx_team_members_member_id ON team_members(member_id)
+"""
+
 CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION = """
     CREATE OR REPLACE FUNCTION validate_team_collaborator_from_same_repo()
     RETURNS TRIGGER AS $$
@@ -49,5 +53,6 @@ async def ensure_team_members_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(TEAM_MEMBERS_TABLE_DDL)
+            await conn.execute(TEAM_MEMBERS_INDEX_DDL)
             await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION)
             await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER)

@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS repositories (
     CONSTRAINT unique_owner_repo_name UNIQUE (owner_id, name)
 );
 
+CREATE INDEX IF NOT EXISTS idx_repos_parent_id ON repositories(parent_repository_id);
+
 CREATE TABLE IF NOT EXISTS repository_collaborators (
     id SERIAL PRIMARY KEY,
     repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
@@ -36,7 +38,6 @@ CREATE TABLE IF NOT EXISTS repository_collaborators (
     role VARCHAR(255) NOT NULL CHECK (role IN ('Admin', 'Maintainer', 'Member', 'Viewer')),
     CONSTRAINT unique_repo_collaborator UNIQUE (repository_id, user_id)
 );
-
 
 CREATE TABLE IF NOT EXISTS teams (
     id SERIAL PRIMARY KEY,
@@ -47,10 +48,15 @@ CREATE TABLE IF NOT EXISTS teams (
     CONSTRAINT unique_team_name UNIQUE(repository_id, name)
 );
 
+CREATE INDEX IF NOT EXISTS idx_teams_parent ON teams(parent_team_id);
+
 CREATE TABLE IF NOT EXISTS team_members (
     team_id INT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    member_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+    member_id INT NOT NULL REFERENCES repository_collaborators(id) ON DELETE CASCADE,
+    PRIMARY KEY (team_id, member_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_team_members_member_id ON team_members(member_id);
 
 CREATE TABLE IF NOT EXISTS permissions (
     id SERIAL PRIMARY KEY,
@@ -62,6 +68,10 @@ CREATE TABLE IF NOT EXISTS permissions (
 
     CONSTRAINT uq_team_permission UNIQUE (repository_id, team_id, target_type, target_identifier)
 );
+
+CREATE INDEX IF NOT EXISTS idx_perm_repo_type_ident_team ON permissions(repository_id, target_type, target_identifier, team_id);
+CREATE INDEX IF NOT EXISTS idx_perm_repo ON permissions(repository_id);
+CREATE INDEX IF NOT EXISTS idx_perm_team ON permissions(team_id);
 
 CREATE TABLE IF NOT EXISTS blobs (
     repo_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
@@ -149,6 +159,8 @@ CREATE TABLE IF NOT EXISTS issues(
     closed_at TIMESTAMP
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_issues_repo_number ON issues(repository_id, number);
+
 CREATE TABLE IF NOT EXISTS labels (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
@@ -165,6 +177,8 @@ CREATE TABLE IF NOT EXISTS issue_comments (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_issue_comments_issue ON issue_comments(issue_id);
+
 CREATE TABLE IF NOT EXISTS pull_requests (
     id SERIAL PRIMARY KEY,
     repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
@@ -180,6 +194,8 @@ CREATE TABLE IF NOT EXISTS pull_requests (
     closed_at TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_pull_requests_repo ON pull_requests(repository_id);
+
 CREATE TABLE IF NOT EXISTS pr_reviews (
     id SERIAL PRIMARY KEY,
     pull_request_id INT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
@@ -189,12 +205,16 @@ CREATE TABLE IF NOT EXISTS pr_reviews (
     reviewed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_pr_reviews_pr ON pr_reviews(pull_request_id);
+
 CREATE TABLE IF NOT EXISTS stars (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     repository_id INT REFERENCES repositories(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (user_id, repository_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_stars_repo ON stars(repository_id);
 
 CREATE TABLE IF NOT EXISTS issue_assignees (
     issue_id INT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,

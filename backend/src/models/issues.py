@@ -15,7 +15,12 @@ CREATE TABLE IF NOT EXISTS issues(
 )
 """
 
+ISSUES_INDEX_DDL = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_issues_repo_number ON issues(repository_id, number)
+"""
+
 async def ensure_issues_table(pool: asyncpg.Pool) -> None:
     await pool.execute(ISSUES_TABLE_DDL)
+    await pool.execute(ISSUES_INDEX_DDL)
 
 

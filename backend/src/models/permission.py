@@ -13,6 +13,12 @@ CREATE TABLE IF NOT EXISTS permissions (
 );
 """
 
+PERMISSIONS_INDEXES_DDL = """
+CREATE INDEX IF NOT EXISTS idx_perm_repo_type_ident_team ON permissions(repository_id, target_type, target_identifier, team_id);
+CREATE INDEX IF NOT EXISTS idx_perm_repo ON permissions(repository_id);
+CREATE INDEX IF NOT EXISTS idx_perm_team ON permissions(team_id)
+"""
+
 CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION = """
     CREATE OR REPLACE FUNCTION validate_team_is_from_same_repo()
     RETURNS TRIGGER AS $$
@@ -48,5 +54,6 @@ async def ensure_permission_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(PERMISSIONS_TABLE_DDL)
+            await conn.execute(PERMISSIONS_INDEXES_DDL)
             await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION)
             await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER)

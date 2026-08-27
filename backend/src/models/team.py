@@ -11,5 +11,10 @@ CREATE TABLE IF NOT EXISTS teams (
 )
 """
 
+TEAMS_INDEX_DDL = """
+CREATE INDEX IF NOT EXISTS idx_teams_parent ON teams(parent_team_id)
+"""
+
 async def ensure_teams_table(pool: asyncpg.Pool) -> None:
     await pool.execute(TEAMS_TABLE_DDL)
+    await pool.execute(TEAMS_INDEX_DDL)
