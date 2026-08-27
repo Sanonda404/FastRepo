@@ -28,3 +28,10 @@ REMOVE_COLLABORATOR = """
         (SELECT username FROM users u WHERE u.id = repository_collaborators.user_id) as username,
         (SELECT email FROM users u WHERE u.id = repository_collaborators.user_id) as email
 """
+GET_USER_DETAILS_FROM_COLLABORATOR_AND_REPOSITORY = """
+    SELECT u.id, u.username, u.email
+    FROM users u
+    INNER JOIN repository_collaborators rc
+    ON rc.user_id = u.id
+    WHERE rc.repository_id = $1 AND rc.user_id = $2;
+"""

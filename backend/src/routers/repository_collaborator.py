@@ -56,7 +56,7 @@ async def add_collaborator(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Collaborator not found"
             )
-        return await add_collaborator_to_repo(pool, user["id"], repo.id, payload, user)
+        return await add_collaborator_to_repo(pool, repo.id, payload, user)
 
     except ValueError as e:
         raise HTTPException(

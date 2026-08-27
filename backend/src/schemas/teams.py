@@ -5,7 +5,8 @@ class TeamCreateRequest(BaseModel):
     name : str
     parent_team_id : Optional[int]
 
-class AddTeamMemberRequest(BaseModel):
+class AddNewTeamMemberRequest(BaseModel):
+    member_identifier : str
     team_id : int
 
 class TeamMember(BaseModel):
@@ -13,6 +14,9 @@ class TeamMember(BaseModel):
     collaborator_id : int
     username : str
 
+
+class AddCollaboratorRequest(BaseModel):
+    collaborator_id  : int
 
 class TeamDetails(BaseModel):
     id: int
