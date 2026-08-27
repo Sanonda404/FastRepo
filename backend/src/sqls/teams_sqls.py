@@ -2,11 +2,7 @@ CREATE_TEAM = """
     INSERT INTO teams(repository_id, name, parent_team_id)
         VALUES (
             $1, $2, $3)
-<<<<<<< HEAD
     RETURNING id, repository_id, name, parent_team_id;
-=======
-    RETURNING id, repository_id, name, parent_team_id
->>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f
 """
 
 
@@ -24,21 +20,13 @@ GET_ALL_TEAMS_IN_REPO = """
             '{}'
         ) AS members
     FROM teams t
-<<<<<<< HEAD
     WHERE t.repository_id = $1;
-=======
-    WHERE t.repository_id = $1
->>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f
 """
 
 DELETE_TEAM_BY_ID = """
     DELETE FROM teams
     WHERE id = $1
-<<<<<<< HEAD
     RETURNING id;
-=======
-    RETURNING id
->>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f
 """
 
 UPDATE_TEAM_BY_ID = """
@@ -56,7 +44,6 @@ UPDATE_TEAM_BY_ID = """
         WHERE tm.team_id = t.id
         ),
         '{}'
-<<<<<<< HEAD
     ) AS members;
 """
 
@@ -79,8 +66,6 @@ GET_ALL_TEAM_MEMBERS_IN_TEAM = """
     ON rc.id = tm.member_id
     INNER JOIN users u
     ON u.id = rc.user_id
-=======
-    ) AS members
->>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f
+    WHERE tm.team_id = $1
 """
 
