@@ -1,9 +1,44 @@
+<<<<<<< HEAD
 from fastapi import APIRouter, Depends, HTTPException, status
+=======
+from datetime import timedelta
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+>>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f
 import asyncpg
 
 from services.database import get_pool
 
+<<<<<<< HEAD
 
+=======
+from schemas.issues import (
+    IssueCreateRequest,
+    IssueResponse,
+    LabelCreateRequest,
+    LabelResponse,
+    AssigneeResponse,
+    IssueAssigneeRequest,
+    IssueSummary,
+)
+from schemas.repository import RepositoryResponse
+from services.user import get_user_by_username_or_email
+from services.repository_crud import can_access_repository
+from services.issues import (
+    create_issue_in_repo,
+    get_all_issues_in_repo,
+    get_issue_by_number,
+    delete_issue_by_number,
+    close_issue_by_no,
+    add_issue_assignee,
+    remove_issue_assignee,
+    list_issue_assignees,
+    attach_label,
+    detach_label,
+    list_issue_labels,
+    is_issue_assignee,
+)
+>>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _viewable_repo, _get_viewable_repo
 from typing import List
@@ -109,4 +144,8 @@ async def update_team_name(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail=str(e)
+<<<<<<< HEAD
         )
+=======
+        )
+>>>>>>> 0e08c80d784f74edd2440791bf485c35ed93975f

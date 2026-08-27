@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from typing import List
-from schemas.teams import TeamDetails, TeamCreateRequest, TeamMember, AddNewTeamMemberRequest
-from sqls.teams_sqls import ADD_NEW_MEMBER_TO_TEAM, REMOVE_MEMBER_FROM_TEAM, GET_ALL_TEAMS_IN_REPO, GET_ALL_TEAM_MEMBERS_IN_TEAM
+from schemas.teams import TeamMember, AddNewTeamMemberRequest
+from sqls.teams_sqls import ADD_NEW_MEMBER_TO_TEAM, REMOVE_MEMBER_FROM_TEAM, GET_ALL_TEAM_MEMBERS_IN_TEAM
 from services.repository_collaborator import add_collaborator_to_repo, get_user_details
 from services.user import get_user_by_username_or_email
 from schemas.repository_collaborator import CollaboratorAddRequest

@@ -7,8 +7,7 @@ from services.database import get_pool
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _viewable_repo, _get_viewable_repo
 from typing import List
-from schemas.teams import TeamCreateRequest, TeamDetails, AddNewTeamMemberRequest, TeamMember, AddCollaboratorRequest
-from services.teams import get_all_teams_in_repo, create_team_in_repo, delete_team_by_id, update_team_name_by_id
+from schemas.teams import AddNewTeamMemberRequest, TeamMember, AddCollaboratorRequest
 from auth.permission import can_manage_team
 from services.team_members import add_new_member_in_repo_team, add_existing_collaborator_to_team, get_all_team_members_in_team, delete_team_member_by_id
 
