@@ -99,7 +99,7 @@ async def can_manage_team(
     repo = await get_repository(pool, owner_name, repo_name)
     if repo.owner_id == current_user["id"]: 
         return True
-        
+
     collaborator = await get_collaborator_details(pool, repo.id, current_user["id"])
 
     if collaborator.role == 'Admin':
