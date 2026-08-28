@@ -6,20 +6,20 @@ import {
 } from "lucide-react"
 import { useParams } from "react-router-dom"
 
+import { CodeViewer } from "@/components/code/CodeViewer"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { getErrorMessage } from "@/lib/api"
 import { formatRelativeDate } from "@/lib/format-date"
 import {
-  getFile, getRepository, getTree, listBranches, listCollaborators, listCommits,
+  getFile, getTree, listBranches, listCollaborators, listCommits,
 } from "@/lib/repository_apis"
 import type {
   BranchResponse, CollaboratorResponse, CommitSummary, FileResponse,
   RepositoryResponse, TreeEntry,
 } from "@/lib/interfaces"
 
-export default function RepositoryCodePage() {
+export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryResponse | null }) {
   const { owner = "jane", repository = "fastrepo" } = useParams()
-  const [repoMeta, setRepoMeta] = useState<RepositoryResponse | null>(null)
   const [branchList, setBranchList] = useState<BranchResponse[]>([])
   const [collaborators, setCollaborators] = useState<CollaboratorResponse[] | null>(null)
   const [branch, setBranch] = useState("")
@@ -33,12 +33,9 @@ export default function RepositoryCodePage() {
 
   useEffect(() => {
     let active = true
-    Promise.all([getRepository(owner, repository), listBranches(owner, repository)])
-      .then(([meta, branches]) => {
-        if (!active) return
-        setRepoMeta(meta)
-        setBranchList(branches)
-        setBranch(meta.default_branch)
+    listBranches(owner, repository)
+      .then((branches) => {
+        if (active) setBranchList(branches)
       })
       .catch((err) => {
         if (active) setTreeResult({ key: `${owner}/${repository}@:`, error: getErrorMessage(err) })
@@ -58,52 +55,53 @@ export default function RepositoryCodePage() {
     return () => { active = false }
   }, [owner, repository])
 
+  const activeBranch = branch || repoMeta?.default_branch || ""
   useEffect(() => {
-    document.title = `${owner}/${repository}${branch ? ` · ${branch}` : ""} · FastRepo`
-  }, [branch, owner, repository])
+    document.title = `${owner}/${repository}${activeBranch ? ` · ${activeBranch}` : ""} · FastRepo`
+  }, [activeBranch, owner, repository])
 
   const currentPath = path.join("/")
-  const treeKey = `${owner}/${repository}@${branch}:${currentPath}`
+  const treeKey = `${owner}/${repository}@${activeBranch}:${currentPath}`
   const tree = treeResult?.key === treeKey ? treeResult : null
 
   useEffect(() => {
-    if (!branch) return
+    if (!activeBranch) return
     let active = true
-    getTree(owner, repository, branch, currentPath)
+    getTree(owner, repository, activeBranch, currentPath)
       .then((data) => {
-        if (active) setTreeResult({ key: `${owner}/${repository}@${branch}:${currentPath}`, entries: data.entries })
+        if (active) setTreeResult({ key: `${owner}/${repository}@${activeBranch}:${currentPath}`, entries: data.entries })
       })
       .catch((err) => {
-        if (active) setTreeResult({ key: `${owner}/${repository}@${branch}:${currentPath}`, error: getErrorMessage(err) })
+        if (active) setTreeResult({ key: `${owner}/${repository}@${activeBranch}:${currentPath}`, error: getErrorMessage(err) })
       })
-    listCommits(owner, repository, branch, 1)
+    listCommits(owner, repository, activeBranch, 1)
       .then((commits) => {
         if (active && commits.length > 0) setLatest(commits[0])
       })
       .catch(() => {})
     return () => { active = false }
-  }, [owner, repository, branch, currentPath])
+  }, [owner, repository, activeBranch, currentPath])
 
   const filePath = selectedFile ? [...path, selectedFile].join("/") : ""
 
   useEffect(() => {
-    if (!selectedFile || !branch) return
+    if (!selectedFile || !activeBranch) return
     let active = true
-    getFile(owner, repository, filePath, branch)
+    getFile(owner, repository, filePath, activeBranch)
       .then((data) => {
-        if (active) setResult({ key: `${owner}/${repository}@${branch}:${filePath}`, data })
+        if (active) setResult({ key: `${owner}/${repository}@${activeBranch}:${filePath}`, data })
       })
       .catch((err) => {
-        if (active) setResult({ key: `${owner}/${repository}@${branch}:${filePath}`, error: getErrorMessage(err) })
+        if (active) setResult({ key: `${owner}/${repository}@${activeBranch}:${filePath}`, error: getErrorMessage(err) })
       })
     return () => { active = false }
-  }, [owner, repository, branch, filePath, selectedFile])
+  }, [owner, repository, activeBranch, filePath, selectedFile])
 
   const visibleBranches = useMemo(
     () => branchList.filter(({ name }) => name.toLowerCase().includes(branchSearch.toLowerCase())),
     [branchList, branchSearch],
   )
-  const file = fileResult?.key === `${owner}/${repository}@${branch}:${filePath}` ? fileResult : null
+  const file = fileResult?.key === `${owner}/${repository}@${activeBranch}:${filePath}` ? fileResult : null
   const contributors = [
     { username: owner, role: "owner" },
     ...(collaborators ?? []).map(({ username, role }) => ({ username, role })),
@@ -128,20 +126,18 @@ export default function RepositoryCodePage() {
   }
 
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] bg-background">
-      <div className="mx-auto w-full max-w-6xl px-6 py-8">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="flex min-w-0 flex-col gap-4">
             <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
               <div className="relative flex items-center gap-2">
-                <button className={`${buttonVariants({ variant: "outline", size: "sm" })} min-w-32 justify-between`} onClick={() => setBranchOpen((open) => !open)} aria-expanded={branchOpen} aria-controls="branch-menu"><span className="flex items-center gap-2"><GitBranch className="size-3.5" />{branch || "…"}</span><ChevronDown className="size-3.5" /></button>
+                <button className={`${buttonVariants({ variant: "outline", size: "sm" })} min-w-32 justify-between`} onClick={() => setBranchOpen((open) => !open)} aria-expanded={branchOpen} aria-controls="branch-menu"><span className="flex items-center gap-2"><GitBranch className="size-3.5" />{activeBranch || "…"}</span><ChevronDown className="size-3.5" /></button>
                 <button className="text-sm text-muted-foreground hover:text-primary">{branchList.length} branches</button>
                 {branchOpen && <div id="branch-menu" className="absolute left-0 top-9 w-72 rounded-xl bg-popover p-3 ring-1 ring-foreground/10 shadow-xl" role="dialog" aria-label="Select branch">
                   <label className="sr-only" htmlFor="branch-search">Find a branch</label>
                   <div className="flex items-center gap-2 rounded-md border px-2"><Search className="size-4 text-muted-foreground" /><input id="branch-search" autoFocus value={branchSearch} onChange={(event) => setBranchSearch(event.target.value)} placeholder="Find a branch..." className="h-9 w-full bg-transparent text-sm outline-none" /></div>
                   <p className="mt-3 px-2 text-xs font-medium text-muted-foreground">BRANCHES</p>
                   <div className="mt-1 max-h-52 overflow-y-auto">
-                    {visibleBranches.map((item) => <button key={item.name} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => selectBranch(item.name)}><GitBranch className="size-4 text-muted-foreground" /><span className="flex-1">{item.name}</span>{item.is_default && <span className="text-xs text-muted-foreground">default</span>}{item.name === branch && <Check className="size-4 text-primary" />}</button>)}
+                    {visibleBranches.map((item) => <button key={item.name} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => selectBranch(item.name)}><GitBranch className="size-4 text-muted-foreground" /><span className="flex-1">{item.name}</span>{item.is_default && <span className="text-xs text-muted-foreground">default</span>}{item.name === activeBranch && <Check className="size-4 text-primary" />}</button>)}
                     {!visibleBranches.length && <p className="p-3 text-sm text-muted-foreground">No branches found.</p>}
                   </div>
                   <button className="mt-2 w-full border-t pt-3 text-left text-sm font-medium text-primary hover:underline">View all branches</button>
@@ -158,7 +154,7 @@ export default function RepositoryCodePage() {
               </div>
 
               {tree?.error && <p className="px-4 py-6 text-sm text-destructive">{tree.error}</p>}
-              {!tree?.error && selectedFile && (file?.data || file?.error) && <FileView repository={repository} branch={branch} path={path} fileData={file?.data ?? null} error={file?.error ?? null} onBack={() => navigateToDir([])} onOpenDir={(index) => navigateToDir(path.slice(0, index + 1))} />}
+              {!tree?.error && selectedFile && (file?.data || file?.error) && <FileView repository={repository} branch={activeBranch} path={path} fileData={file?.data ?? null} error={file?.error ?? null} onBack={() => navigateToDir([])} onOpenDir={(index) => navigateToDir(path.slice(0, index + 1))} />}
               {!tree?.error && selectedFile && !file && <p className="px-4 py-6 text-sm text-muted-foreground">Loading file…</p>}
               {!tree?.error && !selectedFile && <>
                 <nav aria-label="Breadcrumb" className="flex items-center gap-1 border-b px-4 py-3 text-sm">
@@ -205,8 +201,6 @@ export default function RepositoryCodePage() {
             </section>
           </aside>
         </div>
-      </div>
-    </main>
   )
 }
 
@@ -216,7 +210,7 @@ function FileView({ repository, branch, path, fileData, error, onBack, onOpenDir
     {error && <p className="px-4 py-6 text-sm text-destructive">{error}</p>}
     {fileData && <>
       <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"><FileText className="size-4" />{fileData.path}<span>·</span><span>{fileData.size} bytes</span><span>·</span><span>{branch}</span><span className="ml-auto flex items-center gap-1"><History className="size-4" /> File history</span></div>
-      {fileData.binary ? <p className="px-4 py-6 text-sm text-muted-foreground">Binary file — preview is not available.</p> : <pre className="overflow-x-auto p-4 text-sm leading-6">{fileData.content.split("\n").map((line, index) => <code key={index} className="block"><span className="mr-5 inline-block w-6 select-none text-right text-muted-foreground/60">{index + 1}</span>{line || " "}</code>)}</pre>}
+      {fileData.binary ? <p className="px-4 py-6 text-sm text-muted-foreground">Binary file — preview is not available.</p> : <CodeViewer code={fileData.content} filename={fileData.name} />}
     </>}
   </>
 }
