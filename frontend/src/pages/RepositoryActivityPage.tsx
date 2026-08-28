@@ -1,8 +1,22 @@
+import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
+import { getRepository } from "@/lib/repository_apis"
+import type { RepositoryResponse } from "@/lib/interfaces"
 
 export default function RepositoryActivityPage() {
   const { owner = "jane", repository = "fastrepo" } = useParams()
+  const [repoMeta, setRepoMeta] = useState<RepositoryResponse | null>(null)
+
+  useEffect(() => {
+    let active = true
+    getRepository(owner, repository)
+      .then((meta) => active && setRepoMeta(meta))
+      .catch(() => active && setRepoMeta(null))
+    return () => { active = false }
+  }, [owner, repository])
+
+  const branch = repoMeta?.default_branch || "main"
 
   return (
     <RepositoryLayout owner={owner} repository={repository} activeTab="Activity">
@@ -13,7 +27,7 @@ export default function RepositoryActivityPage() {
         </div>
         <div className="divide-y">
 {[
-  ["maria pushed 3 commits to main", "12 minutes ago"],
+  [`maria pushed 3 commits to ${branch}`, "12 minutes ago"],
   ["alex opened pull request #42", "1 hour ago"],
   ["jane opened issue #24", "3 hours ago"],
   ["jane pushed 1 commit to feature/teams", "Yesterday"],

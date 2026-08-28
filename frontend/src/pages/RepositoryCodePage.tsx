@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
 import {
-  Check, ChevronDown, Clock3, Copy, FileCode2, FileText,
+  Check, ChevronDown, Copy, FileCode2, FileText,
   Folder, GitBranch, GitCommitHorizontal, History,
-  MoreHorizontal, Search
+  Search
 } from "lucide-react"
-import { useParams } from "react-router-dom"
+import { Link, useParams } from "react-router-dom"
 
 import { CodeViewer } from "@/components/code/CodeViewer"
+import GoToFileDialog from "@/components/code/GoToFileDialog"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { getErrorMessage } from "@/lib/api"
-import { formatRelativeDate } from "@/lib/format-date"
 import {
   getFile, getTree, listBranches, listCollaborators, listCommits,
 } from "@/lib/repository_apis"
@@ -29,6 +29,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
   const [treeResult, setTreeResult] = useState<{ key: string; entries?: TreeEntry[]; error?: string } | null>(null)
   const [latest, setLatest] = useState<CommitSummary | null>(null)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [goToFileOpen, setGoToFileOpen] = useState(false)
   const [fileResult, setResult] = useState<{ key: string; data?: FileResponse; error?: string } | null>(null)
 
   useEffect(() => {
@@ -143,14 +144,14 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                   <button className="mt-2 w-full border-t pt-3 text-left text-sm font-medium text-primary hover:underline">View all branches</button>
                 </div>}
               </div>
-              <button className={buttonVariants({ variant: "outline", size: "sm" })}><Search className="size-3.5" /> Go to file</button>
+              <button className={buttonVariants({ variant: "outline", size: "sm" })} onClick={() => setGoToFileOpen(true)}><Search className="size-3.5" /> Go to file</button>
             </div>
 
             <section aria-label="Repository contents" className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
               <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 text-sm">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{(latest?.author ?? owner).charAt(0).toUpperCase()}</div>
-                <span>{latest ? <><strong>{latest.author}</strong> <span className="text-muted-foreground">committed</span> {latest.message}</> : <span className="text-muted-foreground">Loading history…</span>}</span>
-                {latest && <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha.slice(0, 7)}<span>·</span><Clock3 className="size-4" />{formatRelativeDate(latest.author_date)}<button className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</button></span>}
+                <span>                 {latest ? <><strong><Link to={`/${latest.author}`} className="hover:underline">{latest.author}</Link></strong> <span className="text-muted-foreground">committed</span> {latest.message}</> : <span className="text-muted-foreground">Loading history…</span>}</span>
+                {latest && <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha.slice(0, 7)}<button className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</button></span>}
               </div>
 
               {tree?.error && <p className="px-4 py-6 text-sm text-destructive">{tree.error}</p>}
@@ -193,23 +194,47 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                     <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                       {person.username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="truncate font-medium">{person.username}</span>
+                    <Link to={`/${person.username}`} className="truncate font-medium hover:underline">{person.username}</Link>
                     <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{person.role === "owner" ? "Owner" : person.role}</span>
                   </li>
                 ))}
               </ul>
             </section>
           </aside>
+
+          <GoToFileDialog
+            open={goToFileOpen}
+            owner={owner}
+            repository={repository}
+            branch={activeBranch}
+            onClose={() => setGoToFileOpen(false)}
+            onSelect={(path) => {
+              const parts = path.split("/")
+              const file = parts.pop() ?? ""
+              setPath(parts)
+              setSelectedFile(file)
+            }}
+          />
         </div>
   )
 }
 
 function FileView({ repository, branch, path, fileData, error, onBack, onOpenDir }: { repository: string; branch: string; path: string[]; fileData: FileResponse | null; error: string | null; onBack: () => void; onOpenDir: (index: number) => void }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    if (!fileData) return
+    navigator.clipboard.writeText(fileData.content).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
   return <>
-    <nav aria-label="File breadcrumb" className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"><div className="flex items-center gap-1"><button onClick={onBack} className="font-medium text-primary hover:underline">{repository}</button><span className="text-muted-foreground">/</span>{path.map((segment, index) => <span key={segment} className="flex items-center gap-1"><button onClick={() => onOpenDir(index)} className="font-medium text-primary hover:underline">{segment}</button><span className="text-muted-foreground">/</span></span>)}<span className="font-medium">{fileData?.name}</span></div><div className="flex gap-2"><button className={buttonVariants({ variant: "outline", size: "xs" })}>Raw</button><button className={buttonVariants({ variant: "outline", size: "xs" })}><Copy className="size-3.5" /> Copy</button><button className={buttonVariants({ variant: "ghost", size: "icon-xs" })} aria-label="More actions"><MoreHorizontal className="size-3.5" /></button></div></nav>
+    <nav aria-label="File breadcrumb" className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"><div className="flex items-center gap-1"><button onClick={onBack} className="font-medium text-primary hover:underline">{repository}</button><span className="text-muted-foreground">/</span>{path.map((segment, index) => <span key={segment} className="flex items-center gap-1"><button onClick={() => onOpenDir(index)} className="font-medium text-primary hover:underline">{segment}</button><span className="text-muted-foreground">/</span></span>)}<span className="font-medium">{fileData?.name}</span></div>{fileData && <div className="flex gap-2"><button className={buttonVariants({ variant: "outline", size: "xs" })} onClick={handleCopy}><Copy className="size-3.5" /> {copied ? "Copied" : "Copy"}</button></div>}</nav>
     {error && <p className="px-4 py-6 text-sm text-destructive">{error}</p>}
     {fileData && <>
-      <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"><FileText className="size-4" />{fileData.path}<span>·</span><span>{fileData.size} bytes</span><span>·</span><span>{branch}</span><span className="ml-auto flex items-center gap-1"><History className="size-4" /> File history</span></div>
+      <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"><FileText className="size-4" />{fileData.path}<span>·</span><span>{fileData.size} bytes</span><span>·</span><span>{branch}</span></div>
       {fileData.binary ? <p className="px-4 py-6 text-sm text-muted-foreground">Binary file — preview is not available.</p> : <CodeViewer code={fileData.content} filename={fileData.name} />}
     </>}
   </>

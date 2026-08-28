@@ -39,7 +39,8 @@ export default function RepositoryLayout({
       <header className="border-b">
         <div className="mx-auto w-full max-w-6xl px-6 pt-8">
           <h1 className="flex items-center gap-3 text-xl font-semibold tracking-tight">
-            <span className="text-muted-foreground">{owner} /</span>{" "}
+            <Link to={`/${owner}`} className="text-muted-foreground hover:text-primary hover:underline">{owner}</Link>{" "}
+            <span className="text-muted-foreground">/</span>{" "}
             {repository}
             {isPrivate && (
               <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-foreground">
