@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom"
-import RepositoryLayout from "@/components/repository/repository-layout"
+import RepositoryLayout from "@/components/repository/RepositoryLayout"
 import IssueDetailsPage from "@/components/repository/issues/issue-details-page"
 
 export default function RepositoryIssueDetails() {

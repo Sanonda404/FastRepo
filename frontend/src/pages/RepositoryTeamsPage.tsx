@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { data, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 
@@ -38,7 +38,7 @@ export default function RepositoryTeamsPage() {
   }>()
 
   const [teams, setTeams] = useState<Team[]>([])
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([])
+  const [collaborators] = useState<Collaborator[]>([])
 
   const [view, setView] = useState<TeamView>("hierarchy")
 
