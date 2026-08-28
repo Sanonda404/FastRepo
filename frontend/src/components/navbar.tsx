@@ -1,21 +1,21 @@
-import { Link, useNavigate } from "react-router-dom"
-import { useTheme } from "next-themes"
-import { GitBranch, LogOut, Moon, Sun } from "lucide-react"
+import { Link, useNavigate } from "react-router-dom";
+import { useTheme } from "next-themes";
+import { GitBranch, LogOut, Moon, Sun } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { buttonVariants } from "@/components/ui/button-variants"
-import { useAuth } from "@/lib/use-auth"
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { useAuth } from "@/lib/use-auth";
 
 export default function Navbar() {
-  const { resolvedTheme, setTheme } = useTheme()
-  const { isLoggedIn, username, logout } = useAuth()
-  const navigate = useNavigate()
-  const isDark = resolvedTheme === "dark"
+  const { resolvedTheme, setTheme } = useTheme();
+  const { isLoggedIn, username, logout } = useAuth();
+  const navigate = useNavigate();
+  const isDark = resolvedTheme === "dark";
 
   const handleLogout = () => {
-    logout()
-    navigate("/")
-  }
+    logout();
+    navigate("/");
+  };
 
   return (
     <header className="flex h-14 w-full items-center justify-between border-b bg-background px-4">
@@ -46,12 +46,6 @@ export default function Navbar() {
         ) : (
           <>
             <Link
-              to="/login?mode=register"
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
-            >
-              Register
-            </Link>
-            <Link
               to="/login"
               className={buttonVariants({ variant: "ghost", size: "sm" })}
             >
@@ -71,5 +65,5 @@ export default function Navbar() {
         </Button>
       </div>
     </header>
-  )
+  );
 }

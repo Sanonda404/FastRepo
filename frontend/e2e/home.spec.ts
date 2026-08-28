@@ -40,26 +40,14 @@ test("homepage CTAs link to the login page", async ({ page }) => {
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("navbar shows Sign in and Register when logged out", async ({ page }) => {
+test("navbar shows Sign in logged out", async ({ page }) => {
   await page.goto("/");
 
   const header = page.locator("header");
   await expect(header.getByRole("link", { name: "Sign in" })).toBeVisible();
-  await expect(header.getByRole("link", { name: "Register" })).toBeVisible();
 
   await header.getByRole("link", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/login/);
-});
-
-test("navbar Register link opens the register form", async ({ page }) => {
-  await page.goto("/");
-
-  await page.locator("header").getByRole("link", { name: "Register" }).click();
-
-  await expect(page).toHaveURL(/\/login\?mode=register/);
-  await expect(
-    page.getByRole("heading", { name: "Create your account" }),
-  ).toBeVisible();
 });
 
 test("footer renders on homepage", async ({ page }) => {
