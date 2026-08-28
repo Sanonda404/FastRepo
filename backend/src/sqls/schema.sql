@@ -233,3 +233,113 @@ CREATE TABLE IF NOT EXISTS issue_pull_requests (
     pull_request_id INT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
     CONSTRAINT issue_pull_requests_pkey PRIMARY KEY (issue_id, pull_request_id)
 );
+
+CREATE OR REPLACE FUNCTION validate_team_collaborator_from_same_repo()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v1_repository_id INT;
+        v2_repository_id INT;
+    BEGIN
+        SELECT repository_id INTO v1_repository_id
+        FROM teams
+        WHERE id = NEW.team_id;
+        
+        SELECT repository_id INTO v2_repository_id
+        FROM repository_collaborators
+        WHERE id = NEW.member_id;
+
+        IF v1_repository_id IS DISTINCT FROM v2_repository_id THEN
+            RAISE EXCEPTION 'Constraint Violation: Team and collaborator are not part of same repository';
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_viewer_role_repo_privacy()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v_is_private BOOLEAN;
+    BEGIN
+        IF NEW.role = 'Viewer' THEN
+            SELECT is_private INTO v_is_private
+            FROM repositories
+            WHERE id = NEW.repository_id;
+
+            IF v_is_private IS FALSE THEN
+                RAISE EXCEPTION 'Constraint Violation: Role "Viewer" can only be assigned to private repositories.';
+            END IF;
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_no_viewer_in_public_repo()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v_has_viewer BOOLEAN;
+    BEGIN
+        IF NEW.is_private = FALSE THEN
+            SELECT EXISTS (
+                SELECT 1 
+                FROM repository_collaborators
+                WHERE repository_id = NEW.id
+                AND role = 'Viewer'
+            ) INTO v_has_viewer;
+
+            IF v_has_viewer THEN
+                RAISE EXCEPTION '"Viewer" can only be assigned to private repositories. Remove them or change their role before making this repository public.';
+            END IF;
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_team_is_from_same_repo()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v_repository_id INT;
+    BEGIN
+        SELECT repository_id INTO v_repository_id
+        FROM teams
+        WHERE id = NEW.team_id;
+
+        IF v_repository_id IS DISTINCT FROM NEW.repository_id THEN
+            RAISE EXCEPTION 'Constraint Violation: Team % does not belong to repository %.', NEW.team_id, NEW.repository_id;
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS validate_team_collaborator_from_same_repo ON team_members;
+
+    CREATE TRIGGER validate_team_collaborator_from_same_repo
+    BEFORE INSERT OR UPDATE OF team_id, member_id
+    ON team_members
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_team_collaborator_from_same_repo();
+
+DROP TRIGGER IF EXISTS check_viewer_role_privacy ON repository_collaborators;
+    CREATE TRIGGER check_viewer_role_privacy
+    BEFORE INSERT OR UPDATE OF role, repository_id
+    ON repository_collaborators
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_viewer_role_repo_privacy();
+
+DROP TRIGGER IF EXISTS check_is_private_update ON repositories;
+    CREATE TRIGGER check_is_private_update
+    BEFORE UPDATE OF is_private
+    ON repositories
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_no_viewer_in_public_repo();
+
+DROP TRIGGER IF EXISTS validate_team_is_from_same_repo ON permissions;
+
+    CREATE TRIGGER validate_team_is_from_same_repo
+    BEFORE INSERT OR UPDATE OF team_id, repository_id
+    ON permissions
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_team_is_from_same_repo();
