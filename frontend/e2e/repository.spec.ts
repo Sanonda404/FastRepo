@@ -1,22 +1,26 @@
-import { expect, test, type Page, type Route } from "@playwright/test"
+import { expect, test, type Page, type Route } from "@playwright/test";
 
-import { HOUR, iso, stubSession } from "./helpers"
+import { HOUR, iso, stubSession } from "./helpers";
 
 type FixtureEntry = {
-  name: string
-  type: "blob" | "tree"
-  mode: number
-  sha: string
-  size?: number
-}
+  name: string;
+  type: "blob" | "tree";
+  mode: number;
+  sha: string;
+  size?: number;
+};
 
-const entry = (name: string, type: "blob" | "tree", size?: number): FixtureEntry => ({
+const entry = (
+  name: string,
+  type: "blob" | "tree",
+  size?: number,
+): FixtureEntry => ({
   name,
   type,
   mode: type === "tree" ? 16384 : 33188,
   sha: `sha-${name}`,
   ...(size !== undefined ? { size } : {}),
-})
+});
 
 const TREES: Record<string, Record<string, FixtureEntry[]>> = {
   main: {
@@ -76,19 +80,37 @@ const TREES: Record<string, Record<string, FixtureEntry[]>> = {
     src: [entry("api.py", "blob", 170)],
     docs: [entry("release-notes.md", "blob", 500)],
   },
-}
+};
 
 const FILES: Record<string, string> = {
-  "README.md": "# FastRepo\n\nA small, self-hosted home for source code and collaboration.\n",
-  "src/api.py": "from fastapi import APIRouter\n\nrouter = APIRouter(prefix='/repositories')\n",
-  "src/search.py": "def search_branches(branches, query):\n    return [branch for branch in branches if query.lower() in branch.lower()]\n",
-}
+  "README.md":
+    "# FastRepo\n\nA small, self-hosted home for source code and collaboration.\n",
+  "src/api.py":
+    "from fastapi import APIRouter\n\nrouter = APIRouter(prefix='/repositories')\n",
+  "src/search.py":
+    "def search_branches(branches, query):\n    return [branch for branch in branches if query.lower() in branch.lower()]\n",
+};
 
-const HEAD_COMMITS: Record<string, { sha: string; message: string; date: string }> = {
-  main: { sha: "8a4b1c2abcdef0123456789abcdef0123456789", message: "Add repository browser", date: iso(3 * HOUR) },
-  "feature/search": { sha: "4c9d8e1abcdef0123456789abcdef0123456789", message: "Add branch search", date: iso(25 * 60_000) },
-  "release/1.0": { sha: "7f2a3b6abcdef0123456789abcdef0123456789", message: "Release 1.0", date: iso(35 * 24 * HOUR) },
-}
+const HEAD_COMMITS: Record<
+  string,
+  { sha: string; message: string; date: string }
+> = {
+  main: {
+    sha: "8a4b1c2abcdef0123456789abcdef0123456789",
+    message: "Add repository browser",
+    date: iso(3 * HOUR),
+  },
+  "feature/search": {
+    sha: "4c9d8e1abcdef0123456789abcdef0123456789",
+    message: "Add branch search",
+    date: iso(25 * 60_000),
+  },
+  "release/1.0": {
+    sha: "7f2a3b6abcdef0123456789abcdef0123456789",
+    message: "Release 1.0",
+    date: iso(35 * 24 * HOUR),
+  },
+};
 
 const REPO_META = {
   id: 1,
@@ -98,29 +120,39 @@ const REPO_META = {
   owner_id: 1,
   default_branch: "main",
   created_at: iso(30 * 24 * HOUR),
-}
+};
 
 async function stubRepoApi(page: Page): Promise<void> {
-  stubSession(page)
+  stubSession(page);
   await page.route("**/api/**", (route: Route) => {
-    const request = route.request()
-    const url = new URL(request.url())
-    const path = url.pathname
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
 
     if (path === "/api/repositories/jane/fastrepo") {
-      return route.fulfill({ json: REPO_META })
+      return route.fulfill({ json: REPO_META });
     }
     if (path === "/api/repositories/jane/fastrepo/branches") {
       return route.fulfill({
         json: [
           { name: "main", sha: HEAD_COMMITS.main.sha, is_default: true },
-          { name: "feature/search", sha: HEAD_COMMITS["feature/search"].sha, is_default: false },
-          { name: "release/1.0", sha: HEAD_COMMITS["release/1.0"].sha, is_default: false },
+          {
+            name: "feature/search",
+            sha: HEAD_COMMITS["feature/search"].sha,
+            is_default: false,
+          },
+          {
+            name: "release/1.0",
+            sha: HEAD_COMMITS["release/1.0"].sha,
+            is_default: false,
+          },
         ],
-      })
+      });
     }
     if (path === "/api/repositories/jane/fastrepo/commits") {
-      const head = HEAD_COMMITS[url.searchParams.get("ref") ?? "main"] ?? HEAD_COMMITS.main
+      const head =
+        HEAD_COMMITS[url.searchParams.get("ref") ?? "main"] ??
+        HEAD_COMMITS.main;
       return route.fulfill({
         json: [
           {
@@ -131,25 +163,39 @@ async function stubRepoApi(page: Page): Promise<void> {
             message: head.message,
           },
         ],
-      })
+      });
     }
     if (path === "/api/repositories/jane/fastrepo/tree") {
-      const ref = url.searchParams.get("ref") ?? "main"
-      const dirPath = url.searchParams.get("path") ?? ""
-      const entries = TREES[ref]?.[dirPath]
+      const ref = url.searchParams.get("ref") ?? "main";
+      const dirPath = url.searchParams.get("path") ?? "";
+      const entries = TREES[ref]?.[dirPath];
       if (!entries) {
-        return route.fulfill({ status: 404, json: { detail: "Tree not found" } })
+        return route.fulfill({
+          status: 404,
+          json: { detail: "Tree not found" },
+        });
       }
       return route.fulfill({
-        json: { commit: `commit-${ref}`, tree: "root-tree-sha", path: dirPath, entries },
-      })
+        json: {
+          commit: `commit-${ref}`,
+          tree: "root-tree-sha",
+          path: dirPath,
+          entries,
+        },
+      });
     }
-    if (path === "/api/repositories/jane/fastrepo/file" && request.method() === "POST") {
-      const body = request.postDataJSON() as { path?: string }
-      const filePath = body.path ?? ""
-      const content = FILES[filePath]
+    if (
+      path === "/api/repositories/jane/fastrepo/file" &&
+      request.method() === "POST"
+    ) {
+      const body = request.postDataJSON() as { path?: string };
+      const filePath = body.path ?? "";
+      const content = FILES[filePath];
       if (content === undefined) {
-        return route.fulfill({ status: 404, json: { detail: "File not found" } })
+        return route.fulfill({
+          status: 404,
+          json: { detail: "File not found" },
+        });
       }
       return route.fulfill({
         json: {
@@ -160,7 +206,7 @@ async function stubRepoApi(page: Page): Promise<void> {
           binary: false,
           content,
         },
-      })
+      });
     }
 
     if (path === "/api/collaborators/jane/fastrepo") {
@@ -175,148 +221,184 @@ async function stubRepoApi(page: Page): Promise<void> {
             role: "write",
           },
         ],
-      })
+      });
     }
 
-    return route.fulfill({ status: 404, json: { detail: "Not found" } })
-  })
+    return route.fulfill({ status: 404, json: { detail: "Not found" } });
+  });
 }
 
 test.beforeEach(async ({ page }) => {
-  await stubRepoApi(page)
-})
+  await stubRepoApi(page);
+});
 
-test("repository explorer keeps its tree while selecting branches and files", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+test("repository explorer keeps its tree while selecting branches and files", async ({
+  page,
+}) => {
+  await page.goto("/jane/fastrepo");
 
-  await expect(page.getByRole("navigation", { name: "Repository navigation" })).toBeVisible()
-  await expect(page.getByRole("table", { name: "Repository file explorer" })).toContainText("src")
-  await expect(page.locator("main")).toContainText("Private")
+  await expect(
+    page.getByRole("navigation", { name: "Repository navigation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Repository file explorer" }),
+  ).toContainText("src");
+  await expect(page.locator("main")).toContainText("Private");
 
-  await page.getByRole("button", { name: /main/ }).click()
-  const dialog = page.getByRole("dialog", { name: "Select branch" })
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole("button", { name: /feature\/search/ }).click()
-  await expect(dialog).toBeHidden()
+  await page.getByRole("button", { name: /main/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Select branch" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /feature\/search/ }).click();
+  await expect(dialog).toBeHidden();
 
-  await page.getByRole("row", { name: "src", exact: true }).click()
-  await expect(page.getByRole("row", { name: "search.py" })).toBeVisible()
-  await page.getByRole("row", { name: "search.py" }).click()
-  await expect(page.getByText("def search_branches", { exact: false })).toBeVisible()
-  await expect(page.getByText("File history")).toBeVisible()
-})
+  await page.getByRole("row", { name: "src", exact: true }).click();
+  await expect(page.getByRole("row", { name: "search.py" })).toBeVisible();
+  await page.getByRole("row", { name: "search.py" }).click();
+  await expect(
+    page.getByText("def search_branches", { exact: false }),
+  ).toBeVisible();
+});
 
-test("sidebar shows the description and contributors including the owner", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+test("sidebar shows the description and contributors including the owner", async ({
+  page,
+}) => {
+  await page.goto("/jane/fastrepo");
 
-  const sidebar = page.getByTestId("repo-sidebar")
-  await expect(sidebar.getByRole("heading", { name: "About" })).toBeVisible()
-  await expect(sidebar.getByText("Code hosting with fine-grained permissions.")).toBeVisible()
+  const sidebar = page.getByTestId("repo-sidebar");
+  await expect(sidebar.getByRole("heading", { name: "About" })).toBeVisible();
+  await expect(
+    sidebar.getByText("Code hosting with fine-grained permissions."),
+  ).toBeVisible();
 
-  await expect(sidebar.getByRole("heading", { name: "Contributors" })).toBeVisible()
-  const jane = sidebar.locator("li").filter({ hasText: "jane" })
-  await expect(jane).toContainText("Owner")
-  const bob = sidebar.locator("li").filter({ hasText: "bob" })
-  await expect(bob).toContainText("write")
-})
+  await expect(
+    sidebar.getByRole("heading", { name: "Contributors" }),
+  ).toBeVisible();
+  const jane = sidebar.locator("li").filter({ hasText: "jane" });
+  await expect(jane).toContainText("Owner");
+  const bob = sidebar.locator("li").filter({ hasText: "bob" });
+  await expect(bob).toContainText("write");
+});
 
-test("latest commit bar shows the branch head commit from the API", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+test("latest commit bar shows the branch head commit from the API", async ({
+  page,
+}) => {
+  await page.goto("/jane/fastrepo");
 
-  const section = page.locator('section[aria-label="Repository contents"]')
-  await expect(section).toContainText("jane")
-  await expect(section).toContainText("Add repository browser")
-  await expect(section).toContainText("8a4b1c2")
-  await expect(section).toContainText("3 hours ago")
-})
+  const section = page.locator('section[aria-label="Repository contents"]');
+  await expect(section).toContainText("jane");
+  await expect(section).toContainText("Add repository browser");
+  await expect(section).toContainText("8a4b1c2");
+});
 
-test("nested folders are navigable and breadcrumb jumps show each directory's tree", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+test("nested folders are navigable and breadcrumb jumps show each directory's tree", async ({
+  page,
+}) => {
+  await page.goto("/jane/fastrepo");
 
-  const explorer = page.getByRole("table", { name: "Repository file explorer" })
-  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" })
+  const explorer = page.getByRole("table", {
+    name: "Repository file explorer",
+  });
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
 
-  await explorer.getByRole("row", { name: "src", exact: true }).click()
-  await expect(explorer).toContainText("api.py")
-  await expect(breadcrumb).toContainText("src")
+  await explorer.getByRole("row", { name: "src", exact: true }).click();
+  await expect(explorer).toContainText("api.py");
+  await expect(breadcrumb).toContainText("src");
 
-  await explorer.getByRole("row", { name: "lib", exact: true }).click()
-  await expect(explorer).toContainText("config.py")
-  await expect(explorer).toContainText("formatters")
+  await explorer.getByRole("row", { name: "lib", exact: true }).click();
+  await expect(explorer).toContainText("config.py");
+  await expect(explorer).toContainText("formatters");
 
-  await explorer.getByRole("row", { name: "formatters", exact: true }).click()
-  await expect(explorer).toContainText("time.py")
+  await explorer.getByRole("row", { name: "formatters", exact: true }).click();
+  await expect(explorer).toContainText("time.py");
 
-  await breadcrumb.getByRole("button", { name: "lib" }).click()
-  await expect(explorer).toContainText("utils.py")
-  await expect(explorer).not.toContainText("models.py")
+  await breadcrumb.getByRole("button", { name: "lib" }).click();
+  await expect(explorer).toContainText("utils.py");
+  await expect(explorer).not.toContainText("models.py");
 
-  await breadcrumb.getByRole("button", { name: "src" }).click()
-  await expect(explorer).toContainText("api.py")
-  await expect(explorer).toContainText("models.py")
-  await expect(breadcrumb).not.toContainText("lib")
+  await breadcrumb.getByRole("button", { name: "src" }).click();
+  await expect(explorer).toContainText("api.py");
+  await expect(explorer).toContainText("models.py");
+  await expect(breadcrumb).not.toContainText("lib");
 
-  await breadcrumb.getByRole("button", { name: "fastrepo" }).click()
-  await expect(explorer).toContainText("README.md")
-  await expect(breadcrumb).not.toContainText("src")
-})
+  await breadcrumb.getByRole("button", { name: "fastrepo" }).click();
+  await expect(explorer).toContainText("README.md");
+  await expect(breadcrumb).not.toContainText("src");
+});
 
 test("up one level walks back through nested directories", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+  await page.goto("/jane/fastrepo");
 
-  const explorer = page.getByRole("table", { name: "Repository file explorer" })
-  await explorer.getByRole("row", { name: "src", exact: true }).click()
-  await explorer.getByRole("row", { name: "lib", exact: true }).click()
-  await explorer.getByRole("row", { name: "formatters", exact: true }).click()
-  await expect(explorer).toContainText("tables.py")
+  const explorer = page.getByRole("table", {
+    name: "Repository file explorer",
+  });
+  await explorer.getByRole("row", { name: "src", exact: true }).click();
+  await explorer.getByRole("row", { name: "lib", exact: true }).click();
+  await explorer.getByRole("row", { name: "formatters", exact: true }).click();
+  await expect(explorer).toContainText("tables.py");
 
-  await explorer.getByRole("row", { name: /Up one level/ }).click()
-  await expect(explorer).toContainText("utils.py")
+  await explorer.getByRole("row", { name: /Up one level/ }).click();
+  await expect(explorer).toContainText("utils.py");
 
-  await explorer.getByRole("row", { name: /Up one level/ }).click()
-  await expect(explorer).toContainText("models.py")
-})
+  await explorer.getByRole("row", { name: /Up one level/ }).click();
+  await expect(explorer).toContainText("models.py");
+});
 
 test("file sizes from the tree API are shown for blobs", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+  await page.goto("/jane/fastrepo");
 
-  const explorer = page.getByRole("table", { name: "Repository file explorer" })
-  await expect(explorer).toContainText("512 bytes")
-  await expect(explorer).toContainText("1024 bytes")
+  const explorer = page.getByRole("table", {
+    name: "Repository file explorer",
+  });
+  await expect(explorer).toContainText("512 bytes");
+  await expect(explorer).toContainText("1024 bytes");
 
-  await explorer.getByRole("row", { name: "README.md" }).click()
-  await expect(page.getByText("A small, self-hosted home")).toBeVisible()
-})
+  await explorer.getByRole("row", { name: "README.md" }).click();
+  await expect(page.getByText("A small, self-hosted home")).toBeVisible();
+});
 
-test("switching branch from a nested directory resets to the new branch root and keeps the explorer", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+test("switching branch from a nested directory resets to the new branch root and keeps the explorer", async ({
+  page,
+}) => {
+  await page.goto("/jane/fastrepo");
 
-  const explorer = page.getByRole("table", { name: "Repository file explorer" })
-  await explorer.getByRole("row", { name: "src", exact: true }).click()
-  await explorer.getByRole("row", { name: "lib", exact: true }).click()
+  const explorer = page.getByRole("table", {
+    name: "Repository file explorer",
+  });
+  await explorer.getByRole("row", { name: "src", exact: true }).click();
+  await explorer.getByRole("row", { name: "lib", exact: true }).click();
 
-  await page.getByRole("button", { name: /main/ }).click()
-  const dialog = page.getByRole("dialog", { name: "Select branch" })
-  await expect(dialog).toBeVisible()
-  await expect(explorer).toBeVisible()
+  await page.getByRole("button", { name: /main/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Select branch" });
+  await expect(dialog).toBeVisible();
+  await expect(explorer).toBeVisible();
 
-  await dialog.getByRole("button", { name: /release\/1\.0/ }).click()
-  await expect(dialog).toBeHidden()
-  await expect(explorer).toContainText("README.md")
-  await expect(explorer).not.toContainText("config.py")
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).not.toContainText("src")
-})
+  await dialog.getByRole("button", { name: /release\/1\.0/ }).click();
+  await expect(dialog).toBeHidden();
+  await expect(explorer).toContainText("README.md");
+  await expect(explorer).not.toContainText("config.py");
+  await expect(
+    page.getByRole("navigation", { name: "Breadcrumb" }),
+  ).not.toContainText("src");
+});
 
-test("file view breadcrumb directories return to their listings with content intact", async ({ page }) => {
-  await page.goto("/jane/fastrepo")
+test("file view breadcrumb directories return to their listings with content intact", async ({
+  page,
+}) => {
+  await page.goto("/jane/fastrepo");
 
-  const explorer = page.getByRole("table", { name: "Repository file explorer" })
-  await explorer.getByRole("row", { name: "src", exact: true }).click()
-  await explorer.getByRole("row", { name: "api.py" }).click()
-  await expect(page.getByText("router = APIRouter", { exact: false })).toBeVisible()
-  await expect(page.getByText(/bytes/)).toBeVisible()
+  const explorer = page.getByRole("table", {
+    name: "Repository file explorer",
+  });
+  await explorer.getByRole("row", { name: "src", exact: true }).click();
+  await explorer.getByRole("row", { name: "api.py" }).click();
+  await expect(
+    page.getByText("router = APIRouter", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText(/bytes/)).toBeVisible();
 
-  const fileBreadcrumb = page.getByRole("navigation", { name: "File breadcrumb" })
-  await fileBreadcrumb.getByRole("button", { name: "src" }).click()
-  await expect(explorer).toContainText("models.py")
-})
+  const fileBreadcrumb = page.getByRole("navigation", {
+    name: "File breadcrumb",
+  });
+  await fileBreadcrumb.getByRole("button", { name: "src" }).click();
+  await expect(explorer).toContainText("models.py");
+});

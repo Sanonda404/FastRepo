@@ -10,5 +10,10 @@ CREATE TABLE IF NOT EXISTS issue_comments (
 )
 """
 
+ISSUE_COMMENTS_INDEX_DDL = """
+CREATE INDEX IF NOT EXISTS idx_issue_comments_issue ON issue_comments(issue_id)
+"""
+
 async def ensure_issues_comments_table(pool: asyncpg.Pool) -> None:
     await pool.execute(ISSUE_COMMENTS_TABLE_DDL)
+    await pool.execute(ISSUE_COMMENTS_INDEX_DDL)

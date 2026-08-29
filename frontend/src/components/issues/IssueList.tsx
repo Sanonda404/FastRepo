@@ -29,7 +29,7 @@ export default function IssueList({
         <IssueItem
           key={issue.id}
           issue={issue}
-          href={`/repositories/${owner}/${repository}/issues/${issue.id}`}
+          href={`/${owner}/${repository}/issues/${issue.id}`}
         />
       ))}
     </div>

@@ -9,5 +9,10 @@ CREATE TABLE IF NOT EXISTS stars (
 );
 """
 
+STARS_INDEX_DDL = """
+CREATE INDEX IF NOT EXISTS idx_stars_repo ON stars(repository_id)
+"""
+
 async def ensure_stars_table(pool: asyncpg.Pool) -> None:
     await pool.execute(STARS_TABLE_DDL)
+    await pool.execute(STARS_INDEX_DDL)

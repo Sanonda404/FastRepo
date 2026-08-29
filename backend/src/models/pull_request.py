@@ -17,5 +17,10 @@ CREATE TABLE IF NOT EXISTS pull_requests (
 )
 """
 
+PULL_REQUESTS_INDEX_DDL = """
+CREATE INDEX IF NOT EXISTS idx_pull_requests_repo ON pull_requests(repository_id)
+"""
+
 async def ensure_pull_requests_table(pool: asyncpg.Pool) -> None:
     await pool.execute(PULL_REQUESTS_TABLE_DDL)
+    await pool.execute(PULL_REQUESTS_INDEX_DDL)

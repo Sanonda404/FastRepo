@@ -32,6 +32,27 @@ export function getTree(owner: string, name: string, ref: string, path: string):
   return api<TreeResponse>(`/repositories/${owner}/${name}/tree?${params}`);
 }
 
+export async function listAllFilePaths(
+  owner: string,
+  name: string,
+  ref: string,
+  path = "",
+  acc: string[] = [],
+): Promise<string[]> {
+  const data = await getTree(owner, name, ref, path);
+  await Promise.all(
+    data.entries.map(async (entry) => {
+      const full = path ? `${path}/${entry.name}` : entry.name;
+      if (entry.type === "tree") {
+        await listAllFilePaths(owner, name, ref, full, acc);
+      } else {
+        acc.push(full);
+      }
+    }),
+  );
+  return acc;
+}
+
 export function getFile(owner: string, name: string, filePath: string, ref: string): Promise<FileResponse> {
   return api<FileResponse>(`/repositories/${owner}/${name}/file`, {
     method: "POST",

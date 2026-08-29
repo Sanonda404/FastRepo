@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { Lock } from "lucide-react"
 import {
   Activity,
   BookOpen,
@@ -16,6 +17,7 @@ type RepositoryLayoutProps = {
   owner: string
   repository: string
   activeTab: string
+  isPrivate?: boolean
   children: ReactNode
 }
 
@@ -34,6 +36,7 @@ export default function RepositoryLayout({
   owner,
   repository,
   activeTab,
+  isPrivate,
   children,
 }: RepositoryLayoutProps) {
   // filter tabs based on role
@@ -48,9 +51,16 @@ export default function RepositoryLayout({
     <main className="min-h-[calc(100dvh-3.5rem)] bg-background">
       <header className="border-b">
         <div className="mx-auto w-full max-w-6xl px-6 pt-8">
-          <h1 className="text-xl font-semibold tracking-tight">
-            <span className="text-muted-foreground">{owner} /</span>{" "}
+          <h1 className="flex items-center gap-3 text-xl font-semibold tracking-tight">
+            <Link to={`/${owner}`} className="text-muted-foreground hover:text-primary hover:underline">{owner}</Link>{" "}
+            <span className="text-muted-foreground">/</span>{" "}
             {repository}
+            {isPrivate && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                <Lock className="size-3" />
+                Private
+              </span>
+            )}
           </h1>
 
           <nav

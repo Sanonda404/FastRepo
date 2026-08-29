@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,6 +13,8 @@ import RepositoryLayout from "@/components/repository/RepositoryLayout"
 import { issueCreateSchema } from "@/lib/schemas/issue"
 import { getErrorMessage } from "@/lib/apis/api"
 import { createIssue } from "@/lib/apis/issue_apis"
+import type { RepositoryRole } from '../lib/auth/permissions';
+import { getRole } from "@/lib/apis/repository_apis"
 
 type IssueFormInput = z.input<typeof issueCreateSchema>
 type IssueFormOutput = z.output<typeof issueCreateSchema>
@@ -54,8 +56,23 @@ export default function RepositoryIssueNew() {
     }
   }
 
+  const [role, setRole] = useState<RepositoryRole>('Viewer')
+  
+    useEffect(() => {
+      getRole(owner,repository).then((data) => {
+  
+          setRole(data)
+        })
+        .catch((err) => {
+  
+          console.log(getErrorMessage(err))
+        })
+    }, [owner, repository])
+
+
   return (
     <RepositoryLayout
+    role = {role}
       owner={owner}
       repository={repository}
       activeTab="Issues"
