@@ -31,7 +31,7 @@ import {
   type LoginInput,
   type RegisterInput,
 } from "@/lib/schemas/auth";
-import { loginApi, registerApi, setAuthToken, getErrorMessage } from "@/lib/api";
+import { loginApi, registerApi, setAuthToken, getErrorMessage } from "@/lib/apis/api";
 
 import "@/css/auth_theme.css";
 

@@ -1,12 +1,17 @@
-import type { CreateTeamInput } from "./schemas/team";
+import type { CreateTeamInput } from "../schemas/team";
 import type {
-  Team
-} from "./interfaces";
+  Team,
+} from "../interfaces";
 import { api } from "./api";
 
 export async function createTeam(owner: string, repo_name: string, data: CreateTeamInput): Promise<Team> {
   return api<Team>(`/teams/${owner}/${repo_name}`, { method: "POST", body: data });
 }
+
+export async function getAllTeams(owner: string, repo_name: string): Promise<Team[]> {
+  return api<Team[]>(`/teams/${owner}/${repo_name}`, { method: "GET"});
+}
+
 
 export async function updateTeam(owner: string, repo_name: string, team_id: number, data: CreateTeamInput): Promise<Team> {
   return api<Team>(`/teams/${owner}/${repo_name}/${team_id}`, { method: "PATCH", body: data });

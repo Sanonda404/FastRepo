@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input"
 import IssueList from "@/components/issues/IssueList"
 import type { Issue } from "@/lib/interfaces"
 
-import { api, getErrorMessage } from "@/lib/api"
+import { getErrorMessage } from "@/lib/apis/api"
+import { getIssues } from "@/lib/apis/issue_apis"
+import type { RepositoryRole } from "@/lib/auth/permissions"
+import { getRole } from "@/lib/apis/repository_apis"
 
 export default function RepositoryIssuesPage() {
   const { owner, repository } = useParams<{
@@ -20,17 +23,32 @@ export default function RepositoryIssuesPage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [role, setRole] = useState<RepositoryRole>('Viewer');
 
   useEffect(() => {
     if (!owner || !repository) return
 
     let active = true
 
-    api<Issue[]>(`/issues/${owner}/${repository}`)
+    getIssues(owner, repository)
       .then((data) => {
         if (!active) return
 
         setIssues(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!active) return
+
+        setError(getErrorMessage(err))
+        setLoading(false)
+      })
+
+      getRole(owner, repository)
+      .then((data) => {
+        if (!active) return
+
+        setRole(data)
         setLoading(false)
       })
       .catch((err) => {
@@ -66,6 +84,7 @@ export default function RepositoryIssuesPage() {
 
   return (
     <RepositoryLayout
+      role={role}
       owner={owner}
       repository={repository}
       activeTab="Issues"

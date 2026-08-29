@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { data, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 
@@ -22,8 +22,10 @@ import {
   type AddTeamMemberInput,
 } from "@/lib/schemas/team"
 
-import { api, getErrorMessage } from "@/lib/api"
-import { createTeam,updateTeam, deleteTeam } from "@/lib/team_apis"
+import { api, getErrorMessage } from "@/lib/apis/api"
+import { createTeam,getAllTeams, updateTeam, deleteTeam } from "@/lib/apis/team_apis"
+import { getRole } from "@/lib/apis/repository_apis"
+import type { RepositoryRole } from "@/lib/auth/permissions"
 
 interface Collaborator {
   id: number
@@ -39,6 +41,7 @@ export default function RepositoryTeamsPage() {
 
   const [teams, setTeams] = useState<Team[]>([])
   const [collaborators, setCollaborators] = useState<Collaborator[]>([])
+  const [role, setRole] = useState<RepositoryRole>()
 
   const [view, setView] = useState<TeamView>("hierarchy")
 
@@ -78,11 +81,25 @@ export default function RepositoryTeamsPage() {
 
     let active = true
 
-    api<Team[]>(`/teams/${owner}/${repository}`)
+    getAllTeams(owner, repository)
       .then((data) => {
         if (!active) return
 
         setTeams(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!active) return
+
+        setError(getErrorMessage(err))
+        setLoading(false)
+      })
+
+      getRole(owner, repository)
+      .then((data) => {
+        if (!active) return
+
+        setRole(data)
         setLoading(false)
       })
       .catch((err) => {
@@ -242,16 +259,20 @@ export default function RepositoryTeamsPage() {
 
   return (
     <RepositoryLayout
+      role = {role ?? "Viewer"}
       owner={owner}
       repository={repository}
       activeTab="Teams"
     >
       <div className="space-y-6">
 
-        <TeamHeader
-          onCreateTeam={openCreateTeam}
-          onAddMember={() => openAddMember()}
-        />
+        {role && (
+          <TeamHeader
+            role={role}
+            onCreateTeam={openCreateTeam}
+            onAddMember={() => openAddMember()}
+          />
+        )}
 
         {error && (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -270,6 +291,7 @@ export default function RepositoryTeamsPage() {
           </div>
         ) : view === "hierarchy" ? (
           <TeamHierarchy
+            role = {role ?? "Viewer"}
             teams={teams}
             onCreateSubTeam={openCreateSubTeam}
             onAddMember={openAddMember}
@@ -278,6 +300,7 @@ export default function RepositoryTeamsPage() {
           />
         ) : (
           <TeamList
+            role={role ?? "Viewer"}
             teams={teams}
             onAddMember={openAddMember}
           />

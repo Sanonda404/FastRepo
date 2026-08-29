@@ -8,8 +8,8 @@ import Footer from "@/components/footer"
 import RepositoryForm from "@/components/repository/repository-form"
 
 import { newRepositorySchema } from "@/lib/schemas/repository"
-import { getErrorMessage } from "@/lib/api"
-import { createRepository } from "@/lib/repository_apis"
+import { getErrorMessage } from "@/lib/apis/api"
+import { createRepository } from "@/lib/apis/repository_apis"
 
 type RepositoryFormInput = z.input<typeof newRepositorySchema>
 type RepositoryFormOutput = z.output<typeof newRepositorySchema>

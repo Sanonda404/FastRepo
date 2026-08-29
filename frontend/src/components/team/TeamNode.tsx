@@ -1,7 +1,9 @@
 import type { Team } from "@/lib/interfaces"
 import TeamCard from "./TeamCard"
+import type { RepositoryRole } from "@/lib/auth/permissions"
 
 interface TeamNodeProps {
+  role : RepositoryRole
   team: Team
   childrenMap: Map<number, Team[]>
   onCreateSubTeam: (team: Team) => void
@@ -11,6 +13,7 @@ interface TeamNodeProps {
 }
 
 export default function TeamNode({
+  role,
   team,
   childrenMap,
   onCreateSubTeam,
@@ -23,6 +26,7 @@ export default function TeamNode({
   return (
     <div className="flex flex-col items-center">
       <TeamCard
+        role={role}
         team={team}
         childCount={children.length}
         onCreateSubTeam={onCreateSubTeam}
@@ -47,6 +51,7 @@ export default function TeamNode({
                 <div className="absolute -top-8 left-1/2 h-8 w-px bg-border" />
 
                 <TeamNode
+                  role={role}
                   team={child}
                   childrenMap={childrenMap}
                   onCreateSubTeam={onCreateSubTeam}

@@ -4,7 +4,7 @@ import { GitBranch, LogOut, Moon, Sun } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
-import { useAuth } from "@/lib/use-auth"
+import { useAuth } from "@/lib/auth/use-auth"
 
 export default function Navbar() {
   const { resolvedTheme, setTheme } = useTheme()

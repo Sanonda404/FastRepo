@@ -1,11 +1,29 @@
 import { useParams } from "react-router-dom"
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
+import type { RepositoryRole } from '../lib/auth/permissions';
+import { useState, useEffect } from "react";
+import { getRole } from "@/lib/apis/repository_apis";
+import { getErrorMessage } from "@/lib/apis/api";
 
 export default function RepositoryPullrequestsPage() {
   const { owner = "jane", repository = "fastrepo" } = useParams()
 
+  const [role, setRole] = useState<RepositoryRole>('Viewer')
+  
+    useEffect(() => {
+      getRole(owner,repository).then((data) => {
+  
+          setRole(data)
+        })
+        .catch((err) => {
+  
+          console.log(getErrorMessage(err))
+        })
+    }, [owner, repository])
+
+
   return (
-    <RepositoryLayout owner={owner} repository={repository} activeTab="Pull requests">
+    <RepositoryLayout role = {role} owner={owner} repository={repository} activeTab="Pull requests">
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
         <div className="border-b px-5 py-4">
           <h2 className="font-semibold">Pull requests</h2>

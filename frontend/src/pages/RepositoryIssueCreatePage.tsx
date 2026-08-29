@@ -11,8 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 
 import { issueCreateSchema } from "@/lib/schemas/issue"
-import { getErrorMessage } from "@/lib/api"
-import { createIssue } from "@/lib/issue_apis"
+import { getErrorMessage } from "@/lib/apis/api"
+import { createIssue } from "@/lib/apis/issue_apis"
 
 type IssueFormInput = z.input<typeof issueCreateSchema>
 type IssueFormOutput = z.output<typeof issueCreateSchema>

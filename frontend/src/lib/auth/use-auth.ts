@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
-import { api, clearAuthToken, getAuthToken, subscribeAuthChange } from "@/lib/api"
+import { api, clearAuthToken, getAuthToken, subscribeAuthChange } from "@/lib/apis/api"
 import type { UserResponse } from "@/lib/interfaces"
 
 let cachedUsername: string | null = null

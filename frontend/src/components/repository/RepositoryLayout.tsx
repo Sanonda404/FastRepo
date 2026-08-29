@@ -5,11 +5,14 @@ import {
   CircleDot,
   GitPullRequest,
   Settings,
+  ShieldCheck,
   Users,
 } from "lucide-react"
 import { Link } from "react-router-dom"
+import type { RepositoryRole } from "@/lib/auth/permissions"
 
 type RepositoryLayoutProps = {
+  role : RepositoryRole
   owner: string
   repository: string
   activeTab: string
@@ -22,15 +25,25 @@ const tabs = [
   { label: "Pull requests", path: "/pulls", icon: GitPullRequest },
   { label: "Teams", path: "/teams", icon: Users },
   { label: "Activity", path: "/activity", icon: Activity },
+  { label: "Permissions", path : "/permissions", icon: ShieldCheck },
   { label: "Settings", path: "/settings", icon: Settings },
 ]
 
 export default function RepositoryLayout({
+  role,
   owner,
   repository,
   activeTab,
   children,
 }: RepositoryLayoutProps) {
+  // filter tabs based on role
+  const visibleTabs = tabs.filter(tab => {
+    if (tab.label === "Settings") {
+      return role === "Admin" || role === "Owner"
+    }
+    return true // all other tabs are always visible
+  })
+
   return (
     <main className="min-h-[calc(100dvh-3.5rem)] bg-background">
       <header className="border-b">
@@ -44,7 +57,7 @@ export default function RepositoryLayout({
             aria-label="Repository navigation"
             className="mt-6 flex gap-1 overflow-x-auto"
           >
-            {tabs.map(({ label, path, icon: Icon }) => {
+            {visibleTabs.map(({ label, path, icon: Icon }) => {
               const href = `/${owner}/${repository}${path}`
               const active = label === activeTab
 

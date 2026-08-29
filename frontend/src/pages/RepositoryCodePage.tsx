@@ -7,11 +7,11 @@ import {
 import { useParams } from "react-router-dom"
 
 import { buttonVariants } from "@/components/ui/button-variants"
-import { getErrorMessage } from "@/lib/api"
+import { getErrorMessage } from "@/lib/apis/api"
 import { formatRelativeDate } from "@/lib/format-date"
 import {
   getFile, getRepository, getTree, listBranches, listCollaborators, listCommits,
-} from "@/lib/repository_apis"
+} from "@/lib/apis/repository_apis"
 import type {
   BranchResponse, CollaboratorResponse, CommitSummary, FileResponse,
   RepositoryResponse, TreeEntry,

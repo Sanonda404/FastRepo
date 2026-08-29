@@ -2,8 +2,10 @@ import { GitBranch } from "lucide-react"
 
 import type { Team } from "@/lib/interfaces"
 import TeamNode from "./TeamNode"
+import type { RepositoryRole } from "@/lib/auth/permissions"
 
 interface TeamHierarchyProps {
+  role : RepositoryRole,
   teams: Team[]
   onCreateSubTeam: (team: Team) => void
   onAddMember: (team: Team) => void
@@ -12,6 +14,7 @@ interface TeamHierarchyProps {
 }
 
 export default function TeamHierarchy({
+  role,
   teams,
   onCreateSubTeam,
   onAddMember,
@@ -56,6 +59,7 @@ export default function TeamHierarchy({
       <div className="flex min-w-max justify-center gap-12">
         {rootTeams.map((team) => (
          <TeamNode
+            role = {role}
             key={team.id}
             team={team}
             childrenMap={childrenMap}

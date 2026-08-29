@@ -1,3 +1,5 @@
+import type { RepositoryRole } from "./auth/permissions";
+
 export interface RegisterPayload {
   username: string;
   email: string;
@@ -19,6 +21,7 @@ export interface RepositoryResponse {
   owner_id: number;
   parent_repository_id?: number;
   created_at: string;
+  role:RepositoryRole;
 }
 
 export interface BranchResponse {
@@ -97,6 +100,11 @@ export interface Issue {
   closed_at : string
 }
 
+export interface IssuesWitRole {
+  issues : Issue[],
+  role : RepositoryRole
+}
+
 export interface TeamMember {
   id: number
   username: string
@@ -108,4 +116,9 @@ export interface Team {
   name: string
   parent_team_id: number | null
   members: TeamMember[]
+}
+
+export interface TeamsWithRole {
+  teams : Team[]
+  role : RepositoryRole
 }

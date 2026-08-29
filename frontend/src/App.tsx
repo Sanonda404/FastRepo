@@ -4,7 +4,7 @@ import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";
 import RepositoryPage from "./pages/RepositoryPage";
-import { useAuth } from "@/lib/use-auth";
+import { useAuth } from "@/lib/auth/use-auth";
 import RepositoryCreatePage from "./pages/RepositoryCreatePage";
 import RepositoryIssuesPage from "./pages/RepositoryIssuesPage";
 import RepositoryPullsPage from "./pages/RepositoryPullsPage";

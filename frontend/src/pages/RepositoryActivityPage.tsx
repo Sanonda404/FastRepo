@@ -1,11 +1,29 @@
 import { useParams } from "react-router-dom"
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
+import { useState, useEffect } from "react";
+import { getRole } from "@/lib/apis/repository_apis";
+import { getErrorMessage } from "@/lib/apis/api";
+import type { RepositoryRole } from '../lib/auth/permissions';
 
 export default function RepositoryActivityPage() {
   const { owner = "jane", repository = "fastrepo" } = useParams()
 
+  const [role, setRole] = useState<RepositoryRole>('Viewer')
+  
+    useEffect(() => {
+      getRole(owner,repository).then((data) => {
+  
+          setRole(data)
+        })
+        .catch((err) => {
+  
+          console.log(getErrorMessage(err))
+        })
+    }, [owner, repository])
+
+
   return (
-    <RepositoryLayout owner={owner} repository={repository} activeTab="Activity">
+    <RepositoryLayout role={role} owner={owner} repository={repository} activeTab="Activity">
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
         <div className="border-b px-5 py-4">
           <h2 className="font-semibold">Activity</h2>

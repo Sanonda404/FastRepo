@@ -1,4 +1,4 @@
-import type { NewRepositoryInput } from "./schemas/repository";
+import type { NewRepositoryInput } from "../schemas/repository";
 import type {
   BranchResponse,
   CollaboratorResponse,
@@ -6,8 +6,9 @@ import type {
   FileResponse,
   RepositoryResponse,
   TreeResponse,
-} from "./interfaces";
+} from "../interfaces";
 import { api } from "./api";
+import type { RepositoryRole } from "../auth/permissions";
 
 export async function createRepository(data: NewRepositoryInput): Promise<RepositoryResponse> {
   return api<RepositoryResponse>("/repositories/create", { method: "POST", body: data });
@@ -15,6 +16,10 @@ export async function createRepository(data: NewRepositoryInput): Promise<Reposi
 
 export function getRepository(owner: string, name: string): Promise<RepositoryResponse> {
   return api<RepositoryResponse>(`/repositories/${owner}/${name}`);
+}
+
+export function getRole(owner: string, name: string): Promise<RepositoryRole> {
+  return api<RepositoryRole>(`/repositories/${owner}/${name}/role`);
 }
 
 export function listBranches(owner: string, name: string): Promise<BranchResponse[]> {

@@ -10,8 +10,8 @@ import {
 } from "lucide-react"
 
 import { Link } from "react-router-dom"
-import { useAuth } from "@/lib/use-auth"
-import { api, getErrorMessage } from "@/lib/api"
+import { useAuth } from "@/lib/auth/use-auth"
+import { api, getErrorMessage } from "@/lib/apis/api"
 import type { RepositoryResponse } from "@/lib/interfaces"
 import StatCard from "@/components/stat-card"
 import RepositoryCard from "@/components/repository-card"
