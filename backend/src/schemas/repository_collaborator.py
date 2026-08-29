@@ -1,4 +1,15 @@
 from pydantic import BaseModel, Field
+from enum import Enum
+class RepositoryRole(str, Enum):
+    OWNER = "Owner"
+    ADMIN = "Admin"
+    MAINTAINER = "Maintainer"
+    MEMBER = "Member"
+    VIEWER = "Viewer"
+
+class RoleResponse(BaseModel):
+    role: RepositoryRole
+
 
 class CollaboratorAddRequest(BaseModel):
     identifier : str

@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 from services.repository_crud import get_repository, can_access_repository
 from services.repository_collaborator import get_collaborator_details
 from sqls.permission_sqls import CHECK_BRANCH_PERMISSION, CHECK_FOLDER_PERMISSION
-
+from schemas.repository_collaborator import RepositoryRole
 async def can_push_to_branch(
     pool: asyncpg.Pool, 
     owner_name: str, 
@@ -106,3 +106,44 @@ async def can_manage_team(
         return True
 
     return False
+
+async def get_role(
+    pool: asyncpg.Pool,
+    owner_name: str,
+    repo_name: str,
+    current_user: dict | None
+) -> RepositoryRole:
+    repo = await get_repository(pool, owner_name, repo_name)
+
+    if current_user is None:
+        if repo.is_private is False:
+            return RepositoryRole.VIEWER
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                 detail="Private Repository."
+            )
+    
+        # Owner check
+    if repo.owner_id == current_user["id"]:
+        return RepositoryRole.OWNER
+    
+    # Collaborator check
+    collaborator = await get_collaborator_details(pool, repo.id, current_user["id"])
+    if collaborator is None:
+        # If repo is public, default to Viewer
+        if not repo.is_private:
+            return RepositoryRole.VIEWER
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this repository."
+        )
+
+    # Validate collaborator role
+    try:
+        return RepositoryRole(collaborator.role)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Invalid role value from DB: {collaborator.role}"
+        )

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List
 import asyncpg
 
+from schemas.repository_collaborator import RepositoryRole, RoleResponse
 from services.database import get_pool
 from schemas.repository import (
     RepositoryCreateRequest,
@@ -42,6 +43,7 @@ from services.git_read import (
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _get_viewable_repo, _viewable_repo
 from models.git import EMPTY_TREE_SHA_HEX
+from auth.permission import get_role
 
 router = APIRouter(
     prefix="/repositories",
@@ -86,6 +88,16 @@ async def view_repository(
 ):
     """View a repository. Private repos require owner or collaborator auth."""
     return await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+
+@router.get("/{owner_name}/{repo_name}/role", response_model=RepositoryRole)
+async def get_role_in_repo(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """get role depending on repo."""
+    return await get_role(pool, owner_name, repo_name, current_user)
 
 @router.patch("/{owner_name}/{repo_name}", response_model=RepositoryResponse)
 async def modify_repository(
