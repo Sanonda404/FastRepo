@@ -22,9 +22,8 @@ class RepositoryResponse(BaseModel):
     parent_repository_id : Optional[int] = None
     created_at : datetime
 
-    class Config:
-        from_attributes = True
-
+class RepositoryDetails(RepositoryResponse):
+    owner_username : str
 class ForkRepositoryRequest(BaseModel):
     name: Optional[str] = Field(
         None,

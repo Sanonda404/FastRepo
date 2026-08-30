@@ -8,6 +8,7 @@ from schemas.repository import (
     RepositoryCreateRequest,
     RepositoryUpdateRequest,
     RepositoryResponse,
+    RepositoryDetails,
     ForkRepositoryRequest,
     BranchResponse,
     CommitSummary,
@@ -23,6 +24,7 @@ from services.repository_crud import (
     list_all_accessible_repositories,
     list_all_public_repositories,
     list_all_repositories,
+    list_all_repositories_of_user,
     list_fork_repositories,
     update_repository,
     delete_repository,
@@ -65,13 +67,13 @@ async def register(payload: RepositoryCreateRequest,
             detail=str(e)
         )
 
-@router.get("/", response_model=List[RepositoryResponse])
+@router.get("/", response_model=List[RepositoryDetails])
 async def list_my_repositories(
     current_user: dict = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     """List all repositories accessible to the current user (owned or collaborated)."""
-    return await list_all_accessible_repositories(pool, current_user["username"], current_user["id"])
+    return await list_all_repositories_of_user(pool, current_user["id"])
 
 
 @router.get("/{owner_name}", response_model=List[RepositoryResponse])

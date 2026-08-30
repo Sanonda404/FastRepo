@@ -3,13 +3,14 @@ from fastapi import HTTPException
 from typing import List
 from datetime import datetime, timezone
 from dulwich.objects import Commit
-from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest, StarResponse
+from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest, StarResponse, RepositoryDetails
 from sqls.repository_sqls import (
     CREATE_REPOSITORY, 
     GET_REPO_BY_USER_AND_REPOSIRY_NAME,
     GET_ACCESIBLE_REPOS_OF_OWNER_BY_USERNAME,
     GET_ALL_REPOS_OF_OWNER_BY_OWNER_ID,
     GET_ALL_PUBLIC_OF_OWNER_BY_OWNER_NAME,
+    GET_ALL_ACCESIBLE_REPOS_OF_USER_BY_ID,
     GET_LIST_OF_ACCESSIBLE_FORKS,
     FORK_REPOSITORY, 
     COPY_FORK_COMMITS,
@@ -110,6 +111,19 @@ async def list_all_accessible_repositories(pool : asyncpg.Pool, owner_name : str
             res : List[RepositoryResponse] = []
             for row in rows:
                 res.append(RepositoryResponse(**dict(row)))
+            return res
+        except asyncpg.UniqueViolationError:
+            raise ValueError("Repository with same name already exists")
+
+async def list_all_repositories_of_user(pool : asyncpg.Pool, user_id: int) -> List[RepositoryDetails]:
+    async with pool.acquire() as conn:
+        try:
+            rows = await conn.fetch(
+                GET_ALL_ACCESIBLE_REPOS_OF_USER_BY_ID, user_id
+            )
+            res : List[RepositoryDetails] = []
+            for row in rows:
+                res.append(RepositoryDetails(**dict(row)))
             return res
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")
