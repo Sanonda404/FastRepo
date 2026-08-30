@@ -15,9 +15,9 @@ GET_ALL_COLLABORATORS = """
 """
 
 GET_COLLABORATOR_BY_ID = """
-    SELECT id, repository_id, user_id, role,
+    SELECT id, repository_id, user_id, role
     FROM repository_collaborators
-    WHERE repository_id = $1 AND user_id = $2
+    WHERE repository_id = $1 AND user_id = $2;
 """
 
 
