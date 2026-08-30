@@ -18,6 +18,10 @@ export function getRepository(owner: string, name: string): Promise<RepositoryRe
   return api<RepositoryResponse>(`/repositories/${owner}/${name}`);
 }
 
+export function getAllAccessibleRepositories(): Promise<RepositoryResponse[]> {
+  return api<RepositoryResponse[]>(`/repositories/`);
+}
+
 export function getRole(owner: string, name: string): Promise<RepositoryRole> {
   return api<RepositoryRole>(`/repositories/${owner}/${name}/role`);
 }

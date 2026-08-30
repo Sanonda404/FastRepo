@@ -1,50 +1,372 @@
+import { useEffect, useState } from "react"
+import {
+  Users,
+  Settings2,
+  GitBranch,
+  GitPullRequest,
+  Webhook,
+  Shield,
+  Trash2,
+} from "lucide-react"
 import { useParams } from "react-router-dom"
+
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
-import type { RepositoryRole }from '@/lib/auth/permissions';
-import { getErrorMessage } from "@/lib/apis/api";
-import { useState, useEffect } from "react";
-import { getRole } from "@/lib/apis/repository_apis";
+import type { RepositoryRole } from "@/lib/auth/permissions"
+import { getErrorMessage } from "@/lib/apis/api"
+import { getRole } from "@/lib/apis/repository_apis"
+import { addCollaborator, getCollaborators, updateCollaboratorRole, deleteCollaborator } from "@/lib/apis/repository_collaborator_apis"
+import { getRepository } from "@/lib/apis/repository_apis"
+
+import SettingsSidebar from "@/components/repository/settings/SettingsSidebar"
+import GeneralSettings from "@/components/repository/settings/GeneralSettings"
+import CollaboratorSettings from "@/components/repository/settings/CollaboratorSettings"
+import type { CollaboratorResponse, CollaboratorRole, RepositoryResponse } from '../lib/interfaces';
+import type { AddCollaboratorInput } from "@/lib/schemas/repository_collaborators"
+import { RepoPermissionProvider } from "@/components/context/RepoPermissionContext"
+
+
+export type SettingsTab =
+  | "general"
+  | "collaborators"
+  | "permissions"
+  | "branches"
+  | "pull-requests"
+  | "webhooks"
+  | "danger"
+
+interface SettingsTabItem {
+  id: SettingsTab
+  label: string
+  description: string
+  icon: React.ElementType
+}
+
+export const SETTINGS_TABS: SettingsTabItem[] = [
+  {
+    id: "general",
+    label: "General",
+    description: "Repository information",
+    icon: Settings2,
+  },
+  {
+    id: "collaborators",
+    label: "Collaborators",
+    description: "Manage repository access",
+    icon: Users,
+  },
+  {
+    id: "permissions",
+    label: "Access & permissions",
+    description: "Roles and permissions",
+    icon: Shield,
+  },
+  {
+    id: "branches",
+    label: "Branches",
+    description: "Branch protection",
+    icon: GitBranch,
+  },
+  {
+    id: "pull-requests",
+    label: "Pull requests",
+    description: "Pull request settings",
+    icon: GitPullRequest,
+  },
+  {
+    id: "webhooks",
+    label: "Webhooks",
+    description: "External integrations",
+    icon: Webhook,
+  },
+  {
+    id: "danger",
+    label: "Danger Zone",
+    description: "Destructive actions",
+    icon: Trash2,
+  },
+]
 
 export default function RepositorySettingsPage() {
-  const { owner = "jane", repository = "fastrepo" } = useParams()
+  const {
+    owner = "jane",
+    repository = "fastrepo",
+  } = useParams()
 
-  const [role, setRole] = useState<RepositoryRole>('Viewer')
+  const [role, setRole] =
+    useState<RepositoryRole>("Viewer")
+
+  const [activeTab, setActiveTab] =
+    useState<SettingsTab>("general")
+
+  const [error, setError] =
+    useState<string | null>(null)
   
-    useEffect(() => {
-      getRole(owner,repository).then((data) => {
+  const [repositoryData, setRepositoryData] =
+    useState<RepositoryResponse | null>(null)
+
+  const [actionLoading, setActionLoading] =
+    useState(false)
   
-          setRole(data)
-        })
-        .catch((err) => {
-  
-          console.log(getErrorMessage(err))
-        })
-    }, [owner, repository])
+  const [collaborators, setCollaborators] = useState<CollaboratorResponse[]>([]);
+
+  const [actionError, setActionError] =
+    useState<string | null>(null)
+
+  useEffect(() => {
+    getRole(owner, repository)
+      .then((data) => {
+        setRole(data)
+      })
+      .catch((err) => {
+        setError(getErrorMessage(err))
+      })
+  }, [owner, repository])
+
+  useEffect(() => {
+    if (!owner || !repository) return
+
+    const loadRepository = async () => {
+      try {
+        const data = await getRepository(
+          owner,
+          repository,
+        )
+
+        setRepositoryData(data)
+      } catch (err) {
+        setError(getErrorMessage(err))
+      }
+    }
+
+    loadRepository()
+  }, [owner, repository])
+
+  useEffect(() => {
+    if (!owner || !repository) return
+
+    const loadCollaborators = async () => {
+      try {
+        const data = await getCollaborators(
+          owner,
+          repository,
+        )
+
+        setCollaborators(data)
+      } catch (err) {
+        setError(getErrorMessage(err))
+      }
+    }
+
+    loadCollaborators()
+  }, [owner, repository])
+
+  const handleAddCollaborator = async (
+    data: AddCollaboratorInput,
+  ) => {
+    if (!owner || !repository) return
+
+    setActionLoading(true)
+    setActionError(null)
+
+    try {
+      await addCollaborator(
+        owner,
+        repository,
+        data,
+      )
+    } catch (err) {
+      setActionError(
+        getErrorMessage(err),
+      )
+
+      throw err
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleDeleteCollaborator = async (
+    collaborator: CollaboratorResponse,
+  ) => {
+    if (!owner || !repository) return;
+
+    setActionError(null);
+
+    try {
+      await deleteCollaborator(owner, repository, collaborator.id);
+
+      setCollaborators((prev) =>
+        prev.filter((c) => c.id !== collaborator.id)
+      );
+    } catch (err) {
+      setActionError(getErrorMessage(err));
+      throw err;
+    }
+  };
+
+
+  const handleChangeRole = async (
+    collaborator: CollaboratorResponse,
+    role: CollaboratorRole,
+  ) => {
+    if (!owner || !repository) return;
+
+    setActionError(null);
+
+    try {
+      // Call API → returns updated collaborator
+      const updated = await updateCollaboratorRole(
+        owner,
+        repository,
+        collaborator.id,
+        role,
+      );
+
+      setCollaborators((prev) =>
+        prev.map((c) =>
+          c.id === updated.id ? updated : c
+        )
+      );
+    } catch (err) {
+      setActionError(getErrorMessage(err));
+      throw err;
+    }
+  };
+
 
   return (
-    <RepositoryLayout role = {role} owner={owner} repository={repository} activeTab="Settings">
+    <RepositoryLayout
+      role={role}
+      owner={owner}
+      repository={repository}
+      activeTab="Settings"
+    >
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
-        <div className="border-b px-5 py-4">
-          <h2 className="font-semibold">Settings</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Configure how this repository behaves.</p>
+        {/* Header */}
+        <div className="border-b px-6 py-5">
+          <h1 className="text-xl font-semibold">
+            Repository settings
+          </h1>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Configure how this repository behaves and
+            manage who has access to it.
+          </p>
         </div>
-        <div className="space-y-6 p-5">
-  <div className="max-w-xl">
-    <label className="text-sm font-medium">Repository name</label>
-    <input defaultValue="fastrepo" className="mt-2 flex h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
-  </div>
-  <div className="rounded-lg border p-4">
-    <p className="text-sm font-medium">Branch protection</p>
-    <p className="mt-1 text-xs text-muted-foreground">Require reviews before changes reach main.</p>
-    <button className="mt-3 rounded-md border px-3 py-2 text-sm hover:bg-muted">Configure</button>
-  </div>
-  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-    <p className="text-sm font-semibold text-destructive">Danger zone</p>
-    <p className="mt-1 text-xs text-muted-foreground">Permanently delete this repository.</p>
-    <button className="mt-3 rounded-md bg-destructive px-3 py-2 text-sm text-destructive-foreground">Delete</button>
-  </div>
-</div>
+
+        {error && (
+          <div className="mx-6 mt-5 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        <div className="flex min-h-[600px] flex-col md:flex-row">
+
+          {/* Sidebar */}
+          <SettingsSidebar
+            tabs={SETTINGS_TABS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+
+          {/* Content */}
+          <main className="min-w-0 flex-1 p-6">
+            {activeTab === "general" && (
+              <GeneralSettings
+                owner={owner}
+                repository={repository}
+              />
+            )}
+
+            {activeTab === "collaborators" && (
+              <RepoPermissionProvider role = {role}>
+                <CollaboratorSettings
+                  isPrivate={
+                    repositoryData?.is_private ?? false
+                  }
+                  loading={actionLoading}
+                  error={actionError}
+                  collaborators={collaborators}
+                  onAddCollaborator={
+                    handleAddCollaborator
+                  }
+                  onChangeRole={
+                    handleChangeRole
+                  }
+                  onDeleteCollaborator={
+                    handleDeleteCollaborator
+                  }
+                />
+              </RepoPermissionProvider>
+            )}
+
+            {activeTab === "permissions" && (
+              <ComingSoon
+                title="Access & permissions"
+                description="Configure repository roles and permissions."
+              />
+            )}
+
+            {activeTab === "branches" && (
+              <ComingSoon
+                title="Branches"
+                description="Configure branch protection rules."
+              />
+            )}
+
+            {activeTab === "pull-requests" && (
+              <ComingSoon
+                title="Pull requests"
+                description="Configure pull request behaviour."
+              />
+            )}
+
+            {activeTab === "webhooks" && (
+              <ComingSoon
+                title="Webhooks"
+                description="Connect FastRepo with external services."
+              />
+            )}
+
+            {activeTab === "danger" && (
+              <ComingSoon
+                title="Danger Zone"
+                description="Permanent and destructive repository actions."
+              />
+            )}
+          </main>
+        </div>
       </div>
     </RepositoryLayout>
+  )
+}
+
+function ComingSoon({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold">
+        {title}
+      </h2>
+
+      <p className="mt-1 text-sm text-muted-foreground">
+        {description}
+      </p>
+
+      <div className="mt-8 rounded-xl border border-dashed p-10 text-center">
+        <p className="text-sm font-medium">
+          Coming soon
+        </p>
+
+        <p className="mt-1 text-xs text-muted-foreground">
+          This settings section will be implemented here.
+        </p>
+      </div>
+    </div>
   )
 }

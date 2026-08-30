@@ -62,13 +62,25 @@ export interface FileResponse {
   content: string;
 }
 
+export type CollaboratorRole =
+  | "Admin"
+  | "Maintainer"
+  | "Member"
+  | "Viewer"
+
+export interface AddCollaboratorRequest {
+  identifier : string
+  role: CollaboratorRole
+}
+
+
 export interface CollaboratorResponse {
   id: number;
   repository_id: number;
   user_id: number;
   username: string;
   email: string;
-  role: string;
+  role: RepositoryRole;
 }
 
 

@@ -16,6 +16,7 @@ import type { RepositoryResponse } from "@/lib/interfaces"
 import StatCard from "@/components/stat-card"
 import RepositoryCard from "@/components/repository-card"
 import Footer from "@/components/footer"
+import { getAllAccessibleRepositories } from "@/lib/apis/repository_apis"
 
 export default function Dashboard() {
   const { username } = useAuth()
@@ -25,7 +26,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!username || reposByUsername[username] || errorsByUsername[username]) return
     let active = true
-    api<RepositoryResponse[]>(`/repositories/${username}`)
+    getAllAccessibleRepositories()
       .then((data) => {
         if (active) setReposByUsername((prev) => ({ ...prev, [username]: data }))
       })
