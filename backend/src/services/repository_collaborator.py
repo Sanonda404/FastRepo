@@ -1,6 +1,6 @@
 import asyncpg
-from schemas.repository_collaborator import CollaboratorResponse, CollaboratorAddRequest, CollaboratorDetails
-from sqls.repository_collaborators_sqls import ADD_COLLABORATOR, GET_ALL_COLLABORATORS,GET_COLLABORATOR_BY_ID, REMOVE_COLLABORATOR, GET_USER_DETAILS_FROM_COLLABORATOR_AND_REPOSITORY
+from schemas.repository_collaborator import CollaboratorResponse, CollaboratorAddRequest, CollaboratorDetails, CollaboratorRoleUpdate, RepositoryRole
+from sqls.repository_collaborators_sqls import ADD_COLLABORATOR, GET_ALL_COLLABORATORS,GET_COLLABORATOR_BY_ID, REMOVE_COLLABORATOR, GET_USER_DETAILS_FROM_COLLABORATOR_AND_REPOSITORY, UPDATE_COLLABOATOR_ROLE_BY_ID
 from fastapi import HTTPException
 from schemas.user import UserResponse
 
@@ -20,6 +20,28 @@ async def add_collaborator_to_repo(pool : asyncpg.Pool, repo_id : int, payload: 
                 username= user["username"],
                 email= user["email"],
                 role = payload.role
+            )
+            return res
+        except asyncpg.UniqueViolationError:
+            raise ValueError("Repository with same name already exists")
+
+
+async def update_collaborator_role_in_repo(pool : asyncpg.Pool, repo_id : int, collaborator_id : int, payload: CollaboratorRoleUpdate, user : UserResponse) -> CollaboratorResponse:
+    async with pool.acquire() as conn:
+        try:
+            
+            row = await conn.fetchrow(
+                UPDATE_COLLABOATOR_ROLE_BY_ID, collaborator_id, repo_id, payload.role
+            )
+            if row is None:
+                raise HTTPException(status_code=500, detail="Error occured")
+            res = CollaboratorResponse(
+                id= row["id"],
+                repository_id= row["repository_id"],
+                user_id=row["user_id"],
+                username= user.username,
+                email= user.email,
+                role = RepositoryRole(payload.role)
             )
             return res
         except asyncpg.UniqueViolationError:

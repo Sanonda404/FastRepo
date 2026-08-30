@@ -65,6 +65,15 @@ async def register(payload: RepositoryCreateRequest,
             detail=str(e)
         )
 
+@router.get("/", response_model=List[RepositoryResponse])
+async def list_my_repositories(
+    current_user: dict = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """List all repositories accessible to the current user (owned or collaborated)."""
+    return await list_all_accessible_repositories(pool, current_user["username"], current_user["id"])
+
+
 @router.get("/{owner_name}", response_model=List[RepositoryResponse])
 async def list_repositories(
     owner_name: str,

@@ -33,5 +33,13 @@ GET_USER_DETAILS_FROM_COLLABORATOR_AND_REPOSITORY = """
     FROM users u
     INNER JOIN repository_collaborators rc
     ON rc.user_id = u.id
-    WHERE rc.repository_id = $1 AND rc.user_id = $2;
+    WHERE rc.repository_id = $1 AND rc.id = $2;
+"""
+
+UPDATE_COLLABOATOR_ROLE_BY_ID = """
+    UPDATE repository_collaborators
+    SET role = $3
+    WHERE id = $1
+    AND repository_id = $2
+    RETURNING id, repository_id, user_id, role;
 """

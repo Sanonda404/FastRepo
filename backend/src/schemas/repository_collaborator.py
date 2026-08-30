@@ -7,13 +7,22 @@ class RepositoryRole(str, Enum):
     MEMBER = "Member"
     VIEWER = "Viewer"
 
+class CollaboratorRole(str, Enum):
+    ADMIN = "Admin"
+    MAINTAINER = "Maintainer"
+    MEMBER = "Member"
+    VIEWER = "Viewer"
+
+class CollaboratorRoleUpdate(BaseModel):
+    role : CollaboratorRole
+
 class RoleResponse(BaseModel):
     role: RepositoryRole
 
 
 class CollaboratorAddRequest(BaseModel):
     identifier : str
-    role : str
+    role : RepositoryRole
 
 
 class CollaboratorResponse(BaseModel):
@@ -22,7 +31,7 @@ class CollaboratorResponse(BaseModel):
     user_id: int
     username: str
     email: str
-    role: str
+    role: RepositoryRole
 
 class CollaboratorDetails(BaseModel):
     id: int
