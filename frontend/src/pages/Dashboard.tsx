@@ -11,16 +11,16 @@ import {
 
 import { Link } from "react-router-dom"
 import { useAuth } from "@/lib/auth/use-auth"
-import { api, getErrorMessage } from "@/lib/apis/api"
-import type { RepositoryResponse } from "@/lib/interfaces"
+import { getErrorMessage } from "@/lib/apis/api"
 import StatCard from "@/components/stat-card"
 import RepositoryCard from "@/components/repository-card"
 import Footer from "@/components/footer"
+import type { RepositoryDetails } from "@/lib/interfaces"
 import { getAllAccessibleRepositories } from "@/lib/apis/repository_apis"
 
 export default function Dashboard() {
   const { username } = useAuth()
-  const [reposByUsername, setReposByUsername] = useState<Record<string, RepositoryResponse[]>>({})
+  const [reposByUsername, setReposByUsername] = useState<Record<string, RepositoryDetails[]>>({})
   const [errorsByUsername, setErrorsByUsername] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -87,8 +87,9 @@ export default function Dashboard() {
           {repos !== null && (
             <div className="grid gap-4 sm:grid-cols-2">
               {repos.map((repo) => (
-                <RepositoryCard key={repo.id} repo={repo} owner={username ?? ""} />
+                <RepositoryCard key={repo.id} repo={repo} owner={repo.owner_username} />
               ))}
+
             </div>
           )}
         </section>

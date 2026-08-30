@@ -24,6 +24,19 @@ export interface RepositoryResponse {
   role:RepositoryRole;
 }
 
+export interface RepositoryDetails {
+  id: number;
+  name: string;
+  description?: string;
+  is_private: boolean;
+  default_branch: string;
+  owner_id: number;
+  owner_username : string;
+  parent_repository_id?: number;
+  created_at: string;
+  role:RepositoryRole;
+}
+
 export interface BranchResponse {
   name: string;
   sha: string;

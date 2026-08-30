@@ -42,7 +42,7 @@ export default function RepositoryLayout({
   // filter tabs based on role
   const visibleTabs = tabs.filter(tab => {
     if (tab.label === "Settings") {
-      return role === "Admin" || role === "Owner"
+      return role != 'Viewer'
     }
     return true // all other tabs are always visible
   })

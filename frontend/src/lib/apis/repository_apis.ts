@@ -5,6 +5,7 @@ import type {
   CommitSummary,
   FileResponse,
   RepositoryResponse,
+  RepositoryDetails,
   TreeResponse,
 } from "../interfaces";
 import { api } from "./api";
@@ -18,8 +19,8 @@ export function getRepository(owner: string, name: string): Promise<RepositoryRe
   return api<RepositoryResponse>(`/repositories/${owner}/${name}`);
 }
 
-export function getAllAccessibleRepositories(): Promise<RepositoryResponse[]> {
-  return api<RepositoryResponse[]>(`/repositories/`);
+export function getAllAccessibleRepositories(): Promise<RepositoryDetails[]> {
+  return api<RepositoryDetails[]>(`/repositories/`);
 }
 
 export function getRole(owner: string, name: string): Promise<RepositoryRole> {
