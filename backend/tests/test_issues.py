@@ -164,9 +164,12 @@ class TestCollaboratorRoutes:
             )
             assert r.status_code == 201
 
-            # owner removes collaborator -> 200 with deleted collaborator info
+            # owner removes collaborator -> 200 with deleted collaborator info (now by collaborator_id)
+            r = client.get(f"/collaborators/{owner}/{repo_name}", headers=auth(token))
+            assert r.status_code == 200
+            collab_id = next(c["id"] for c in r.json() if c["username"] == collab)
             r = client.delete(
-                f"/collaborators/{owner}/{repo_name}/{collab}", headers=auth(token)
+                f"/collaborators/{owner}/{repo_name}/{collab_id}", headers=auth(token)
             )
             assert r.status_code == 200
             removed = r.json()
@@ -204,8 +207,11 @@ class TestCollaboratorRoutes:
 
             # owner adds collab, non-owner cannot remove
             add_collaborator(owner, repo_name, token, collab)
+            r = client.get(f"/collaborators/{owner}/{repo_name}", headers=auth(token))
+            assert r.status_code == 200
+            collab_id = next(c["id"] for c in r.json() if c["username"] == collab)
             r = client.delete(
-                f"/collaborators/{owner}/{repo_name}/{collab}", headers=auth(other_token)
+                f"/collaborators/{owner}/{repo_name}/{collab_id}", headers=auth(other_token)
             )
             assert r.status_code == 403
         finally:
@@ -226,11 +232,11 @@ class TestCollaboratorRoutes:
             )
             assert r.status_code == 404
 
-            # user exists but is not a collaborator -> 404
+            # user exists but is not a collaborator -> 404 (now by collaborator_id)
             other = unique("iss")
             seed_repo(other, unique("junk"))
             r = client.delete(
-                f"/collaborators/{owner}/{repo_name}/{other}", headers=auth(token)
+                f"/collaborators/{owner}/{repo_name}/999999", headers=auth(token)
             )
             assert r.status_code == 404
             cleanup_repo(other, unique("junk"))
