@@ -64,11 +64,11 @@ async def get_collaborators(pool : asyncpg.Pool, repo_id : int) -> list[Collabor
         ]
 
 
-async def get_collaborator_details(pool : asyncpg.Pool, repo_id : int, user_id: int) -> CollaboratorDetails:
+async def get_collaborator_details(pool : asyncpg.Pool, repo_id : int, user_id: int) -> CollaboratorDetails | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(GET_COLLABORATOR_BY_ID, repo_id, user_id)
         if row is None:
-            raise HTTPException(status_code=404, detail="Collaborator Not found")
+            return None
         res = CollaboratorDetails(
             id= row["id"],
             repository_id= row["repository_id"],
