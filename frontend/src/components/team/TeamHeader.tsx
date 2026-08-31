@@ -7,13 +7,12 @@ import type { RepositoryRole } from '@/lib/auth/permissions';
 interface TeamHeaderProps {
   role : RepositoryRole
   onCreateTeam: () => void
-  onAddMember: () => void
+  onAddMember?: () => void
 }
 
 export default function TeamHeader({
   role,
   onCreateTeam,
-  onAddMember,
 }: TeamHeaderProps) {
   return (
     <RepoPermissionProvider role = {role}>

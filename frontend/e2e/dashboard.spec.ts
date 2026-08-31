@@ -25,14 +25,12 @@ test("dashboard shows stats derived from the API data", async ({ page }) => {
     page.getByTestId(`stat-${label.toLowerCase().replace(/\s+/g, "-")}`)
 
   await expect(stat("Repositories")).toContainText("2")
-  for (const label of [
-    "Commits",
-    "Open issues",
-    "Open pull requests",
-    "Collaborators",
-    "Stars",
-  ]) {
-    await expect(stat(label)).toContainText("0")
+  await expect(stat("Commits")).toContainText("5")
+  await expect(stat("Open issues")).toContainText("2")
+  await expect(stat("Open pull requests")).toContainText("1")
+  await expect(stat("Collaborators")).toContainText("3")
+  await expect(stat("Stars")).toContainText("7")
+  for (const label of ["Commits", "Open issues", "Open pull requests", "Repositories", "Collaborators", "Stars"]) {
     await expect(stat(label).getByText(label, { exact: true })).toBeVisible()
   }
 })

@@ -41,7 +41,7 @@ interface SettingsTabItem {
   icon: React.ElementType
 }
 
-export const SETTINGS_TABS: SettingsTabItem[] = [
+const SETTINGS_TABS: SettingsTabItem[] = [
   {
     id: "general",
     label: "General",

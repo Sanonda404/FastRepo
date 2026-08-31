@@ -12,6 +12,14 @@ export interface UserResponse {
   email: string;
 }
 
+export interface UserMeResponse extends UserResponse {
+  commits: number;
+  open_issues: number;
+  open_pull_requests: number;
+  collaborators: number;
+  stars: number;
+}
+
 export interface RepositoryResponse {
   id: number;
   name: string;

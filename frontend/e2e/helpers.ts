@@ -5,7 +5,7 @@ export const DAY = 24 * HOUR
 
 export const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString()
 
-export const janeUser = { id: 1, username: "jane", email: "jane@example.com" }
+export const janeUser = { id: 1, username: "jane", email: "jane@example.com", commits: 5, open_issues: 2, open_pull_requests: 1, collaborators: 3, stars: 7 }
 
 export const janeRepositories = [
   {
@@ -38,6 +38,12 @@ export async function stubBackend(page: Page): Promise<void> {
   stubSession(page)
   await page.route("**/api/repositories/jane", (route) =>
     route.fulfill({ json: janeRepositories })
+  )
+  await page.route("**/api/repositories/", (route) =>
+    route.fulfill({ json: janeRepositories.map((r) => ({ ...r, owner_username: "jane", role: "Owner" })) })
+  )
+  await page.route("**/api/repositories", (route) =>
+    route.fulfill({ json: janeRepositories.map((r) => ({ ...r, owner_username: "jane", role: "Owner" })) })
   )
 }
 

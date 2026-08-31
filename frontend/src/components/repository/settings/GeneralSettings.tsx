@@ -7,6 +7,7 @@ export default function GeneralSettings({
   owner,
   repository,
 }: GeneralSettingsProps) {
+  void owner
   return (
     <div className="max-w-2xl space-y-8">
       <div>
