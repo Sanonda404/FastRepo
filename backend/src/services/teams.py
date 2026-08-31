@@ -32,9 +32,9 @@ async def get_all_teams_in_repo(pool: asyncpg.Pool, repo_id: int) -> List[TeamDe
             
             for member in row["members"]:
                 members.append(TeamMember(
-                    id = member["id"],
-                    collaborator_id=member["member_id"],
-                    username=member["username"]
+                    id = member[0],
+                    collaborator_id=member[1],
+                    username=member[2]
                 )
                 )
             
