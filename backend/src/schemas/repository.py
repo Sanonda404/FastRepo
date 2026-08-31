@@ -24,6 +24,8 @@ class RepositoryResponse(BaseModel):
 
 class RepositoryDetails(RepositoryResponse):
     owner_username : str
+    parent_owner_username : Optional[str] = None
+    parent_repository_name : Optional[str] = None
 class ForkRepositoryRequest(BaseModel):
     name: Optional[str] = Field(
         None,

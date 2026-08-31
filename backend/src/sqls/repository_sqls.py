@@ -62,9 +62,13 @@ GET_ALL_ACCESIBLE_REPOS_OF_USER_BY_ID = """
         r.default_branch,
         r.parent_repository_id,
         r.created_at,
-        u.username AS owner_username
+        u.username AS owner_username,
+        pu.username AS parent_owner_username,
+        p.name AS parent_repository_name
     FROM repositories r
     INNER JOIN users u ON u.id = r.owner_id
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE u.id = $1
 
     UNION
@@ -79,10 +83,14 @@ GET_ALL_ACCESIBLE_REPOS_OF_USER_BY_ID = """
         r.default_branch,
         r.parent_repository_id,
         r.created_at,
-        u.username AS owner_username
+        u.username AS owner_username,
+        pu.username AS parent_owner_username,
+        p.name AS parent_repository_name
     FROM repositories r
     INNER JOIN users u ON u.id = r.owner_id
     INNER JOIN repository_collaborators rc ON rc.repository_id = r.id
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE rc.user_id = $1
 
     ORDER BY created_at DESC;
