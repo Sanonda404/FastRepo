@@ -30,7 +30,8 @@ from services.repository_crud import (
     delete_repository,
     fork_repository,
     can_access_repository,
-    manage_star
+    manage_star,
+    get_star
 )
 from services.git_read import (
     get_branches,
@@ -261,6 +262,18 @@ async def view_tree(
         raise HTTPException(status_code=404, detail="Tree not found")
     return tree
 
+
+@router.get("/{owner_name}/{repo_name}/star", response_model=StarResponse)
+async def get_star_status(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Get star status and count for a repository."""
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    user_id = current_user["id"] if current_user else None
+    return await get_star(pool, repo.id, user_id)
 
 @router.post("/{owner_name}/{repo_name}/star", response_model=StarResponse)
 async def add_or_remove_star(

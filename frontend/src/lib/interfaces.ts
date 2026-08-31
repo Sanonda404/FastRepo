@@ -168,3 +168,14 @@ export interface AddNewMemberRequest{
 export interface AddExistingCollaboratorReuqest {
   collaborator_id : number
 }
+
+export interface StarResponse {
+  is_starred: boolean
+  star_count: number
+}
+
+export interface ForkRepositoryRequest {
+  name?: string
+  description?: string
+  is_private?: boolean
+}

@@ -8,6 +8,7 @@ import { Link, useParams } from "react-router-dom"
 
 import { CodeViewer } from "@/components/code/CodeViewer"
 import GoToFileDialog from "@/components/code/GoToFileDialog"
+import RepositoryHeader from "@/components/repository/RepositoryHeader"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { getErrorMessage } from "@/lib/apis/api"
 import {
@@ -127,7 +128,11 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]">
+    <div className="flex flex-col">
+      <RepositoryHeader owner={owner} repository={repository} repositoryName={repoMeta?.name ?? repository} isPrivate={repoMeta?.is_private ?? false} />
+      <div aria-hidden="true" className="h-px w-full bg-foreground/10" />
+      <div aria-hidden="true" className="h-4" />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="flex min-w-0 flex-col gap-4">
             <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
               <div className="relative flex items-center gap-2">
@@ -219,6 +224,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
             }}
           />
         </div>
+      </div>
   )
 }
 

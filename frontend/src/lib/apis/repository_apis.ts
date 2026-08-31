@@ -4,8 +4,10 @@ import type {
   CollaboratorResponse,
   CommitSummary,
   FileResponse,
+  ForkRepositoryRequest,
   RepositoryResponse,
   RepositoryDetails,
+  StarResponse,
   TreeResponse,
 } from "../interfaces";
 import { api } from "./api";
@@ -72,4 +74,20 @@ export function listCommits(owner: string, name: string, ref: string, limit = 1)
 
 export function listCollaborators(owner: string, name: string): Promise<CollaboratorResponse[]> {
   return api<CollaboratorResponse[]>(`/collaborators/${owner}/${name}`);
+}
+
+export function forkRepository(owner: string, name: string, payload: ForkRepositoryRequest): Promise<RepositoryResponse> {
+  return api<RepositoryResponse>(`/repositories/${owner}/${name}/fork`, { method: "POST", body: payload });
+}
+
+export function listForks(owner: string, name: string): Promise<RepositoryResponse[]> {
+  return api<RepositoryResponse[]>(`/repositories/${owner}/${name}/forks`);
+}
+
+export function getStar(owner: string, name: string): Promise<StarResponse> {
+  return api<StarResponse>(`/repositories/${owner}/${name}/star`);
+}
+
+export function toggleStar(owner: string, name: string): Promise<StarResponse> {
+  return api<StarResponse>(`/repositories/${owner}/${name}/star`, { method: "POST" });
 }
