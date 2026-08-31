@@ -42,9 +42,15 @@ export function stubSession(page: Page): void {
 
 export async function stubBackend(page: Page): Promise<void> {
   stubSession(page)
-  await page.route("**/api/repositories/jane", (route) =>
-    route.fulfill({ json: janeRepositories })
+  await page.route("**/api/users/jane", (route) =>
+    route.fulfill({ json: { id: janeUser.id, username: janeUser.username, email: janeUser.email } })
   )
+  await page.route("**/api/repositories/jane", (route) => {
+    const auth = route.request().headers()["authorization"]
+    const isLoggedIn = !!auth
+    const repos = isLoggedIn ? janeRepositories : janeRepositories.filter((r) => !r.is_private)
+    route.fulfill({ json: repos })
+  })
   await page.route("**/api/repositories/", (route) =>
     route.fulfill({ json: janeRepositories.map((r) => ({ ...r, owner_username: "jane", role: "Owner" })) })
   )

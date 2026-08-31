@@ -28,6 +28,8 @@ export interface RepositoryResponse {
   default_branch: string;
   owner_id: number;
   parent_repository_id?: number | null;
+  parent_owner_username?: string | null;
+  parent_repository_name?: string | null;
   created_at: string;
   role:RepositoryRole;
 }

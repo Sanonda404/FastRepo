@@ -13,6 +13,7 @@ import RepositoryActivityPage from "./pages/RepositoryActivityPage";
 import RepositorySettingsPage from "./pages/RepositorySettingsPage";
 import RepositoryIssueNew from './pages/RepositoryIssueCreatePage';
 import RepositoryIssueDetails from "./pages/RepositoryIssueDetails";
+import UserProfilePage from "./pages/UserProfilePage";
 
 export default function App() {
   const { isLoggedIn } = useAuth();
@@ -24,8 +25,13 @@ export default function App() {
         {/* Auth Route */}
         <Route path="/login" element={<AuthPage />} />
 
+        {/* Repository Create Route - before dynamic username */}
+        <Route path="/create/repository" element={<RepositoryCreatePage />} />
+
         {/* Root Route: dashboard for logged-in users, homepage otherwise */}
         <Route path="/" element={isLoggedIn ? <Dashboard /> : <HomePage />} />
+
+        <Route path="/:username" element={<UserProfilePage />} />
 
         <Route path="/:owner/:repository" element={<RepositoryPage />} />
         <Route path="/:owner/:repository/issues" element={<RepositoryIssuesPage />} />
@@ -38,9 +44,6 @@ export default function App() {
 
         {/* Default Route */}
         <Route path="*" element={<Navigate to="/" replace />} />
-
-        {/* Repository Create Route */}
-        <Route path="/create/repository" element={<RepositoryCreatePage />} />
 
       </Routes>
     </BrowserRouter>

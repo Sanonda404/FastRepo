@@ -1,9 +1,9 @@
 import { Book, Globe, Lock } from "lucide-react"
 
-import type { RepositoryDetails } from "@/lib/interfaces"
+import type { RepositoryResponse } from "@/lib/interfaces"
 import { formatRelativeDate } from "@/lib/format-date"
 
-export default function RepositoryCard({ repo, owner }: { repo: RepositoryDetails; owner: string }) {
+export default function RepositoryCard({ repo, owner }: { repo: RepositoryResponse; owner: string }) {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
   const isFork = repo.parent_repository_id != null && repo.parent_owner_username && repo.parent_repository_name
 
