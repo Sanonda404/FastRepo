@@ -4,8 +4,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 import asyncpg
 
 from services.database import get_pool
-from schemas.user import UserCreate, UserUpdate, UserResponse, Token
-from services.user import create_user, get_user_by_username, get_user_by_username_or_email, update_user, delete_user
+from schemas.user import UserCreate, UserUpdate, UserResponse, UserMeResponse, Token
+from services.user import create_user, get_user_by_username, get_user_by_username_or_email, update_user, delete_user, get_user_stats
 from auth.auth import (
     verify_password,
     create_access_token,
@@ -54,10 +54,14 @@ async def login(
     
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: dict = Depends(get_current_user)):
-    """Get profile details of the currently logged-in user."""
-    return current_user
+@router.get("/me", response_model=UserMeResponse)
+async def read_users_me(
+    current_user: dict = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Get profile details of the currently logged-in user with stats."""
+    stats = await get_user_stats(pool, current_user["id"], current_user["username"])
+    return {**current_user, **stats}
 
 @router.get("/{username}", response_model=UserResponse)
 async def get_user_profile(username: str, pool: asyncpg.Pool = Depends(get_pool)):

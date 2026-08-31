@@ -19,6 +19,13 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class UserMeResponse(UserResponse):
+    commits: int
+    open_issues: int
+    open_pull_requests: int
+    collaborators: int
+    stars: int
+
 class Token(BaseModel):
     access_token: str
     token_type: str

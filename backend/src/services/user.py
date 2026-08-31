@@ -7,6 +7,7 @@ from sqls.user_sqls import (
     GET_USER_BY_EMAIL_OR_USERNAME,
     UPDATE_USER,
     DELETE_USER,
+    GET_USER_STATS,
 )
 
 async def create_user(pool: asyncpg.Pool, user_in: UserCreate) -> dict:
@@ -51,3 +52,14 @@ async def delete_user(pool: asyncpg.Pool, user_id: int) -> None:
         row = await conn.fetchrow(DELETE_USER, user_id)
         if row is None:
             raise ValueError("User not found")
+
+async def get_user_stats(pool: asyncpg.Pool, user_id: int, username: str) -> dict:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(GET_USER_STATS, user_id, username)
+        return {
+            "commits": int(row["commits"] or 0),
+            "open_issues": int(row["open_issues"] or 0),
+            "open_pull_requests": int(row["open_pull_requests"] or 0),
+            "collaborators": int(row["collaborators"] or 0),
+            "stars": int(row["stars"] or 0),
+        }
