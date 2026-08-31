@@ -16,14 +16,11 @@ CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION = """
     DECLARE
         v_is_private BOOLEAN;
     BEGIN
-        -- Check if the role being added/updated is 'Viewer'
         IF NEW.role = 'Viewer' THEN
-            -- Fetch the privacy status from the referenced repository
             SELECT is_private INTO v_is_private
             FROM repositories
             WHERE id = NEW.repository_id;
 
-            -- If the repository is not private, prevent insertion/update
             IF v_is_private IS FALSE THEN
                 RAISE EXCEPTION 'Constraint Violation: Role "Viewer" can only be assigned to private repositories.';
             END IF;
@@ -40,9 +37,7 @@ CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER_FUNCTION = """
     DECLARE
         v_has_viewer BOOLEAN;
     BEGIN
-        -- Only check if repository is changing to public
         IF NEW.is_private = FALSE THEN
-            -- Short-circuit check: returns TRUE immediately on the first match
             SELECT EXISTS (
                 SELECT 1 
                 FROM repository_collaborators
@@ -82,7 +77,3 @@ async def ensure_repository_collaborators_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(REPOSITORY_COLLABORATORS_TABLE_DDL)
-            await conn.execute(CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION)
-            await conn.execute(CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER)
-            await conn.execute(CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER_FUNCTION)
-            await conn.execute(CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER)

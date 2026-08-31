@@ -25,12 +25,10 @@ CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION = """
     DECLARE
         v_repository_id INT;
     BEGIN
-        -- Fetch the repository_id of the target team
         SELECT repository_id INTO v_repository_id
         FROM teams
         WHERE id = NEW.team_id;
 
-        -- If team doesn't exist or belongs to a different repository
         IF v_repository_id IS DISTINCT FROM NEW.repository_id THEN
             RAISE EXCEPTION 'Constraint Violation: Team % does not belong to repository %.', NEW.team_id, NEW.repository_id;
         END IF;
@@ -55,5 +53,3 @@ async def ensure_permission_table(pool: asyncpg.Pool) -> None:
         async with conn.transaction():
             await conn.execute(PERMISSIONS_TABLE_DDL)
             await conn.execute(PERMISSIONS_INDEXES_DDL)
-            await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION)
-            await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER)

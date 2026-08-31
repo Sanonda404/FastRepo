@@ -19,17 +19,14 @@ CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION = """
         v1_repository_id INT;
         v2_repository_id INT;
     BEGIN
-        -- Fetch the repository_id of the target team
         SELECT repository_id INTO v1_repository_id
         FROM teams
         WHERE id = NEW.team_id;
         
-        -- Fetch the repository_id of the target collaborator
         SELECT repository_id INTO v2_repository_id
         FROM repository_collaborators
         WHERE id = NEW.member_id;
 
-        -- If team doesn't exist or belongs to a different repository
         IF v1_repository_id IS DISTINCT FROM v2_repository_id THEN
             RAISE EXCEPTION 'Constraint Violation: Team and collaborator are not part of same repository';
         END IF;
@@ -54,5 +51,3 @@ async def ensure_team_members_table(pool: asyncpg.Pool) -> None:
         async with conn.transaction():
             await conn.execute(TEAM_MEMBERS_TABLE_DDL)
             await conn.execute(TEAM_MEMBERS_INDEX_DDL)
-            await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION)
-            await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER)

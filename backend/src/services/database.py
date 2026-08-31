@@ -23,6 +23,21 @@ from models.issue_labels import ensure_issue_labels_table
 from models.permission import ensure_permission_table
 from models.profile_pic import ensure_profile_picss_table
 
+from models.repository_collaborators import (
+    CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION,
+    CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER_FUNCTION,
+    CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER,
+    CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER,
+)
+from models.team_members import (
+    CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION,
+    CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER,
+)
+from models.permission import (
+    CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION,
+    CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER,
+)
+
 load_dotenv()
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/fastrepo")
 
@@ -48,6 +63,16 @@ async def init_pool() -> None:
     await ensure_issue_pull_requests_table(_pool)
     await ensure_issue_labels_table(_pool)
     await ensure_permission_table(_pool)
+
+    async with _pool.acquire() as conn:
+        await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION)
+        await conn.execute(CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION)
+        await conn.execute(CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER_FUNCTION)
+        await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION)
+        await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER)
+        await conn.execute(CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER)
+        await conn.execute(CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER)
+        await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER)
 
 async def close_pool() -> None:
     global _pool
