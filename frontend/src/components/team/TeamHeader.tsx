@@ -1,4 +1,4 @@
-import { UsersRound, Plus, UserPlus } from "lucide-react"
+import { UsersRound, Plus} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HasCapability } from "../guards/HasCapability"
 import { RepoPermissionProvider } from "@/components/context/RepoPermissionContext"
@@ -36,16 +36,6 @@ export default function TeamHeader({
       </div>
 
       <div className="flex gap-2">
-        <HasCapability capability="canManageTeams">
-          <Button
-            variant="outline"
-            onClick={onAddMember}
-            className="gap-2"
-          >
-            <UserPlus className="size-4" />
-            Add member
-          </Button>
-        </HasCapability>
 
         {/* Visible only to Admins and Owners */}
         <HasCapability capability="canManageTeams">

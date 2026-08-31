@@ -19,11 +19,13 @@ import type { Team } from "@/lib/interfaces"
 
 import {
   type CreateTeamInput,
-  type AddTeamMemberInput,
+  type AddNewMemberInput,
+  type AddExistingCollaboratorInput,
 } from "@/lib/schemas/team"
 
-import { api, getErrorMessage } from "@/lib/apis/api"
+import { getErrorMessage } from "@/lib/apis/api"
 import { createTeam,getAllTeams, updateTeam, deleteTeam } from "@/lib/apis/team_apis"
+import { addExistingMember, addNewTeamMember } from "@/lib/apis/team_apis"
 import { getRole } from "@/lib/apis/repository_apis"
 import type { RepositoryRole } from "@/lib/auth/permissions"
 import { getCollaborators } from "@/lib/apis/repository_collaborator_apis"
@@ -57,7 +59,7 @@ export default function RepositoryTeamsPage() {
   const [createDialogOpen, setCreateDialogOpen] =
     useState(false)
 
-  const [memberDialogOpen, setMemberDialogOpen] =
+  const [addMemberDialogOpen, setAddMemberDialogOpen] =
     useState(false)
 
   const [selectedParentTeam, setSelectedParentTeam] =
@@ -145,7 +147,7 @@ export default function RepositoryTeamsPage() {
 
   const openAddMember = (team?: Team) => {
     setSelectedTeam(team ?? null)
-    setMemberDialogOpen(true)
+    setAddMemberDialogOpen(true)
   }
 
   const openEditTeam = (team: Team) => {
@@ -239,36 +241,85 @@ export default function RepositoryTeamsPage() {
     }
   }
 
-  const handleAddMember = async (
-    data: AddTeamMemberInput,
+  const handleAddExisting = async (
+    data: AddExistingCollaboratorInput,
   ) => {
-    if (!selectedTeam) return
+    if (!owner || !repository || !selectedTeam) {
+      return
+    }
 
-    setActionLoading(true)
+    setLoading(true)
+    setError(null)
 
     try {
-      await api(
-        `/teams/${selectedTeam.id}/members`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        },
+      await addExistingMember(
+        owner,
+        repository,
+        selectedTeam.id,
+        data,
       )
 
-      setMemberDialogOpen(false)
+      getAllTeams(owner, repository)
+      .then((data) => {
 
-      // Refresh teams so member information is updated.
-      if (owner && repository) {
-        const updatedTeams = await api<Team[]>(
-          `/teams/${owner}/${repository}`,
-        )
+        setTeams(data)
+        setLoading(false)
+      })
+      .catch((err) => {
 
-        setTeams(updatedTeams)
-      }
+        setError(getErrorMessage(err))
+        setLoading(false)
+      })
+
+
+      setAddMemberDialogOpen(false)
     } catch (err) {
-      setError(getErrorMessage(err))
+      setError(
+        getErrorMessage(err),
+      )
     } finally {
-      setActionLoading(false)
+      setLoading(false)
+    }
+  }
+
+  const handleAddNew = async (
+  data: AddNewMemberInput,
+  ) => {
+    if (!owner || !repository || !selectedTeam) {
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      await addNewTeamMember(
+        owner,
+        repository,
+        selectedTeam.id,
+        data,
+      )
+
+      getAllTeams(owner, repository)
+      .then((data) => {
+
+        setTeams(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+
+        setError(getErrorMessage(err))
+        setLoading(false)
+      })
+
+
+      setAddMemberDialogOpen(false)
+    } catch (err) {
+      setError(
+        getErrorMessage(err),
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -335,13 +386,14 @@ export default function RepositoryTeamsPage() {
         />
 
         <AddTeamMemberDialog
-          open={memberDialogOpen}
+          open={addMemberDialogOpen}
           team={selectedTeam}
           collaborators={collaborators}
           loading={actionLoading}
           error={error}
-          onClose={() => setMemberDialogOpen(false)}
-          onSubmit={handleAddMember}
+          onClose={() => setAddMemberDialogOpen(false)}
+          onAddExisting={handleAddExisting}
+          onAddNew={handleAddNew}
         />
 
         <EditTeamDialog

@@ -10,11 +10,39 @@ export const createTeamSchema = z.object({
   parent_team_id: z.number().nullable(),
 })
 
-export const addTeamMemberSchema = z.object({
-  member_id: z.number({
-    message: "Please select a member",
-  }),
-})
-
 export type CreateTeamInput = z.infer<typeof createTeamSchema>
-export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>
+
+// ------------------------------------------
+// Add existing repository collaborator
+// ------------------------------------------
+
+export const addExistingCollaboratorSchema =
+  z.object({
+    collaborator_id: z
+      .number()
+      .int()
+      .positive("Please select a collaborator"),
+  })
+
+export type AddExistingCollaboratorInput =
+  z.infer<
+    typeof addExistingCollaboratorSchema
+  >
+
+// ------------------------------------------
+// Add completely new member
+// ------------------------------------------
+
+export const addNewMemberSchema =
+  z.object({
+    member_identifier: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Username or email is required",
+      ),
+  })
+
+export type AddNewMemberInput =
+  z.infer<typeof addNewMemberSchema>

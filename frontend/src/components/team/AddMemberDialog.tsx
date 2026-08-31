@@ -1,12 +1,18 @@
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
 import {
-  addTeamMemberSchema,
-  type AddTeamMemberInput,
+  addExistingCollaboratorSchema,
+  addNewMemberSchema,
+  type AddExistingCollaboratorInput,
+  type AddNewMemberInput,
 } from "@/lib/schemas/team"
 
-import type { Team } from "@/lib/interfaces"
+import type {
+  Team,
+  CollaboratorResponse,
+} from "@/lib/interfaces"
 
 import {
   Dialog,
@@ -19,21 +25,27 @@ import {
 
 import { Button } from "@/components/ui/button"
 
-interface Collaborator {
-  id: number
-  username: string
-  avatar_url?: string | null
-}
-
 interface AddTeamMemberDialogProps {
   open: boolean
   team: Team | null
-  collaborators: Collaborator[]
+  collaborators: CollaboratorResponse[]
   loading: boolean
   error: string | null
+
   onClose: () => void
-  onSubmit: (data: AddTeamMemberInput) => void
+
+  onAddExisting: (
+    data: AddExistingCollaboratorInput,
+  ) => Promise<void>
+
+  onAddNew: (
+    data: AddNewMemberInput,
+  ) => Promise<void>
 }
+
+type AddMemberMode =
+  | "existing"
+  | "new"
 
 export default function AddTeamMemberDialog({
   open,
@@ -42,81 +54,394 @@ export default function AddTeamMemberDialog({
   loading,
   error,
   onClose,
-  onSubmit,
+  onAddExisting,
+  onAddNew,
 }: AddTeamMemberDialogProps) {
-  const form = useForm<AddTeamMemberInput>({
-    resolver: zodResolver(addTeamMemberSchema),
-  })
+  const [mode, setMode] = useState<AddMemberMode>("existing")
+
+  // ------------------------------------------
+  // Existing collaborator form
+  // ------------------------------------------
+
+  const existingForm =
+    useForm<AddExistingCollaboratorInput>({
+      resolver: zodResolver(
+        addExistingCollaboratorSchema,
+      ),
+      defaultValues: {
+        collaborator_id: 0,
+      },
+    })
+
+  // ------------------------------------------
+  // New member form
+  // ------------------------------------------
+
+  const newMemberForm =
+    useForm<AddNewMemberInput>({
+      resolver: zodResolver(
+        addNewMemberSchema,
+      ),
+      defaultValues: {
+        member_identifier: "",
+      },
+    })
+
+  // ------------------------------------------
+  // Reset forms when dialog closes
+  // ------------------------------------------
+
+  useEffect(() => {
+    if (!open) {
+      setMode("existing")
+
+      existingForm.reset({
+        collaborator_id: 0,
+      })
+
+      newMemberForm.reset({
+        member_identifier: "",
+      })
+    }
+  }, [
+    open,
+    existingForm,
+    newMemberForm,
+  ])
+
+  // ------------------------------------------
+  // Existing member submit
+  // ------------------------------------------
+
+  const handleExistingSubmit =
+    async (
+      data: AddExistingCollaboratorInput,
+    ) => {
+      await onAddExisting(data)
+    }
+
+  // ------------------------------------------
+  // New member submit
+  // ------------------------------------------
+
+  const handleNewSubmit =
+    async (
+      data: AddNewMemberInput,
+    ) => {
+      await onAddNew(data)
+    }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value && !loading) {
+          onClose()
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-lg">
+
+        {/* ================================== */}
+        {/* Header */}
+        {/* ================================== */}
+
         <DialogHeader>
           <DialogTitle>
-            Add member
+            Add team member
           </DialogTitle>
 
           <DialogDescription>
-            Add a repository collaborator to{" "}
-            <strong>{team?.name}</strong>.
+            Add someone to{" "}
+            <strong>
+              {team?.name}
+            </strong>
+            .
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-5"
-        >
-          <select
-            {...form.register("member_id", {
-              valueAsNumber: true,
-            })}
-            className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        {/* ================================== */}
+        {/* Mode selector */}
+        {/* ================================== */}
+
+        <div className="grid grid-cols-2 rounded-lg bg-muted p-1">
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() =>
+              setMode("existing")
+            }
+            className={`
+              rounded-md px-3 py-2
+              text-sm font-medium
+              transition-all
+              ${
+                mode === "existing"
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }
+            `}
           >
-            <option value="">
-              Select a member
-            </option>
+            Existing member
+          </button>
 
-            {collaborators.map((member) => (
-              <option
-                key={member.id}
-                value={member.id}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() =>
+              setMode("new")
+            }
+            className={`
+              rounded-md px-3 py-2
+              text-sm font-medium
+              transition-all
+              ${
+                mode === "new"
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }
+            `}
+          >
+            Add new member
+          </button>
+
+        </div>
+
+        {/* ================================== */}
+        {/* Existing collaborator */}
+        {/* ================================== */}
+
+        {mode === "existing" && (
+          <form
+            onSubmit={existingForm.handleSubmit(
+              handleExistingSubmit,
+            )}
+            className="space-y-5"
+          >
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Repository collaborator
+              </label>
+
+              <select
+                {...existingForm.register(
+                  "collaborator_id",
+                  {
+                    valueAsNumber: true,
+                  },
+                )}
+                disabled={loading}
+                className="
+                  flex h-10 w-full
+                  rounded-md border
+                  bg-background
+                  px-3 py-2
+                  text-sm
+                  outline-none
+                  focus:ring-2
+                  focus:ring-ring
+                "
               >
-                {member.username}
-              </option>
-            ))}
-          </select>
+                <option value={0}>
+                  Select a collaborator
+                </option>
 
-          {form.formState.errors.member_id && (
-            <p className="text-sm text-destructive">
-              {form.formState.errors.member_id.message}
-            </p>
-          )}
+                {collaborators.map(
+                  (member) => (
+                    <option
+                      key={member.id}
+                      value={member.id}
+                    >
+                      {member.username}
+                    </option>
+                  ),
+                )}
+              </select>
 
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+              {existingForm.formState
+                .errors.collaborator_id && (
+                <p className="text-sm text-destructive">
+                  {
+                    existingForm.formState
+                      .errors
+                      .collaborator_id
+                      .message
+                  }
+                </p>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Select someone who already has
+                access to this repository.
+              </p>
             </div>
-          )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
+            {/* Error */}
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-green-600 text-white hover:bg-green-700"
+            {error && (
+              <div
+                className="
+                  rounded-md
+                  bg-destructive/10
+                  p-3 text-sm
+                  text-destructive
+                "
+              >
+                {error}
+              </div>
+            )}
+
+            {/* Footer */}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="
+                  bg-green-600
+                  text-white
+                  hover:bg-green-700
+                "
+              >
+                {loading
+                  ? "Adding..."
+                  : "Add member"}
+              </Button>
+            </DialogFooter>
+
+          </form>
+        )}
+
+        {/* ================================== */}
+        {/* New member */}
+        {/* ================================== */}
+
+        {mode === "new" && (
+          <form
+            onSubmit={newMemberForm.handleSubmit(
+              handleNewSubmit,
+            )}
+            className="space-y-5"
+          >
+
+            <div className="space-y-2">
+
+              <label className="text-sm font-medium">
+                Username or email
+              </label>
+
+              <input
+                {...newMemberForm.register(
+                  "member_identifier",
+                )}
+                disabled={loading}
+                placeholder="username or email"
+                className="
+                  flex h-10 w-full
+                  rounded-md border
+                  bg-background
+                  px-3 py-2
+                  text-sm
+                  outline-none
+                  placeholder:text-muted-foreground
+                  focus:ring-2
+                  focus:ring-ring
+                "
+              />
+
+              {newMemberForm.formState
+                .errors.member_identifier && (
+                <p className="text-sm text-destructive">
+                  {
+                    newMemberForm.formState
+                      .errors
+                      .member_identifier
+                      .message
+                  }
+                </p>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Enter the username or email of
+                someone who isn't currently a
+                repository collaborator.
+              </p>
+
+            </div>
+
+            {/* Information box */}
+
+            <div
+              className="
+                rounded-lg
+                border
+                bg-muted/30
+                p-3
+                text-xs
+                text-muted-foreground
+              "
             >
-              {loading ? "Adding..." : "Add member"}
-            </Button>
-          </DialogFooter>
-        </form>
+              <p className="font-medium text-foreground">
+                New member
+              </p>
+            </div>
+
+            {/* Error */}
+
+            {error && (
+              <div
+                className="
+                  rounded-md
+                  bg-destructive/10
+                  p-3 text-sm
+                  text-destructive
+                "
+              >
+                {error}
+              </div>
+            )}
+
+            {/* Footer */}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="
+                  bg-green-600
+                  text-white
+                  hover:bg-green-700
+                "
+              >
+                {loading
+                  ? "Adding..."
+                  : "Add member"}
+              </Button>
+            </DialogFooter>
+
+          </form>
+        )}
+
       </DialogContent>
     </Dialog>
   )

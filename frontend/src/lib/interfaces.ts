@@ -132,6 +132,7 @@ export interface IssuesWitRole {
 
 export interface TeamMember {
   id: number
+  collaborator_id : number
   username: string
 }
 
@@ -146,4 +147,12 @@ export interface Team {
 export interface TeamsWithRole {
   teams : Team[]
   role : RepositoryRole
+}
+
+export interface AddNewMemberRequest{
+  member_identifier : string
+}
+
+export interface AddExistingCollaboratorReuqest {
+  collaborator_id : number
 }
