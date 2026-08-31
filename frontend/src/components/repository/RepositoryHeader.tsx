@@ -1,23 +1,36 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { GitFork, Star } from "lucide-react"
-import { useAuth } from "@/lib/auth/use-auth"
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { GitFork, Star } from "lucide-react";
+import { useAuth } from "@/lib/auth/use-auth";
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { getErrorMessage } from "@/lib/apis/api"
-import { forkRepository, getStar, listForks, toggleStar } from "@/lib/apis/repository_apis"
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { getErrorMessage } from "@/lib/apis/api";
+import {
+  forkRepository,
+  getStar,
+  listForks,
+  starRepository,
+  unstarRepository,
+} from "@/lib/apis/repository_apis";
 
 type RepositoryHeaderProps = {
-  owner: string
-  repository: string
-  repositoryName?: string
-  isPrivate?: boolean
-}
+  owner: string;
+  repository: string;
+  repositoryName?: string;
+  isPrivate?: boolean;
+};
 
 export default function RepositoryHeader({
   owner,
@@ -25,118 +38,128 @@ export default function RepositoryHeader({
   repositoryName,
   isPrivate = false,
 }: RepositoryHeaderProps) {
-  const displayName = repositoryName ?? repository
-  const visibilityLabel = isPrivate ? "Private" : "Public"
-  const navigate = useNavigate()
-  const { username } = useAuth()
+  const displayName = repositoryName ?? repository;
+  const visibilityLabel = isPrivate ? "Private" : "Public";
+  const navigate = useNavigate();
+  const { isLoggedIn, username } = useAuth();
 
-  const [forkCount, setForkCount] = useState(0)
-  const [starCount, setStarCount] = useState(0)
-  const [isStarred, setIsStarred] = useState(false)
+  const [forkCount, setForkCount] = useState(0);
+  const [starCount, setStarCount] = useState(0);
+  const [isStarred, setIsStarred] = useState(false);
 
   // fork dialog state
-  const [forkOpen, setForkOpen] = useState(false)
-  const [forkName, setForkName] = useState("")
-  const [forkDescription, setForkDescription] = useState("")
-  const [forkIsPrivate, setForkIsPrivate] = useState(false)
-  const [forkError, setForkError] = useState<string | null>(null)
-  const [forkLoading, setForkLoading] = useState(false)
+  const [forkOpen, setForkOpen] = useState(false);
+  const [forkName, setForkName] = useState("");
+  const [forkDescription, setForkDescription] = useState("");
+  const [forkIsPrivate, setForkIsPrivate] = useState(false);
+  const [forkError, setForkError] = useState<string | null>(null);
+  const [forkLoading, setForkLoading] = useState(false);
 
   useEffect(() => {
-    let active = true
+    let active = true;
     listForks(owner, repository)
       .then((forks) => {
-        if (active) setForkCount(forks.length)
+        if (active) setForkCount(forks.length);
       })
-      .catch(() => {})
+      .catch(() => {});
     getStar(owner, repository)
       .then((res) => {
         if (active) {
-          setStarCount(res.star_count)
-          setIsStarred(res.is_starred)
+          setStarCount(res.star_count);
+          setIsStarred(res.is_starred);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active) {
+          setIsStarred(false);
+        }
+      });
     return () => {
-      active = false
-    }
-  }, [owner, repository])
+      active = false;
+    };
+  }, [owner, repository, isLoggedIn]);
 
   const handleStar = async () => {
     try {
-      const res = await toggleStar(owner, repository)
-      setStarCount(res.star_count)
-      setIsStarred(res.is_starred)
+      const res = isStarred
+        ? await unstarRepository(owner, repository)
+        : await starRepository(owner, repository);
+      setStarCount(res.star_count);
+      setIsStarred(res.is_starred);
     } catch {
       // silent, could show toast
     }
-  }
+  };
 
   const handleForkSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setForkError(null)
-    setForkLoading(true)
+    e.preventDefault();
+    setForkError(null);
+    setForkLoading(true);
     try {
-      const payload: { name?: string; description?: string; is_private: boolean } = {
+      const payload: {
+        name?: string;
+        description?: string;
+        is_private: boolean;
+      } = {
         is_private: forkIsPrivate,
-      }
-      if (forkName.trim()) payload.name = forkName.trim()
-      if (forkDescription.trim()) payload.description = forkDescription.trim()
-      const newRepo = await forkRepository(owner, repository, payload)
-      setForkOpen(false)
-      setForkName("")
-      setForkDescription("")
-      setForkIsPrivate(false)
-      setForkCount((c) => c + 1)
+      };
+      if (forkName.trim()) payload.name = forkName.trim();
+      if (forkDescription.trim()) payload.description = forkDescription.trim();
+      const newRepo = await forkRepository(owner, repository, payload);
+      setForkOpen(false);
+      setForkName("");
+      setForkDescription("");
+      setForkIsPrivate(false);
+      setForkCount((c) => c + 1);
       if (username) {
-        navigate(`/${username}/${newRepo.name}`)
+        navigate(`/${username}/${newRepo.name}`);
       }
     } catch (err) {
-      setForkError(getErrorMessage(err))
+      setForkError(getErrorMessage(err));
     } finally {
-      setForkLoading(false)
+      setForkLoading(false);
     }
-  }
+  };
 
   return (
     <>
       <header className="flex w-full items-center justify-between border-b border-foreground/10 px-4 py-3">
-        {/* LeftGroup */}
         <div className="flex items-center gap-2">
-          {/* RepositoryName */}
           <span className="text-sm font-semibold">{displayName}</span>
-          {/* VisibilityBadge */}
           <span className="inline-flex shrink-0 items-center rounded-full border border-foreground/10 px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {visibilityLabel}
           </span>
         </div>
 
-        {/* RightGroup */}
-        <div className="flex items-center gap-2">
-          {/* ForkControl */}
-          <button
-            type="button"
-            onClick={() => setForkOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 bg-background px-2.5 py-1 text-sm font-medium hover:bg-muted"
-          >
-            <GitFork className="size-4 shrink-0" aria-hidden="true" />
-            <span>Fork</span>
-            <span className="text-muted-foreground">{forkCount}</span>
-          </button>
+        {isLoggedIn && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setForkOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 bg-background px-2.5 py-1 text-sm font-medium hover:bg-muted"
+            >
+              <GitFork className="size-4 shrink-0" aria-hidden="true" />
+              <span>Fork</span>
+              <span className="text-muted-foreground">{forkCount}</span>
+            </button>
 
-          {/* StarControl */}
-          <button
-            type="button"
-            onClick={handleStar}
-            aria-pressed={isStarred}
-            className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 bg-background px-2.5 py-1 text-sm font-medium hover:bg-muted data-[starred=true]:border-amber-300 data-[starred=true]:bg-amber-50 dark:data-[starred=true]:bg-amber-950/30"
-            data-starred={isStarred}
-          >
-            <Star className="size-4 shrink-0" aria-hidden="true" data-starred={isStarred} />
-            <span>Star</span>
-            <span className="text-muted-foreground">{starCount}</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleStar}
+              aria-pressed={isStarred}
+              aria-label={isStarred ? "Unstar repository" : "Star repository"}
+              className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 bg-background px-2.5 py-1 text-sm font-medium hover:bg-muted data-[starred=true]:border-amber-300 data-[starred=true]:bg-amber-50 dark:data-[starred=true]:bg-amber-950/30"
+              data-starred={isStarred}
+            >
+              <Star
+                className={`size-4 shrink-0 ${isStarred ? "fill-amber-400 text-amber-500" : ""}`}
+                aria-hidden="true"
+              />
+              <span>{isStarred ? "Starred" : "Star"}</span>
+              <span className="text-muted-foreground">{starCount}</span>
+            </button>
+          </div>
+        )}
       </header>
 
       <Dialog open={forkOpen} onOpenChange={setForkOpen}>
@@ -175,9 +198,16 @@ export default function RepositoryHeader({
               />
               <Label htmlFor="fork-private">Private</Label>
             </div>
-            {forkError && <p className="text-sm text-destructive">{forkError}</p>}
+            {forkError && (
+              <p className="text-sm text-destructive">{forkError}</p>
+            )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setForkOpen(false)} disabled={forkLoading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForkOpen(false)}
+                disabled={forkLoading}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={forkLoading}>
@@ -188,5 +218,5 @@ export default function RepositoryHeader({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

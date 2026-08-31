@@ -88,6 +88,15 @@ export function getStar(owner: string, name: string): Promise<StarResponse> {
   return api<StarResponse>(`/repositories/${owner}/${name}/star`);
 }
 
-export function toggleStar(owner: string, name: string): Promise<StarResponse> {
+export function starRepository(owner: string, name: string): Promise<StarResponse> {
   return api<StarResponse>(`/repositories/${owner}/${name}/star`, { method: "POST" });
+}
+
+export function unstarRepository(owner: string, name: string): Promise<StarResponse> {
+  return api<StarResponse>(`/repositories/${owner}/${name}/star`, { method: "DELETE" });
+}
+
+/** @deprecated use starRepository/unstarRepository for idempotent behaviour */
+export function toggleStar(owner: string, name: string): Promise<StarResponse> {
+  return starRepository(owner, name);
 }

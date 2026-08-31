@@ -206,26 +206,26 @@ async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: in
             except asyncpg.UniqueViolationError:
                 raise ValueError("Repository with same name already exists")
 
-async def manage_star(pool: asyncpg.Pool, user_id: int, repo_id: int) -> StarResponse:
+async def star_repository(pool: asyncpg.Pool, user_id: int, repo_id: int) -> StarResponse:
     async with pool.acquire() as conn:
         async with conn.transaction():
             try:
-                # Check if star exists
-                is_starred = await conn.fetchval(GET_STAR, user_id, repo_id) is not None
-
-                if not is_starred:
-                    await conn.execute(INSERT_STAR, user_id, repo_id)
-                    is_starred = True
-                else:
-                    await conn.execute(REMOVE_STAR, user_id, repo_id)
-                    is_starred = False
-
-                # Get updated count directly as integer
+                await conn.execute(INSERT_STAR, user_id, repo_id)
+                is_starred = True
                 star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
-
                 return StarResponse(is_starred=is_starred, star_count=star_count)
+            except asyncpg.PostgresError:
+                raise HTTPException(status_code=500, detail="Database error occurred")
 
-            except asyncpg.PostgresError as e:
+async def unstar_repository(pool: asyncpg.Pool, user_id: int, repo_id: int) -> StarResponse:
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            try:
+                await conn.execute(REMOVE_STAR, user_id, repo_id)
+                is_starred = False
+                star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
+                return StarResponse(is_starred=is_starred, star_count=star_count)
+            except asyncpg.PostgresError:
                 raise HTTPException(status_code=500, detail="Database error occurred")
 
 async def get_star(pool: asyncpg.Pool, repo_id: int, user_id: int | None) -> StarResponse:
@@ -236,5 +236,5 @@ async def get_star(pool: asyncpg.Pool, repo_id: int, user_id: int | None) -> Sta
                 is_starred = await conn.fetchval(GET_STAR, user_id, repo_id) is not None
             star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
             return StarResponse(is_starred=is_starred, star_count=star_count)
-        except asyncpg.PostgresError as e:
+        except asyncpg.PostgresError:
             raise HTTPException(status_code=500, detail="Database error occurred")

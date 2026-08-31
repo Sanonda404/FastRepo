@@ -30,8 +30,9 @@ from services.repository_crud import (
     delete_repository,
     fork_repository,
     can_access_repository,
-    manage_star,
-    get_star
+    get_star,
+    star_repository,
+    unstar_repository
 )
 from services.git_read import (
     get_branches,
@@ -276,15 +277,24 @@ async def get_star_status(
     return await get_star(pool, repo.id, user_id)
 
 @router.post("/{owner_name}/{repo_name}/star", response_model=StarResponse)
-async def add_or_remove_star(
+async def star_repo(
     owner_name: str,
     repo_name: str,
     current_user: dict = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
-    """Insert Star / remove star from a repository."""
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
-    return await manage_star(pool, current_user["id"], repo.id)
+    return await star_repository(pool, current_user["id"], repo.id)
+
+@router.delete("/{owner_name}/{repo_name}/star", response_model=StarResponse)
+async def unstar_repo(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    return await unstar_repository(pool, current_user["id"], repo.id)
 
 @router.post("/{owner_name}/{repo_name}/file", response_model=FileResponse)
 async def view_file(
