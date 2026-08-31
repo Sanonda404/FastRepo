@@ -281,6 +281,7 @@ export default function RepositorySettingsPage() {
             {activeTab === "collaborators" && (
               <RepoPermissionProvider role = {role}>
                 <CollaboratorSettings
+                  ownerUsername={owner}
                   isPrivate={
                     repositoryData?.is_private ?? false
                   }

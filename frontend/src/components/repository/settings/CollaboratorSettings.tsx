@@ -1,3 +1,4 @@
+import { useAuth } from "@/lib/auth/use-auth"
 import { useMemo, useState } from "react"
 import {
   Check,
@@ -7,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+
 import {
   Select,
   SelectContent,
@@ -16,13 +18,17 @@ import {
 } from "@/components/ui/select"
 
 import AddCollaboratorDialog from "./AddCollaboratorDialog"
+import CollaboratorRow from "./CollaboratorRow"
+import OwnerRow from "./OwnerRow"
+import RoleSummaryCard from "./RoleSummaryCard"
 
 import type { AddCollaboratorInput } from "@/lib/schemas/repository_collaborators"
-import type { CollaboratorResponse, CollaboratorRole} from "@/lib/interfaces"
-import RoleSummaryCard from "./RoleSummaryCard"
-import CollaboratorRow from "./CollaboratorRow"
+import type { CollaboratorResponse } from "@/lib/interfaces"
+import type { CollaboratorRole } from '@/lib/interfaces';
+
 
 interface CollaboratorSettingsProps {
+  ownerUsername: string
   isPrivate: boolean
   loading: boolean
   error: string | null
@@ -51,6 +57,7 @@ type RoleFilter =
   | "Viewer"
 
 export default function CollaboratorSettings({
+  ownerUsername,
   isPrivate,
   loading,
   error,
@@ -59,6 +66,8 @@ export default function CollaboratorSettings({
   onChangeRole,
   onDeleteCollaborator,
 }: CollaboratorSettingsProps) {
+  const { username } = useAuth()
+
   const [dialogOpen, setDialogOpen] =
     useState(false)
 
@@ -68,12 +77,9 @@ export default function CollaboratorSettings({
   const [actionLoading, setActionLoading] =
     useState<number | null>(null)
 
-  const handleSubmit = async (
-    data: AddCollaboratorInput,
-  ) => {
-    await onAddCollaborator(data)
-    setDialogOpen(false)
-  }
+  // ------------------------------------------
+  // Filter collaborators
+  // ------------------------------------------
 
   const filteredCollaborators = useMemo(() => {
     if (roleFilter === "All") {
@@ -86,11 +92,86 @@ export default function CollaboratorSettings({
     )
   }, [collaborators, roleFilter])
 
+  // ------------------------------------------
+  // Owner should never be treated as a normal
+  // collaborator.
+  // ------------------------------------------
+
+  const visibleCollaborators = useMemo(() => {
+    return filteredCollaborators.filter(
+      (collaborator) =>
+        collaborator.username !== ownerUsername,
+    )
+  }, [
+    filteredCollaborators,
+    ownerUsername,
+  ])
+
+  // ------------------------------------------
+  // Role counts
+  // ------------------------------------------
+
+  const adminCount = collaborators.filter(
+    (collaborator) =>
+      collaborator.role === "Admin",
+  ).length
+
+  const maintainerCount =
+    collaborators.filter(
+      (collaborator) =>
+        collaborator.role === "Maintainer",
+    ).length
+
+  const memberCount =
+    collaborators.filter(
+      (collaborator) =>
+        collaborator.role === "Member",
+    ).length
+
+  const viewerCount =
+    collaborators.filter(
+      (collaborator) =>
+        collaborator.role === "Viewer",
+    ).length
+
+  // ------------------------------------------
+  // Add collaborator
+  // ------------------------------------------
+
+  const handleSubmit = async (
+    data: AddCollaboratorInput,
+  ) => {
+    await onAddCollaborator(data)
+    setDialogOpen(false)
+  }
+
+  // ------------------------------------------
+  // Change collaborator role
+  // ------------------------------------------
+
   const handleRoleChange = async (
     collaborator: CollaboratorResponse,
-    role: CollaboratorRole
+    role: CollaboratorRole,
   ) => {
-    if (role === collaborator.role) return
+    // Never allow changing the owner's role.
+    if (
+      collaborator.username ===
+      ownerUsername
+    ) {
+      return
+    }
+
+    // Never allow a user to change their own role.
+    if (
+      collaborator.username ===
+      username
+    ) {
+      return
+    }
+
+    if (role === collaborator.role) {
+      return
+    }
 
     try {
       setActionLoading(collaborator.id)
@@ -104,9 +185,29 @@ export default function CollaboratorSettings({
     }
   }
 
+  // ------------------------------------------
+  // Delete collaborator
+  // ------------------------------------------
+
   const handleDelete = async (
     collaborator: CollaboratorResponse,
   ) => {
+    // Never allow removing the owner.
+    if (
+      collaborator.username ===
+      ownerUsername
+    ) {
+      return
+    }
+
+    // Never allow removing yourself.
+    if (
+      collaborator.username ===
+      username
+    ) {
+      return
+    }
+
     try {
       setActionLoading(collaborator.id)
 
@@ -118,31 +219,23 @@ export default function CollaboratorSettings({
     }
   }
 
-  const adminCount = collaborators.filter(
-    (c) => c.role === "Admin",
-  ).length
-
-  const maintainerCount =
-    collaborators.filter(
-      (c) => c.role === "Maintainer",
-    ).length
-
-  const viewerCount =
-    collaborators.filter(
-      (c) => c.role === "Viewer",
-    ).length
-
   return (
     <div className="max-w-4xl space-y-8">
 
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
       {/* Header */}
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div
+              className="
+                flex size-9 items-center
+                justify-center rounded-lg
+                bg-primary/10 text-primary
+              "
+            >
               <Users className="size-4" />
             </div>
 
@@ -172,21 +265,30 @@ export default function CollaboratorSettings({
         </Button>
       </div>
 
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
       {/* Error */}
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
 
       {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          className="
+            rounded-xl border
+            border-destructive/30
+            bg-destructive/10
+            px-4 py-3
+            text-sm text-destructive
+          "
+        >
           {error}
         </div>
       )}
 
-      {/* ------------------------------------------------ */}
-      {/* Role overview */}
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
+      {/* Role summary */}
+      {/* ====================================== */}
 
       <div className="grid gap-3 sm:grid-cols-3">
+
         <RoleSummaryCard
           label="Admins"
           count={adminCount}
@@ -199,6 +301,12 @@ export default function CollaboratorSettings({
           icon={Users}
         />
 
+        <RoleSummaryCard
+          label="Members"
+          count={memberCount}
+          icon={Users}
+        />
+
         {isPrivate && (
           <RoleSummaryCard
             label="Viewers"
@@ -208,28 +316,45 @@ export default function CollaboratorSettings({
         )}
       </div>
 
-      {/* ------------------------------------------------ */}
-      {/* Collaborators container */}
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
+      {/* Repository access */}
+      {/* ====================================== */}
 
-      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div
+        className="
+          overflow-hidden rounded-2xl
+          border bg-card shadow-sm
+        "
+      >
 
+        {/* ------------------------------------ */}
         {/* Toolbar */}
-        <div className="flex flex-col gap-4 border-b bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between">
+        {/* ------------------------------------ */}
 
+        <div
+          className="
+            flex flex-col gap-4
+            border-b bg-muted/20 p-5
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+          "
+        >
           <div>
             <h3 className="font-semibold">
               Repository access
             </h3>
 
             <p className="mt-1 text-xs text-muted-foreground">
-              {collaborators.length}{" "}
-              {collaborators.length === 1
+              {collaborators.length + 1}{" "}
+              {collaborators.length + 1 === 1
                 ? "person"
                 : "people"}{" "}
               with access
             </p>
           </div>
+
+          {/* Role filter */}
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
@@ -254,7 +379,7 @@ export default function CollaboratorSettings({
                 </SelectItem>
 
                 <SelectItem value="Owner">
-                  Owners
+                  Owner
                 </SelectItem>
 
                 <SelectItem value="Admin">
@@ -275,56 +400,98 @@ export default function CollaboratorSettings({
           </div>
         </div>
 
-        {/* ------------------------------------------------ */}
-        {/* Empty state */}
-        {/* ------------------------------------------------ */}
+        {/* ==================================== */}
+        {/* Owner filter */}
+        {/* ==================================== */}
 
-        {filteredCollaborators.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-muted">
-              <Users className="size-6 text-muted-foreground" />
-            </div>
-
-            <h3 className="mt-4 font-medium">
-              No collaborators found
-            </h3>
-
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              {roleFilter === "All"
-                ? "There are no collaborators with access to this repository yet."
-                : `There are no collaborators with the ${roleFilter} role.`}
-            </p>
-          </div>
+        {roleFilter === "Owner" ? (
+          <OwnerRow
+            username={ownerUsername}
+          />
         ) : (
-          /* ------------------------------------------------ */
-          /* Collaborator list */
-          /* ------------------------------------------------ */
-
           <div className="divide-y">
-            {filteredCollaborators.map(
-              (collaborator) => (
-                <CollaboratorRow
-                  key={collaborator.id}
-                  collaborator={collaborator}
-                  isPrivate={isPrivate}
-                  loading={
-                    actionLoading ===
-                    collaborator.id
-                  }
-                  onChangeRole={
-                    handleRoleChange
-                  }
-                  onDelete={handleDelete}
-                />
-              ),
+
+            {/* -------------------------------- */}
+            {/* Owner */}
+            {/* -------------------------------- */}
+
+            <OwnerRow
+              username={ownerUsername}
+            />
+
+            {/* -------------------------------- */}
+            {/* Collaborators */}
+            {/* -------------------------------- */}
+
+            {visibleCollaborators.length ===
+            0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <div
+                  className="
+                    flex size-12 items-center
+                    justify-center rounded-xl
+                    bg-muted
+                  "
+                >
+                  <Users className="size-5 text-muted-foreground" />
+                </div>
+
+                <h3 className="mt-4 font-medium">
+                  No collaborators found
+                </h3>
+
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  {roleFilter === "All"
+                    ? "There are no collaborators with access to this repository yet."
+                    : `There are no collaborators with the ${roleFilter} role.`}
+                </p>
+
+                {roleFilter === "All" && (
+                  <Button
+                    variant="outline"
+                    className="mt-5 gap-2"
+                    onClick={() =>
+                      setDialogOpen(true)
+                    }
+                  >
+                    <UserPlus className="size-4" />
+                    Add collaborator
+                  </Button>
+                )}
+              </div>
+            ) : (
+              visibleCollaborators.map(
+                (collaborator) => (
+                  <CollaboratorRow
+                    key={collaborator.id}
+                    collaborator={
+                      collaborator
+                    }
+                    currentUsername={
+                      username ?? ""
+                    }
+                    isPrivate={isPrivate}
+                    loading={
+                      actionLoading ===
+                      collaborator.id
+                    }
+                    onChangeRole={
+                      handleRoleChange
+                    }
+                    onDelete={
+                      handleDelete
+                    }
+                  />
+                ),
+              )
             )}
           </div>
         )}
       </div>
 
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
       {/* Add collaborator dialog */}
-      {/* ------------------------------------------------ */}
+      {/* ====================================== */}
 
       <AddCollaboratorDialog
         open={dialogOpen}

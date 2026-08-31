@@ -26,12 +26,8 @@ import { api, getErrorMessage } from "@/lib/apis/api"
 import { createTeam,getAllTeams, updateTeam, deleteTeam } from "@/lib/apis/team_apis"
 import { getRole } from "@/lib/apis/repository_apis"
 import type { RepositoryRole } from "@/lib/auth/permissions"
-
-interface Collaborator {
-  id: number
-  username: string
-  avatar_url?: string | null
-}
+import { getCollaborators } from "@/lib/apis/repository_collaborator_apis"
+import type { CollaboratorResponse } from "@/lib/interfaces"
 
 export default function RepositoryTeamsPage() {
   const { owner, repository } = useParams<{
@@ -40,7 +36,7 @@ export default function RepositoryTeamsPage() {
   }>()
 
   const [teams, setTeams] = useState<Team[]>([])
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([])
+  const [collaborators, setCollaborators] = useState<CollaboratorResponse[]>([])
   const [role, setRole] = useState<RepositoryRole>()
 
   const [view, setView] = useState<TeamView>("hierarchy")
@@ -109,6 +105,29 @@ export default function RepositoryTeamsPage() {
         setLoading(false)
       })
 
+    return () => {
+      active = false
+    }
+  }, [owner, repository])
+
+  useEffect(() => {
+    if (!owner || !repository) return
+
+    let active = true
+
+    getCollaborators(owner, repository)
+      .then((data) => {
+        if (!active) return
+
+        setCollaborators(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!active) return
+
+        setError(getErrorMessage(err))
+        setLoading(false)
+      })
     return () => {
       active = false
     }
