@@ -17,7 +17,16 @@ export function useAuth() {
   const [username, setUsername] = useState<string | null>(cachedUsername)
 
   useEffect(() => {
-    if (!isLoggedIn || cachedUsername) return
+    if (!isLoggedIn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (username !== null) setUsername(null)
+      return
+    }
+    if (cachedUsername) {
+      if (username !== cachedUsername) setUsername(cachedUsername)
+      return
+    }
+    if (username) return
     let active = true
     api<UserResponse>("/users/me")
       .then((user) => {
@@ -26,7 +35,7 @@ export function useAuth() {
       })
       .catch(() => {})
     return () => { active = false }
-  }, [isLoggedIn])
+  }, [isLoggedIn, username])
 
   const logout = () => {
     cachedUsername = null
