@@ -20,12 +20,12 @@ class RepositoryResponse(BaseModel):
     owner_id : int
     default_branch : str
     parent_repository_id : Optional[int] = None
+    parent_owner_username : Optional[str] = None
+    parent_repository_name : Optional[str] = None
     created_at : datetime
 
 class RepositoryDetails(RepositoryResponse):
     owner_username : str
-    parent_owner_username : Optional[str] = None
-    parent_repository_name : Optional[str] = None
 class ForkRepositoryRequest(BaseModel):
     name: Optional[str] = Field(
         None,

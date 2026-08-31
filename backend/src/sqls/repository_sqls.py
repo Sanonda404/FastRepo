@@ -6,22 +6,28 @@ CREATE_REPOSITORY = """
 """
 
 GET_REPO_BY_USER_AND_REPOSIRY_NAME = """
-    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, pu.username AS parent_owner_username, p.name AS parent_repository_name, r.created_at
     FROM repositories r
     INNER JOIN users u ON r.owner_id = u.id
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE u.username = $1 AND r.name = $2
 """
 GET_ALL_REPOS_OF_OWNER_BY_OWNER_ID = """
-    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, pu.username AS parent_owner_username, p.name AS parent_repository_name, r.created_at
     FROM repositories r
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE r.owner_id = $1
 """
 
 GET_ALL_PUBLIC_OF_OWNER_BY_OWNER_NAME = """
-    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, r.created_at
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, pu.username AS parent_owner_username, p.name AS parent_repository_name, r.created_at
     FROM repositories r
     INNER JOIN USERS u
     ON r.owner_id = u.id
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE u.username = $1
     AND r.is_private = FALSE
 """
@@ -36,9 +42,13 @@ GET_ACCESIBLE_REPOS_OF_OWNER_BY_USERNAME = """
         r.owner_id,
         r.default_branch,
         r.parent_repository_id,
+        pu.username AS parent_owner_username,
+        p.name AS parent_repository_name,
         r.created_at
     FROM repositories r
     INNER JOIN users u ON u.id = r.owner_id
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE u.username = $1
     AND (
         r.is_private = FALSE

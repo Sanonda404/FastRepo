@@ -60,15 +60,36 @@ test("repository cards show private badges only for private repos", async ({ pag
 
   const repositories = page.getByTestId("repositories")
   await expect(repositories.getByText("Private", { exact: true })).toHaveCount(1)
+  await expect(repositories.getByText("Public", { exact: true })).toHaveCount(1)
   const card = (name: string) =>
     repositories
       .getByRole("link", { name })
       .locator("xpath=ancestor::div[contains(@class,'rounded-xl')]")
 
   await expect(card("jane/payments-service").getByText("Private")).toBeVisible()
+  await expect(card("jane/payments-service").getByText("Public")).toHaveCount(0)
+  await expect(card("jane/fastrepo").getByText("Public")).toBeVisible()
   await expect(
     card("jane/fastrepo").getByText("Private")
   ).toHaveCount(0)
+})
+
+test("repository cards show forked from link for forked repositories", async ({ page }) => {
+  await loginAs(page)
+  await page.goto("/")
+
+  const repositories = page.getByTestId("repositories")
+  const card = (name: string) =>
+    repositories
+      .getByRole("link", { name })
+      .locator("xpath=ancestor::div[contains(@class,'rounded-xl')]")
+
+  await expect(card("jane/fastrepo").getByText(/Forked from/)).toHaveCount(0)
+  const forked = card("jane/payments-service")
+  await expect(forked.getByText(/Forked from/)).toBeVisible()
+  const link = forked.getByRole("link", { name: "http://localhost:5173/octocat/Hello-World" })
+  await expect(link).toBeVisible()
+  await expect(link).toHaveAttribute("href", "/octocat/Hello-World")
 })
 
 test("repository cards show creation timestamps from the API", async ({ page }) => {

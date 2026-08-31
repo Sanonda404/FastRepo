@@ -15,6 +15,9 @@ export const janeRepositories = [
     is_private: false,
     owner_id: 1,
     default_branch: "main",
+    parent_repository_id: null,
+    parent_owner_username: null,
+    parent_repository_name: null,
     created_at: iso(2 * HOUR),
   },
   {
@@ -24,6 +27,9 @@ export const janeRepositories = [
     is_private: true,
     owner_id: 1,
     default_branch: "main",
+    parent_repository_id: 99,
+    parent_owner_username: "octocat",
+    parent_repository_name: "Hello-World",
     created_at: iso(DAY + HOUR),
   },
 ]
