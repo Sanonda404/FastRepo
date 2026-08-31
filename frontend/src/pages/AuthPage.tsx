@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   GitBranch,
   Lock,
@@ -43,6 +44,20 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("fastrepo_session_expired")) {
+        sessionStorage.removeItem("fastrepo_session_expired")
+        const msg = "Session timed out. Please sign in again."
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setErrorMessage(msg)
+        toast.error(msg)
+      }
+    } catch (e) {
+      void e
+    }
+  }, [])
 
   const loginForm = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),

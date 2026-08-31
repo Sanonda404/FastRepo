@@ -18,6 +18,7 @@ export function useAuth() {
 
   useEffect(() => {
     if (!isLoggedIn) {
+      cachedUsername = null
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (username !== null) setUsername(null)
       return

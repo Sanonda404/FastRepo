@@ -38,6 +38,31 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+let isHandling401 = false
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const url: string = (error.config?.url as string) ?? ""
+      const hadAuth = Boolean((error.config?.headers as Record<string, unknown> | undefined)?.Authorization)
+      const isAuthRequest = url.includes("/users/login") || url.includes("/users/register")
+      const alreadyOnLogin = window.location.pathname === "/login"
+      if (!isAuthRequest && hadAuth && !isHandling401 && !alreadyOnLogin) {
+        isHandling401 = true
+        clearAuthToken()
+        try {
+          sessionStorage.setItem("fastrepo_session_expired", "1")
+        } catch (e) {
+          void e
+        }
+        window.location.href = "/login"
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
 export async function loginApi(formData: FormData) {
   console.log("loginApi called with formData:", formData);
 
