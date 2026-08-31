@@ -35,7 +35,7 @@ export default function GeneralSettings({
         </p>
       </section>
 
-      <section className="rounded-xl border p-5">
+      <section className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
         <h3 className="font-medium">
           Branch protection
         </h3>

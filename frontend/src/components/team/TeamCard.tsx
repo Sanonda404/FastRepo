@@ -43,7 +43,7 @@ export default function TeamCard({
 }: TeamCardProps) {
   return (
     <RepoPermissionProvider role = {role}>
-      <div className="group relative w-72 rounded-2xl border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+      <div className="group relative w-72 rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
 
         {/* Header */}
         <div className="flex items-start justify-between">

@@ -99,7 +99,7 @@ export default function GoToFileDialog({
         )}
 
         {!loading && !error && (
-          <ul className="max-h-80 overflow-y-auto rounded-md border">
+          <ul className="max-h-80 overflow-y-auto rounded-md ring-1 ring-foreground/10">
             {filtered.length === 0 && (
               <li className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No files found.

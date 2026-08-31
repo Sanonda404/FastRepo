@@ -30,10 +30,10 @@ export default function RepositoryVisibility({
       render={({ field }) => (
         <FormItem>
           <div
-            className={`rounded-xl border p-4 transition-colors ${
+            className={`rounded-xl p-4 ring-1 transition-colors ${
               isPrivate
-                ? "border-green-500/40 bg-green-500/5"
-                : "border-border bg-background"
+                ? "bg-green-500/5 ring-green-500/40"
+                : "bg-card ring-foreground/10"
             }`}
           >
             <label

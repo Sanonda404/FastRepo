@@ -12,7 +12,7 @@ export default function RoleSummaryCard({
   icon: Icon,
 }: RoleSummaryCardProps) {
   return (
-    <div className="rounded-xl border bg-card p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-all hover:-translate-y-0.5 hover:shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
           <Icon className="size-4 text-muted-foreground" />

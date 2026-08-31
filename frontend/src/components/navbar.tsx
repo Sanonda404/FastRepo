@@ -18,7 +18,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="flex h-14 w-full items-center justify-between border-b bg-background px-4">
+    <header className="flex h-14 w-full items-center justify-between border-b border-foreground/10 bg-background px-4">
       <Link to="/" className="flex items-center gap-2">
         <GitBranch className="size-5" />
         <span className="font-medium">FastRepo</span>

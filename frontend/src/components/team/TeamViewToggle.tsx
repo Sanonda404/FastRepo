@@ -13,7 +13,7 @@ export default function TeamViewToggle({
   onChange,
 }: TeamViewToggleProps) {
   return (
-    <div className="inline-flex rounded-lg border bg-muted/40 p-1">
+    <div className="inline-flex rounded-lg bg-muted/40 p-1 ring-1 ring-foreground/10">
       <Button
         type="button"
         variant={view === "hierarchy" ? "secondary" : "ghost"}

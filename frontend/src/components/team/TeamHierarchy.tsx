@@ -39,7 +39,7 @@ export default function TeamHierarchy({
 
   if (teams.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed p-12 text-center">
+      <div className="rounded-xl border border-dashed border-foreground/10 bg-card p-12 text-center">
         <GitBranch className="mx-auto size-10 text-muted-foreground" />
 
         <h3 className="mt-4 font-semibold">
@@ -55,7 +55,7 @@ export default function TeamHierarchy({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border bg-muted/20 p-10">
+    <div className="overflow-x-auto rounded-xl bg-card p-10 ring-1 ring-foreground/10">
       <div className="flex min-w-max justify-center gap-12">
         {rootTeams.map((team) => (
          <TeamNode

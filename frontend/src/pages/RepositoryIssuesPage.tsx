@@ -116,7 +116,7 @@ export default function RepositoryIssuesPage() {
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
 
           {/* Search */}
-          <div className="border-b p-4">
+          <div className="border-b border-foreground/10 p-4">
             <div className="relative max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 

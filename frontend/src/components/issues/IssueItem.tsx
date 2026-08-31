@@ -15,7 +15,7 @@ export default function IssueItem({ issue, href }: IssueItemProps) {
   return (
     <Link
       to={href}
-      className="group block border-b px-5 py-5 last:border-b-0 transition-colors hover:bg-muted/40"
+      className="group block border-b border-foreground/10 px-5 py-5 last:border-b-0 transition-colors hover:bg-muted/40"
     >
       <div className="flex gap-4">
         <div className="pt-0.5">

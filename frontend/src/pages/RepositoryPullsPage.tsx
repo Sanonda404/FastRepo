@@ -25,11 +25,11 @@ export default function RepositoryPullrequestsPage() {
   return (
     <RepositoryLayout role = {role} owner={owner} repository={repository} activeTab="Pull requests">
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
-        <div className="border-b px-5 py-4">
+        <div className="border-b border-foreground/10 px-5 py-4">
           <h2 className="font-semibold">Pull requests</h2>
           <p className="mt-1 text-sm text-muted-foreground">Review and merge changes from contributors.</p>
         </div>
-        <div className="divide-y">
+        <div className="divide-y divide-foreground/10">
 {[
   ["42", "Add nested team permissions", "maria", "Open"],
   ["38", "Refactor repository navigation", "alex", "Open"],

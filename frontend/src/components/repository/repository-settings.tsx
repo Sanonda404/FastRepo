@@ -2,7 +2,7 @@ import { GitBranch } from "lucide-react"
 
 export default function RepositorySettings() {
   return (
-    <aside className="h-fit rounded-xl border border-border bg-muted/30 p-5">
+    <aside className="h-fit rounded-xl bg-card p-5 ring-1 ring-foreground/10">
       <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
         <GitBranch className="h-5 w-5" />
       </div>

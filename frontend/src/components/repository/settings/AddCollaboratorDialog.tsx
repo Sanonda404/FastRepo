@@ -190,12 +190,12 @@ export default function AddCollaboratorDialog({
                       )
                     }
                     className={`
-                      w-full rounded-xl border p-4
+                      w-full rounded-xl p-4 ring-1
                       text-left transition-all
                       ${
                         selected
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "hover:bg-muted"
+                          ? "bg-primary/5 ring-primary"
+                          : "ring-foreground/10 hover:bg-muted"
                       }
                     `}
                   >

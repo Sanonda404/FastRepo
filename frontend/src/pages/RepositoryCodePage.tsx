@@ -135,20 +135,20 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                 <button className="text-sm text-muted-foreground hover:text-primary">{branchList.length} branches</button>
                 {branchOpen && <div id="branch-menu" className="absolute left-0 top-9 w-72 rounded-xl bg-popover p-3 ring-1 ring-foreground/10 shadow-xl" role="dialog" aria-label="Select branch">
                   <label className="sr-only" htmlFor="branch-search">Find a branch</label>
-                  <div className="flex items-center gap-2 rounded-md border px-2"><Search className="size-4 text-muted-foreground" /><input id="branch-search" autoFocus value={branchSearch} onChange={(event) => setBranchSearch(event.target.value)} placeholder="Find a branch..." className="h-9 w-full bg-transparent text-sm outline-none" /></div>
+                  <div className="flex items-center gap-2 rounded-md border border-foreground/10 px-2"><Search className="size-4 text-muted-foreground" /><input id="branch-search" autoFocus value={branchSearch} onChange={(event) => setBranchSearch(event.target.value)} placeholder="Find a branch..." className="h-9 w-full bg-transparent text-sm outline-none" /></div>
                   <p className="mt-3 px-2 text-xs font-medium text-muted-foreground">BRANCHES</p>
                   <div className="mt-1 max-h-52 overflow-y-auto">
                     {visibleBranches.map((item) => <button key={item.name} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => selectBranch(item.name)}><GitBranch className="size-4 text-muted-foreground" /><span className="flex-1">{item.name}</span>{item.is_default && <span className="text-xs text-muted-foreground">default</span>}{item.name === activeBranch && <Check className="size-4 text-primary" />}</button>)}
                     {!visibleBranches.length && <p className="p-3 text-sm text-muted-foreground">No branches found.</p>}
                   </div>
-                  <button className="mt-2 w-full border-t pt-3 text-left text-sm font-medium text-primary hover:underline">View all branches</button>
+                  <button className="mt-2 w-full border-t border-foreground/10 pt-3 text-left text-sm font-medium text-primary hover:underline">View all branches</button>
                 </div>}
               </div>
               <button className={buttonVariants({ variant: "outline", size: "sm" })} onClick={() => setGoToFileOpen(true)}><Search className="size-3.5" /> Go to file</button>
             </div>
 
             <section aria-label="Repository contents" className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-              <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-3 border-b border-foreground/10 px-4 py-3 text-sm">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{(latest?.author ?? owner).charAt(0).toUpperCase()}</div>
                 <span>                 {latest ? <><strong><Link to={`/${latest.author}`} className="hover:underline">{latest.author}</Link></strong> <span className="text-muted-foreground">committed</span> {latest.message}</> : <span className="text-muted-foreground">Loading history…</span>}</span>
                 {latest && <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha.slice(0, 7)}<button className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</button></span>}
@@ -158,7 +158,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
               {!tree?.error && selectedFile && (file?.data || file?.error) && <FileView repository={repository} branch={activeBranch} path={path} fileData={file?.data ?? null} error={file?.error ?? null} onBack={() => navigateToDir([])} onOpenDir={(index) => navigateToDir(path.slice(0, index + 1))} />}
               {!tree?.error && selectedFile && !file && <p className="px-4 py-6 text-sm text-muted-foreground">Loading file…</p>}
               {!tree?.error && !selectedFile && <>
-                <nav aria-label="Breadcrumb" className="flex items-center gap-1 border-b px-4 py-3 text-sm">
+                <nav aria-label="Breadcrumb" className="flex items-center gap-1 border-b border-foreground/10 px-4 py-3 text-sm">
                   <button className="font-medium text-primary hover:underline" onClick={() => navigateToDir([])}>{repository}</button>
                   {path.map((segment, index) => (
                     <span key={segment} className="flex items-center gap-1">
@@ -168,10 +168,10 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                   ))}
                 </nav>
                 <div role="table" aria-label="Repository file explorer">
-                  <div role="row" className="hidden grid-cols-[minmax(14rem,2fr)_9rem] gap-4 border-b px-4 py-2 text-xs font-medium text-muted-foreground sm:grid"><span role="columnheader">Name</span><span role="columnheader">Size</span></div>
+                  <div role="row" className="hidden grid-cols-[minmax(14rem,2fr)_9rem] gap-4 border-b border-foreground/10 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid"><span role="columnheader">Name</span><span role="columnheader">Size</span></div>
                   {!tree && <p className="px-4 py-6 text-sm text-muted-foreground">Loading contents…</p>}
-                  {tree?.entries && path.length > 0 && <button role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => navigateToDir(path.slice(0, -1))}><span className="flex items-center gap-2 text-primary"><Folder className="size-4 fill-current/20" />..</span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">Up one level</span></button>}
-                  {tree?.entries?.map((entry) => <button key={entry.name} role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => entry.type === "tree" ? openFolder(entry.name) : setSelectedFile(entry.name)}><span className="flex min-w-0 items-center gap-2 font-medium text-primary"><span>{entry.type === "tree" ? <Folder className="size-4 fill-current/20" /> : <FileCode2 className="size-4" />}</span><span className="truncate">{entry.name}</span></span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">{entry.size != null ? `${entry.size} bytes` : ""}</span></button>)}
+                  {tree?.entries && path.length > 0 && <button role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-foreground/10 px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => navigateToDir(path.slice(0, -1))}><span className="flex items-center gap-2 text-primary"><Folder className="size-4 fill-current/20" />..</span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">Up one level</span></button>}
+                  {tree?.entries?.map((entry) => <button key={entry.name} role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-foreground/10 px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => entry.type === "tree" ? openFolder(entry.name) : setSelectedFile(entry.name)}><span className="flex min-w-0 items-center gap-2 font-medium text-primary"><span>{entry.type === "tree" ? <Folder className="size-4 fill-current/20" /> : <FileCode2 className="size-4" />}</span><span className="truncate">{entry.name}</span></span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">{entry.size != null ? `${entry.size} bytes` : ""}</span></button>)}
                 </div>
               </>}
             </section>
@@ -198,7 +198,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                       {person.username.charAt(0).toUpperCase()}
                     </div>
                     <Link to={`/${person.username}`} className="truncate font-medium hover:underline">{person.username}</Link>
-                    <span className="ml-auto rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{person.role === "owner" ? "Owner" : person.role}</span>
+                    <span className="ml-auto rounded-full border border-foreground/10 px-2 py-0.5 text-xs text-muted-foreground">{person.role === "owner" ? "Owner" : person.role}</span>
                   </li>
                 ))}
               </ul>
@@ -234,10 +234,10 @@ function FileView({ repository, branch, path, fileData, error, onBack, onOpenDir
   }
 
   return <>
-    <nav aria-label="File breadcrumb" className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"><div className="flex items-center gap-1"><button onClick={onBack} className="font-medium text-primary hover:underline">{repository}</button><span className="text-muted-foreground">/</span>{path.map((segment, index) => <span key={segment} className="flex items-center gap-1"><button onClick={() => onOpenDir(index)} className="font-medium text-primary hover:underline">{segment}</button><span className="text-muted-foreground">/</span></span>)}<span className="font-medium">{fileData?.name}</span></div>{fileData && <div className="flex gap-2"><button className={buttonVariants({ variant: "outline", size: "xs" })} onClick={handleCopy}><Copy className="size-3.5" /> {copied ? "Copied" : "Copy"}</button></div>}</nav>
+    <nav aria-label="File breadcrumb" className="flex flex-wrap items-center justify-between gap-3 border-b border-foreground/10 px-4 py-3 text-sm"><div className="flex items-center gap-1"><button onClick={onBack} className="font-medium text-primary hover:underline">{repository}</button><span className="text-muted-foreground">/</span>{path.map((segment, index) => <span key={segment} className="flex items-center gap-1"><button onClick={() => onOpenDir(index)} className="font-medium text-primary hover:underline">{segment}</button><span className="text-muted-foreground">/</span></span>)}<span className="font-medium">{fileData?.name}</span></div>{fileData && <div className="flex gap-2"><button className={buttonVariants({ variant: "outline", size: "xs" })} onClick={handleCopy}><Copy className="size-3.5" /> {copied ? "Copied" : "Copy"}</button></div>}</nav>
     {error && <p className="px-4 py-6 text-sm text-destructive">{error}</p>}
     {fileData && <>
-      <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"><FileText className="size-4" />{fileData.path}<span>·</span><span>{fileData.size} bytes</span><span>·</span><span>{branch}</span></div>
+      <div className="flex items-center gap-3 border-b border-foreground/10 bg-muted/30 px-4 py-2 text-xs text-muted-foreground"><FileText className="size-4" />{fileData.path}<span>·</span><span>{fileData.size} bytes</span><span>·</span><span>{branch}</span></div>
       {fileData.binary ? <p className="px-4 py-6 text-sm text-muted-foreground">Binary file — preview is not available.</p> : <CodeViewer code={fileData.content} filename={fileData.name} />}
     </>}
   </>

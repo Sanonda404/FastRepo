@@ -17,7 +17,7 @@ export default function TeamList({
 }: TeamListProps) {
   return (
     <RepoPermissionProvider role = {role as RepositoryRole}>
-      <div className="divide-y rounded-2xl border bg-card">
+      <div className="divide-y divide-foreground/10 rounded-xl bg-card ring-1 ring-foreground/10">
         {teams.map((team) => (
           <div
             key={team.id}

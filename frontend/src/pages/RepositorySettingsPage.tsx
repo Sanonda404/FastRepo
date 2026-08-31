@@ -243,7 +243,7 @@ export default function RepositorySettingsPage() {
     >
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
         {/* Header */}
-        <div className="border-b px-6 py-5">
+        <div className="border-b border-foreground/10 px-6 py-5">
           <h1 className="text-xl font-semibold">
             Repository settings
           </h1>

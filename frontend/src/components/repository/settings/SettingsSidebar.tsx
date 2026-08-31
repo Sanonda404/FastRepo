@@ -19,7 +19,7 @@ export default function SettingsSidebar({
   onTabChange,
 }: SettingsSidebarProps) {
   return (
-    <aside className="w-full shrink-0 border-b md:w-64 md:border-b-0 md:border-r">
+    <aside className="w-full shrink-0 border-b border-foreground/10 md:w-64 md:border-b-0 md:border-r md:border-foreground/10">
       <nav className="space-y-1 p-3">
         {tabs.map((tab) => {
           const Icon = tab.icon

@@ -356,7 +356,7 @@ export default function RepositoryTeamsPage() {
         />
 
         {loading ? (
-          <div className="rounded-2xl border p-12 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl bg-card p-12 text-center text-sm text-muted-foreground ring-1 ring-foreground/10">
             Loading teams...
           </div>
         ) : view === "hierarchy" ? (

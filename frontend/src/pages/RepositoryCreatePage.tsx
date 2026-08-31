@@ -44,7 +44,7 @@ export default function RepositoryCreatePage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
+    <div className="flex min-h-dvh flex-col text-foreground">
 
       <main className="flex-1">
         <div className="mx-auto w-full max-w-5xl px-6 py-8 sm:py-10">

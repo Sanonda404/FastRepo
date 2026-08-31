@@ -322,8 +322,8 @@ export default function CollaboratorSettings({
 
       <div
         className="
-          overflow-hidden rounded-2xl
-          border bg-card shadow-sm
+          overflow-hidden rounded-xl
+          bg-card shadow-sm ring-1 ring-foreground/10
         "
       >
 
@@ -334,7 +334,7 @@ export default function CollaboratorSettings({
         <div
           className="
             flex flex-col gap-4
-            border-b bg-muted/20 p-5
+            border-b border-foreground/10 bg-muted/20 p-5
             sm:flex-row
             sm:items-center
             sm:justify-between
@@ -409,7 +409,7 @@ export default function CollaboratorSettings({
             username={ownerUsername}
           />
         ) : (
-          <div className="divide-y">
+          <div className="divide-y divide-foreground/10">
 
             {/* -------------------------------- */}
             {/* Owner */}

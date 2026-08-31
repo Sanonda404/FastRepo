@@ -59,8 +59,8 @@ export default function RepositoryForm({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <section className="rounded-xl border border-border bg-card shadow-sm">
-              <div className="border-b border-border px-6 py-5">
+            <section className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
+              <div className="border-b border-foreground/10 px-6 py-5">
                 <h2 className="text-base font-semibold">
                   Repository details
                 </h2>
@@ -85,7 +85,7 @@ export default function RepositoryForm({
 
                   <RepositoryVisibility form={form} />
 
-                  <div className="flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
+                  <div className="flex flex-col-reverse gap-3 border-t border-foreground/10 pt-6 sm:flex-row sm:justify-end">
                     <Button
                       type="button"
                       variant="outline"

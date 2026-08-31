@@ -48,15 +48,15 @@ export default function RepositoryLayout({
   })
 
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] bg-background">
-      <header className="border-b">
+    <main className="min-h-[calc(100dvh-3.5rem)]">
+      <header className="border-b border-foreground/10">
         <div className="mx-auto w-full max-w-6xl px-6 pt-8">
           <h1 className="flex items-center gap-3 text-xl font-semibold tracking-tight">
             <Link to={`/${owner}`} className="text-muted-foreground hover:text-primary hover:underline">{owner}</Link>{" "}
             <span className="text-muted-foreground">/</span>{" "}
             {repository}
             {isPrivate && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full border border-foreground/10 px-2 py-0.5 text-xs font-normal text-muted-foreground">
                 <Lock className="size-3" />
                 Private
               </span>

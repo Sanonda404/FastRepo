@@ -56,7 +56,7 @@ export default function IssueDetailsPage({ owner, repository, issueId }: IssueDe
       )}
 
       {loading && !error && (
-        <div className="rounded-2xl border p-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl bg-card p-12 text-center text-sm text-muted-foreground ring-1 ring-foreground/10">
           Loading issue…
         </div>
       )}
@@ -80,11 +80,11 @@ export default function IssueDetailsPage({ owner, repository, issueId }: IssueDe
             <IssueLabels labels={issue.labels} />
           </div>
 
-          <div className="mt-6 border-t pt-6 text-sm leading-6 text-foreground/90">
+          <div className="mt-6 border-t border-foreground/10 pt-6 text-sm leading-6 text-foreground/90">
             {issue.body || <span className="text-muted-foreground">No description provided.</span>}
           </div>
 
-          <div className="mt-6 border-t pt-6">
+          <div className="mt-6 border-t border-foreground/10 pt-6">
             <IssueActivity
               assignees={issue.assignees}
               commentsCount={issue.comments_count}
