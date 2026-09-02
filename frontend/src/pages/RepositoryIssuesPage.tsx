@@ -12,6 +12,7 @@ import { getErrorMessage } from "@/lib/apis/api"
 import { getIssues } from "@/lib/apis/issue_apis"
 import type { RepositoryRole } from "@/lib/auth/permissions"
 import { getRole } from "@/lib/apis/repository_apis"
+import { useAuth } from "@/lib/auth/use-auth"
 
 export default function RepositoryIssuesPage() {
   const { owner, repository } = useParams<{
@@ -24,6 +25,7 @@ export default function RepositoryIssuesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [role, setRole] = useState<RepositoryRole>('Viewer');
+  const { username } = useAuth()
 
   useEffect(() => {
     if (!owner || !repository) return
@@ -150,6 +152,8 @@ export default function RepositoryIssuesPage() {
               setIssues={setIssues}
               owner={owner}
               repository={repository}
+              currentUsername={username}
+              currentRole={role}
             />
           )}
         </div>

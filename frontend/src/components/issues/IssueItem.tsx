@@ -1,33 +1,35 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
-import {
-  MoreHorizontal,
-  GitPullRequest,
-  Trash2,
-  CircleCheck,
-  CircleDot,
-} from "lucide-react"
+import { CircleCheck, CircleDot, Trash2 } from "lucide-react"
 
 import IssueStatus from "./IssueStatus"
 import IssueLabels from "./IssueLabels"
 import IssueMetadata from "./IssueMetadata"
 import IssueActivity from "./IssueActivity"
 
+import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 import type { Issue } from "@/lib/interfaces"
-import { deleteIssue, closeOrReopenIssue } from "@/lib/apis/issue_apis"
+import { closeOrReopenIssue, deleteIssue } from "@/lib/apis/issue_apis"
+import type { RepositoryRole } from "@/lib/auth/permissions"
 
 type IssueItemProps = {
   issue: Issue
   href: string
   owner: string
   repoName: string
+  currentUsername: string | null
+  currentRole: RepositoryRole
   onIssueUpdated?: (issue: Issue) => void
   onIssueDeleted?: (issueId: number) => void
 }
@@ -37,73 +39,73 @@ export default function IssueItem({
   href,
   owner,
   repoName,
+  currentUsername,
+  currentRole,
   onIssueUpdated,
   onIssueDeleted,
 }: IssueItemProps) {
   const isOpen = issue.state === "open"
   const isReopened = issue.state === "open" && !!issue.closed_at
+  const isAssignee = !!currentUsername && issue.assignees.some((a) => a.username === currentUsername)
+  const canClose =
+    !!currentUsername &&
+    (isAssignee || currentRole === "Owner" || currentRole === "Admin" || currentRole === "Maintainer")
+  // Backend: author or can_access (owner or any collaborator). Mirror as author or Member+ (non-Viewer)
+  const canDelete =
+    !!currentUsername &&
+    (issue.author_username === currentUsername ||
+      currentRole === "Owner" ||
+      currentRole === "Admin" ||
+      currentRole === "Maintainer" ||
+      currentRole === "Member")
 
-  const handleToggleIssue = async (
-    e: React.MouseEvent<HTMLDivElement>
-  ) => {
+  const handleToggleIssue = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
     try {
-      const updatedIssue = await closeOrReopenIssue(
-        owner,
-        repoName,
-        issue.number
-      )
-
+      const updatedIssue = await closeOrReopenIssue(owner, repoName, issue.number)
       onIssueUpdated?.(updatedIssue)
     } catch (error) {
       console.error("Failed to update issue:", error)
     }
   }
 
-  const handleDeleteIssue = async (
-    e: React.MouseEvent<HTMLDivElement>
-  ) => {
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    setConfirmDeleteOpen(true)
+  }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete issue #${issue.number}?`
-    )
-
-    if (!confirmed) return
-
+  const handleConfirmDelete = async () => {
+    setDeleting(true)
     try {
       await deleteIssue(owner, repoName, issue.number)
-
-      onIssueDeleted?.(issue.number)
+      onIssueDeleted?.(issue.id)
+      setConfirmDeleteOpen(false)
     } catch (error) {
       console.error("Failed to delete issue:", error)
+    } finally {
+      setDeleting(false)
     }
   }
 
-  const handleOpenPullRequest = (
-    e: React.MouseEvent<HTMLDivElement>
-  ) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    // TODO: Implement "Open pull request" functionality
-  }
-
   return (
-    <Link
-      to={href}
-      className="
-        group block
-        border-b border-foreground/10
-        px-5 py-4
-        transition-colors
-        last:border-b-0
-        hover:bg-muted/30
-      "
-    >
+    <>
+      <Link
+        to={href}
+        className="
+          group block
+          border-b border-foreground/10
+          px-5 py-4
+          transition-colors
+          last:border-b-0
+          hover:bg-muted/30
+        "
+      >
       <div className="flex gap-4">
 
         {/* Status */}
@@ -159,80 +161,44 @@ export default function IssueItem({
 
             </div>
 
-            {/* Actions */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className="
-                    flex size-8
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-md
-                    text-muted-foreground
-                    opacity-0
-                    transition-all
-                    hover:bg-muted
-                    hover:text-foreground
-                    group-hover:opacity-100
-                    focus:opacity-100
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-ring
-                  "
-                aria-label="Issue actions"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-              >
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent
-                align="end"
-                className="w-48"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-              >
-                {/* Close / Reopen */}
-                <DropdownMenuItem onClick={handleToggleIssue}>
-                  {isOpen ? (
-                    <>
-                      <CircleCheck className="mr-2 size-4" />
-                      Close issue
-                    </>
-                  ) : (
-                    <>
-                      <CircleDot className="mr-2 size-4" />
-                      Reopen issue
-                    </>
-                  )}
-                </DropdownMenuItem>
-
-                {/* Open Pull Request */}
-                <DropdownMenuItem onClick={handleOpenPullRequest}>
-                  <GitPullRequest className="mr-2 size-4" />
-                  Open pull request
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                {/* Delete */}
-                <DropdownMenuItem
-                  onClick={handleDeleteIssue}
-                  className="
-                    text-destructive
-                    focus:bg-destructive/10
-                    focus:text-destructive
-                  "
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Delete issue
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Actions: Close/Reopen + Delete - gated */}
+            {(canClose || canDelete) && (
+              <div className="flex shrink-0 items-center gap-2">
+                {canClose && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleIssue}
+                    className="gap-1.5 rounded-full text-xs"
+                    aria-label={isOpen ? "Close issue" : "Reopen issue"}
+                  >
+                    {isOpen ? (
+                      <>
+                        <CircleCheck className="size-3.5" />
+                        Close
+                      </>
+                    ) : (
+                      <>
+                        <CircleDot className="size-3.5" />
+                        Reopen
+                      </>
+                    )}
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDeleteClick}
+                    className="gap-1.5 rounded-full text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Delete issue"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete
+                  </Button>
+                )}
+              </div>
+            )}
 
           </div>
 
@@ -267,8 +233,34 @@ export default function IssueItem({
             />
           </div>
 
+          </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete issue?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium text-foreground">
+                #{issue.number} {issue.title}
+              </span>{" "}
+              and all associated comments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete issue"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
