@@ -4,12 +4,21 @@ export interface RegisterPayload {
   username: string;
   email: string;
   password: string;
+  profilePicture?: File | null;
+}
+
+export interface UpdateProfilePayload {
+  email?: string;
+  password?: string;
+  old_password?: string;
+  profile_pic?: File | null;
 }
 
 export interface UserResponse {
   id: number;
   username: string;
   email: string;
+  profile_pic_url?: string | null;
 }
 
 export interface UserMeResponse extends UserResponse {

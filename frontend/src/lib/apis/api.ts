@@ -1,5 +1,5 @@
 import axios from "axios"
-import type { RegisterPayload, UserResponse} from "../interfaces";
+import type { RegisterPayload, UpdateProfilePayload, UserResponse} from "../interfaces";
 
 const TOKEN_COOKIE = "fastrepo_token"
 const AUTH_CHANGE_EVENT = "fastrepo:auth-change"
@@ -75,7 +75,43 @@ export async function loginApi(formData: FormData) {
 }
 
 export async function registerApi(payload: RegisterPayload): Promise<UserResponse> {
-  const response = await apiClient.post<UserResponse>("/users/register", payload);
+  if (payload.profilePicture) {
+    const fd = new FormData();
+    fd.append("username", payload.username);
+    fd.append("email", payload.email);
+    fd.append("password", payload.password);
+    fd.append("profile_pic", payload.profilePicture);
+    const response = await apiClient.post<UserResponse>("/users/register", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  }
+  const { profilePicture: _omit, ...json } = payload;
+  void _omit;
+  const response = await apiClient.post<UserResponse>("/users/register", json);
+  return response.data;
+}
+
+export async function updateProfileApi(payload: UpdateProfilePayload & { profilePicture?: File | null }): Promise<UserResponse> {
+  const hasFile = !!payload.profile_pic || !!(payload as unknown as { profilePicture?: File }).profilePicture;
+  const file = payload.profile_pic ?? (payload as unknown as { profilePicture?: File }).profilePicture ?? null;
+  if (hasFile && file) {
+    const fd = new FormData();
+    if (payload.email) fd.append("email", payload.email);
+    if (payload.password) fd.append("password", payload.password);
+    if (payload.old_password) fd.append("old_password", payload.old_password);
+    fd.append("profile_pic", file);
+    const response = await apiClient.patch<UserResponse>("/users/me", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  }
+  const body: Record<string, string> = {};
+  if (payload.email) body.email = payload.email;
+  if (payload.password) body.password = payload.password;
+  if (payload.old_password) body.old_password = payload.old_password;
+  // profile_pic as File not supported in JSON, already handled
+  const response = await apiClient.patch<UserResponse>("/users/me", body);
   return response.data;
 }
 

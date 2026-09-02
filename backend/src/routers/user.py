@@ -147,14 +147,22 @@ async def get_my_profile_pic(current_user: dict = Depends(get_current_user), poo
     row = await get_profile_pic_by_user_id(pool, current_user["id"])
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile picture not found")
-    return Response(content=row["content"], media_type=row["mime_type"])
+    return Response(
+        content=row["content"],
+        media_type=row["mime_type"],
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"},
+    )
 
 @router.get("/{username}/profile_pic")
 async def get_profile_pic(username: str, pool: asyncpg.Pool = Depends(get_pool)):
     row = await get_profile_pic_by_username(pool, username)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile picture not found")
-    return Response(content=row["content"], media_type=row["mime_type"])
+    return Response(
+        content=row["content"],
+        media_type=row["mime_type"],
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"},
+    )
 
 @router.get("/{username}", response_model=UserResponse)
 async def get_user_profile(username: str, pool: asyncpg.Pool = Depends(get_pool)):

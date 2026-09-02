@@ -1,16 +1,40 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { GitBranch, LogOut, Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { useAuth } from "@/lib/auth/use-auth"
+import { api } from "@/lib/apis/api"
+import type { UserResponse } from "@/lib/interfaces"
 
 export default function Navbar() {
   const { resolvedTheme, setTheme } = useTheme();
   const { isLoggedIn, username, logout } = useAuth();
   const navigate = useNavigate();
   const isDark = resolvedTheme === "dark";
+  const [me, setMe] = useState<UserResponse | null>(null);
+
+  useEffect(() => {
+    if (!isLoggedIn || !username) {
+      setMe(null);
+      return;
+    }
+    let active = true;
+    api<UserResponse>("/users/me")
+      .then((data) => {
+        if (active) setMe(data);
+      })
+      .catch(() => {
+        if (active) setMe(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isLoggedIn, username]);
+
+  const avatarUrl = me?.profile_pic_url ?? null;
 
   const handleLogout = () => {
     logout();
@@ -27,12 +51,16 @@ export default function Navbar() {
       <div className="flex items-center gap-2">
         {isLoggedIn ? (
           <>
-            <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                {username?.[0]?.toUpperCase()}
+            <Link to={`/${username}`} className="flex items-center gap-2 rounded-full hover:opacity-80" data-testid="navbar-profile-link">
+              <div className="flex size-7 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={username ?? "avatar"} className="size-full object-cover" />
+                ) : (
+                  username?.[0]?.toUpperCase()
+                )}
               </div>
-              <span className="text-sm font-medium">{username}</span>
-            </div>
+              <span className="text-sm font-medium hover:underline">{username}</span>
+            </Link>
             <Button
               variant="ghost"
               size="sm"

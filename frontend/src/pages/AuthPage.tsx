@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   Users,
   GitBranch as BranchIcon,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -71,8 +73,22 @@ export default function AuthPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      profilePicture: undefined,
     },
   });
+
+  const [preview, setPreview] = useState<string | null>(null);
+  const profileFile = registerForm.watch("profilePicture");
+
+  useEffect(() => {
+    if (profileFile) {
+      const url = URL.createObjectURL(profileFile);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreview(null);
+    }
+  }, [profileFile]);
 
   const onLoginSubmit = async (values: LoginInput) => {
     setErrorMessage(null);
@@ -102,6 +118,7 @@ export default function AuthPage() {
         username: values.username,
         email: values.email,
         password: values.password,
+        profilePicture: values.profilePicture,
       });
 
       const formData = new FormData();
@@ -358,6 +375,55 @@ export default function AuthPage() {
                             className="auth-input"
                             {...field}
                           />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={registerForm.control}
+                  name="profilePicture"
+                  render={({ field: { value: _v, onChange, ...field } }) => (
+                    <FormItem>
+                      <FormLabel className="auth-label">Profile picture (optional)</FormLabel>
+                      <FormControl>
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-foreground/10 bg-muted">
+                            {preview ? (
+                              <img src={preview} alt="preview" className="size-full object-cover" />
+                            ) : (
+                              <ImageIcon className="size-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="auth-input cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1 file:text-sm file:font-medium file:text-primary-foreground"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                onChange(file);
+                              }}
+                              {...field}
+                            />
+                          </div>
+                          {preview && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 shrink-0"
+                              onClick={() => {
+                                registerForm.setValue("profilePicture", undefined as unknown as File);
+                                setPreview(null);
+                              }}
+                              aria-label="Remove picture"
+                            >
+                              <X className="size-4" />
+                            </Button>
+                          )}
                         </div>
                       </FormControl>
                       <FormMessage />
