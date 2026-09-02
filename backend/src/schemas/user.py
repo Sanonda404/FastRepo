@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional
 
 class UserCreate(BaseModel):
@@ -7,14 +7,16 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
 
 class UserUpdate(BaseModel):
-    username: Optional[str] = Field(None, min_length=3, max_length=50)
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=6)
+
+    model_config = ConfigDict(extra="forbid")
 
 class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    profile_pic_url: Optional[str] = None
 
     class Config:
         from_attributes = True

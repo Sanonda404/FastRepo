@@ -186,12 +186,17 @@ class TestUserUpdateDelete:
             assert register(client, username).status_code == 201
             token = login(client, username).json()["access_token"]
             r = client.patch("/users/me", json={"username": new_name}, headers=auth(token))
-            assert r.status_code == 200
-            assert r.json()["username"] == new_name
-            assert login(client, username).status_code == 401
-            assert login(client, new_name).status_code == 200
+            assert r.status_code == 400
+            assert "Username cannot be changed" in r.text
+            # username must remain unchanged - ponytail: guard before write
+            me = client.get("/users/me", headers=auth(token))
+            assert me.status_code == 200
+            assert me.json()["username"] == username
+            assert login(client, username).status_code == 200
+            assert login(client, new_name).status_code == 401
         finally:
             cleanup_user(username)
+            cleanup_user(new_name)
 
     def test_update_me_requires_auth(self, client):
         assert client.patch("/users/me", json={"email": "x@y.com"}).status_code == 401

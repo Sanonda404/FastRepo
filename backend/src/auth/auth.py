@@ -53,7 +53,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 async def get_user_by_id(pool: asyncpg.Pool, id: int) -> dict | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(GET_USER_BY_ID, id)
-        return dict(row) if row else None
+        if row is None:
+            return None
+        d = dict(row)
+        pic_id = d.get("profile_pic_id")
+        if pic_id is not None:
+            d["profile_pic_url"] = f"/api/users/{d['username']}/profile_pic"
+        else:
+            d["profile_pic_url"] = None
+        return d
 
 async def get_current_user(token: str = Depends(oauth2_scheme),
     pool: asyncpg.Pool = Depends(get_pool)) -> dict:
@@ -78,7 +86,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
         return {
             "id": user["id"],
             "username": user["username"],
-            "email": user["email"]
+            "email": user["email"],
+            "profile_pic_url": user.get("profile_pic_url"),
         }
         
     except JWTError:
@@ -99,7 +108,7 @@ async def get_optional_current_user(token: Optional[str] = Depends(oauth2_scheme
         user = await get_user_by_id(pool, user_id)
         if user is None or username != user["username"]:
             return None
-        return {"id": user["id"], "username": user["username"], "email": user["email"]}
+        return {"id": user["id"], "username": user["username"], "email": user["email"], "profile_pic_url": user.get("profile_pic_url")}
     except JWTError:
         return None
 
@@ -121,4 +130,7 @@ async def get_optional_user_basic(request: Request) -> dict | None:
         row = await conn.fetchrow(GET_USER_BY_USERNAME, username)
     if row is None or not verify_password(password, row["password_hash"]):
         return None
-    return {"id": row["id"], "username": row["username"], "email": row["email"]}
+    d = dict(row)
+    pic_id = d.get("profile_pic_id")
+    d["profile_pic_url"] = f"/api/users/{d['username']}/profile_pic" if pic_id else None
+    return {"id": d["id"], "username": d["username"], "email": d["email"], "profile_pic_url": d["profile_pic_url"]}
