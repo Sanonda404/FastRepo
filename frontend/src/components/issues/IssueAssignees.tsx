@@ -21,6 +21,7 @@ type Props = {
   assignees: IssueAssigneeResponse[]
   collaborators: CollaboratorResponse[]
   mutating: boolean
+  isClosed?: boolean
   onAdd: (
     data: IssueAssigneeInput
   ) => Promise<void>
@@ -34,6 +35,7 @@ export default function IssueAssignees({
   assignees,
   collaborators,
   mutating,
+  isClosed = false,
   onAdd,
   onRemove,
 }: Props) {
@@ -83,23 +85,25 @@ export default function IssueAssignees({
           </p>
         </div>
 
-        <HasRole
-          roles={[
-            "Owner",
-            "Admin",
-            "Maintainer",
-          ]}
-        >
-          <IssueAssigneeDialog
-            loading={mutating}
-            owner={owner}
-            collaborators={collaborators}
-            assignedUsernames={assignees.map(
-              (a) => a.username
-            )}
-            onSubmit={onAdd}
-          />
-        </HasRole>
+        {!isClosed && (
+          <HasRole
+            roles={[
+              "Owner",
+              "Admin",
+              "Maintainer",
+            ]}
+          >
+            <IssueAssigneeDialog
+              loading={mutating}
+              owner={owner}
+              collaborators={collaborators}
+              assignedUsernames={assignees.map(
+                (a) => a.username
+              )}
+              onSubmit={onAdd}
+            />
+          </HasRole>
+        )}
       </div>
 
       <div className="p-4">
@@ -116,6 +120,11 @@ export default function IssueAssignees({
           />
         ) : (
           <div className="space-y-2">
+            {isClosed && assignees.length > 0 && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                Closed issue — assignees are locked.
+              </p>
+            )}
             {assignees.map(
               (assignee) => (
                 <div
@@ -176,7 +185,7 @@ export default function IssueAssignees({
                   >
                     <button
                       type="button"
-                      disabled={mutating}
+                      disabled={mutating || isClosed}
                       onClick={() =>
                         onRemove(
                           assignee.username

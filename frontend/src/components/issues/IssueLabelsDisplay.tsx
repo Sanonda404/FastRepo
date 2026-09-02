@@ -17,6 +17,7 @@ import IssueEmptyState from "./IssueEmptyState"
 type Props = {
   labels: IssueLabel[]
   mutating: boolean
+  isClosed?: boolean
   onAdd: (
     data: LabelInput
   ) => Promise<void>
@@ -28,6 +29,7 @@ type Props = {
 export default function IssueLabelsDisplay({
   labels,
   mutating,
+  isClosed = false,
   onAdd,
   onRemove,
 }: Props) {
@@ -77,18 +79,20 @@ export default function IssueLabelsDisplay({
           </p>
         </div>
 
-        <HasRole
-          roles={[
-            "Owner",
-            "Admin",
-            "Maintainer",
-          ]}
-        >
-          <IssueLabelDialog
-            loading={mutating}
-            onSubmit={onAdd}
-          />
-        </HasRole>
+        {!isClosed && (
+          <HasRole
+            roles={[
+              "Owner",
+              "Admin",
+              "Maintainer",
+            ]}
+          >
+            <IssueLabelDialog
+              loading={mutating}
+              onSubmit={onAdd}
+            />
+          </HasRole>
+        )}
       </div>
 
       <div className="p-4">
@@ -105,11 +109,16 @@ export default function IssueLabelsDisplay({
           />
         ) : (
           <div className="space-y-2">
+            {isClosed && labels.length > 0 && (
+              <p className="mb-2 text-xs text-muted-foreground">
+                Closed issue — labels are locked.
+              </p>
+            )}
             {labels.map((label) => (
               <IssueLabelItem
                 key={label.id}
                 label={label}
-                disabled={mutating}
+                disabled={mutating || isClosed}
                 onRemove={onRemove}
               />
             ))}

@@ -169,6 +169,11 @@ async def _issue_for_manage(pool, owner_name, repo_name, issue_number, current_u
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to modify this issue",
         )
+    if issue.state == "closed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify a closed issue",
+        )
     return repo
 
 

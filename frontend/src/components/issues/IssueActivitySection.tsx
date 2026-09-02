@@ -19,6 +19,7 @@ type Props = {
   commentsLoading: boolean
   commentsError: string | null
   mutating: boolean
+  isClosed?: boolean
   onCreateComment: (
     data: {
       body: string
@@ -35,6 +36,7 @@ export default function IssueActivitySection({
   commentsLoading,
   commentsError,
   mutating,
+  isClosed = false,
   onCreateComment,
   onDeleteComment,
 }: Props) {
@@ -109,13 +111,18 @@ export default function IssueActivitySection({
             </p>
           </div>
 
-          {/* Anyone can comment */}
-          <IssueCommentDialog
-            loading={mutating}
-            onSubmit={
-              onCreateComment
-            }
-          />
+          {isClosed ? (
+            <span className="text-xs italic text-muted-foreground">
+              Closed issue — comments are locked.
+            </span>
+          ) : (
+            <IssueCommentDialog
+              loading={mutating}
+              onSubmit={
+                onCreateComment
+              }
+            />
+          )}
         </div>
 
         {commentsError && (
@@ -162,7 +169,7 @@ export default function IssueActivitySection({
               <IssueCommentItem
                 key={comment.id}
                 comment={comment}
-                disabled={mutating}
+                disabled={mutating || isClosed}
                 onDelete={
                   onDeleteComment
                 }

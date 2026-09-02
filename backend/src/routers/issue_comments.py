@@ -35,6 +35,8 @@ async def create_issue(
     try:
         repo = await _viewable_repo(pool, owner, repo_name, current_user)
         issue = await get_issue_by_number(pool, repo.id, issue_number)
+        if issue.state == "closed":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot comment on a closed issue")
         new_issue_cmnt = await create_issue_comment_by_issue_id(pool, issue.id, current_user["id"], current_user["username"], payload)
         return new_issue_cmnt
     
@@ -82,6 +84,10 @@ async def delete_issue(
         if(comment.author_username != current_user["username"] and not await can_access_repository(pool, repo_id, current_user["id"])):
             raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
                 detail="You don't have permission to delete this comment")
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT state FROM issues WHERE id = $1", comment.issue_id)
+            if row and row["state"] == "closed":
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot modify a closed issue")
         return await delete_issue_comment_by_id(pool, issue_cmnt_id, current_user["username"])
     
     except ValueError as e:

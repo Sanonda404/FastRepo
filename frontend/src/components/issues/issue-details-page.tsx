@@ -454,6 +454,11 @@ export default function IssueDetailsPage({
         <>
           <IssueHeader issue={issue} />
 
+          {issue.state === "closed" && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">                                                                                                             This issue is closed: labels, assignees and comments are locked. Reopen to make changes.
+            </div>
+          )}
+
           <div className="
             grid
             gap-6
@@ -477,6 +482,7 @@ export default function IssueDetailsPage({
                 }
                 issue={issue}
                 mutating={mutating}
+                isClosed={issue.state === "closed"}
                 onCreateComment={
                   handleCreateComment
                 }
@@ -494,6 +500,7 @@ export default function IssueDetailsPage({
                   collaborators
                 }
                 mutating={mutating}
+                isClosed={issue.state === "closed"}
                 onAdd={
                   handleAddAssignee
                 }
@@ -505,6 +512,7 @@ export default function IssueDetailsPage({
               <IssueLabelsDisplay
                 labels={issue.labels}
                 mutating={mutating}
+                isClosed={issue.state === "closed"}
                 onAdd={handleAddLabel}
                 onRemove={
                   handleRemoveLabel
