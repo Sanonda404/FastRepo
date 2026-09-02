@@ -19,6 +19,7 @@ import SettingsSidebar from "@/components/repository/settings/SettingsSidebar"
 import GeneralSettings from "@/components/repository/settings/GeneralSettings"
 import CollaboratorSettings from "@/components/repository/settings/CollaboratorSettings"
 import BranchPermissions from "@/components/repository/settings/BranchPermissions"
+import FolderPermissions from "@/components/repository/settings/FolderPermissions"
 import type { CollaboratorResponse, CollaboratorRole, RepositoryResponse } from '../lib/interfaces';
 import type { AddCollaboratorInput } from "@/lib/schemas/repository_collaborators"
 import { RepoPermissionProvider } from "@/components/context/RepoPermissionContext"
@@ -53,7 +54,7 @@ const SETTINGS_TABS: SettingsTabItem[] = [
   {
     id: "permissions",
     label: "Access & permissions",
-    description: "Roles and permissions",
+    description: "Configure for paths",
     icon: Shield,
   },
   {
@@ -319,10 +320,16 @@ export default function RepositorySettingsPage() {
             )}
 
             {activeTab === "permissions" && (
-              <ComingSoon
-                title="Access & permissions"
-                description="Configure repository roles and permissions."
-              />
+              !isLoggedIn ? (
+                <div className="rounded-xl border border-dashed p-10 text-center">
+                  <p className="text-sm font-medium">Please sign in to manage folder permissions</p>
+                  <p className="mt-1 text-xs text-muted-foreground">You need to be logged in and have admin access.</p>
+                </div>
+              ) : (
+                <RepoPermissionProvider role={role}>
+                  <FolderPermissions owner={owner} repository={displayRepository} />
+                </RepoPermissionProvider>
+              )
             )}
 
             {activeTab === "branches" && (
@@ -343,35 +350,5 @@ export default function RepositorySettingsPage() {
         </div>
       </div>
     </RepositoryLayout>
-  )
-}
-
-function ComingSoon({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold">
-        {title}
-      </h2>
-
-      <p className="mt-1 text-sm text-muted-foreground">
-        {description}
-      </p>
-
-      <div className="mt-8 rounded-xl border border-dashed p-10 text-center">
-        <p className="text-sm font-medium">
-          Coming soon
-        </p>
-
-        <p className="mt-1 text-xs text-muted-foreground">
-          This settings section will be implemented here.
-        </p>
-      </div>
-    </div>
   )
 }
