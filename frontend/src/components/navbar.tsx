@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { useAuth } from "@/lib/auth/use-auth"
-import { api } from "@/lib/apis/api"
+import { api, subscribeAuthChange } from "@/lib/apis/api"
 import type { UserResponse } from "@/lib/interfaces"
 
 export default function Navbar() {
@@ -15,6 +15,12 @@ export default function Navbar() {
   const navigate = useNavigate();
   const isDark = resolvedTheme === "dark";
   const [me, setMe] = useState<UserResponse | null>(null);
+  const [bust, setBust] = useState(0);
+
+  useEffect(() => {
+    const unsub = subscribeAuthChange(() => setBust((v) => v + 1));
+    return unsub;
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn || !username) {
@@ -32,9 +38,9 @@ export default function Navbar() {
     return () => {
       active = false;
     };
-  }, [isLoggedIn, username]);
+  }, [isLoggedIn, username, bust]);
 
-  const avatarUrl = me?.profile_pic_url ?? null;
+  const avatarUrl = me?.profile_pic_url ? `${me.profile_pic_url}?t=${bust}` : null;
 
   const handleLogout = () => {
     logout();

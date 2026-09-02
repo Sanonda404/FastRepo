@@ -35,7 +35,7 @@ const editSchema = z
       .or(z.literal(""))
       .refine((v) => !v || v.length >= 6, "New password must be at least 6 characters"),
     confirmNewPassword: z.string().optional().or(z.literal("")),
-    profilePicture: z.instanceof(File).optional(),
+    profilePicture: z.any().optional(),
   })
   .refine(
     (data) => {
@@ -62,6 +62,7 @@ export default function UserProfilePage() {
   const [preview, setPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [picBust, setPicBust] = useState(0)
 
   const isOwnProfile = isLoggedIn && currentUsername !== null && username === currentUsername
 
@@ -159,7 +160,7 @@ export default function UserProfilePage() {
     )
   }
 
-  const avatarSrc = user?.profile_pic_url ?? null
+  const avatarSrc = user?.profile_pic_url ? `${user.profile_pic_url}?t=${picBust}` : null
 
   const onEditSubmit = async (values: EditInput) => {
     setEditError(null)
@@ -186,9 +187,10 @@ export default function UserProfilePage() {
       }
 
       const updated = await updateProfileApi(payload as unknown as Parameters<typeof updateProfileApi>[0])
-      setUser(updated)
-      toast.success("Profile updated")
       setEditOpen(false)
+      setUser(updated)
+      setPicBust((v) => v + 1)
+      toast.success("Profile updated")
       // refresh from server to ensure url updated
       fetchUser()
       // trigger auth change so navbar refreshes
@@ -234,7 +236,6 @@ export default function UserProfilePage() {
                 <DialogContent className="sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Edit profile</DialogTitle>
-                    <DialogDescription>Update your email, profile picture or password. Username cannot be changed.</DialogDescription>
                   </DialogHeader>
                   {editError && (
                     <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive" data-testid="edit-error">
