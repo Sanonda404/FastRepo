@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
 import { Lock } from "lucide-react"
 import {
   BookOpen,
@@ -35,6 +35,13 @@ export default function RepositoryLayout({
   isPrivate,
   children,
 }: RepositoryLayoutProps) {
+  useEffect(() => {
+    // Code tab manages its own branch-aware title; other tabs show owner/repo
+    if (activeTab !== "Code") {
+      document.title = `${owner}/${repository} · FastRepo`
+    }
+  }, [owner, repository, activeTab])
+
   // filter tabs based on role
   const visibleTabs = tabs.filter(tab => {
     if (tab.label === "Settings") {
