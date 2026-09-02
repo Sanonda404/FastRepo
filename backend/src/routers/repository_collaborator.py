@@ -58,6 +58,21 @@ async def add_collaborator(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Collaborator not found"
             )
+        if user["id"] == current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot add yourself as a collaborator"
+            )
+        if user["id"] == repo.owner_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot add repository owner as collaborator"
+            )
+        if payload.role == "Viewer" and not repo.is_private:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Viewer can only be assigned to private repositories"
+            )
         return await add_collaborator_to_repo(pool, repo.id, payload, user)
 
     except ValueError as e:
@@ -72,7 +87,7 @@ async def update_collaborator_role(
     repo_name: str,
     collaborator_id:int,
     payload : CollaboratorRoleUpdate,
-    current_user: dict | None = Depends(get_optional_current_user),
+    current_user: dict | None = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
@@ -89,6 +104,16 @@ async def update_collaborator_role(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Collaborator not found"
         )
+        if user.id == current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot change your own role"
+            )
+        if payload.role == "Viewer" and not repo.is_private:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Viewer can only be assigned to private repositories"
+            )
         return await update_collaborator_role_in_repo(pool, repo.id, collaborator_id, payload, user)
 
     except ValueError as e:
@@ -118,6 +143,11 @@ async def remove_collaborator(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Collaborator not found"
+            )
+        if user.id == current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot remove yourself"
             )
         return await remove_collaborator_from_repo(pool, user.id, repo.id)
 
