@@ -11,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 
 import { addCollaboratorSchema, type AddCollaboratorInput} from "@/lib/schemas/repository_collaborators"
 import type { CollaboratorRole } from "@/lib/interfaces"
-type AddableCollaboratorRole = Exclude<CollaboratorRole, "Member">
+type AddableCollaboratorRole = CollaboratorRole
 
 import {
   Dialog,
@@ -53,6 +53,12 @@ const ROLE_INFO: {
     label: "Maintainer",
     description:
       "Can manage repository content, issues, and pull requests.",
+  },
+  {
+    value: "Member",
+    label: "Member",
+    description:
+      "Can collaborate through teams and assigned permissions.",
   },
   {
     value: "Viewer",

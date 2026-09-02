@@ -8,6 +8,7 @@ export const addCollaboratorSchema = z.object({
   role: z.enum([
     "Admin",
     "Maintainer",
+    "Member",
     "Viewer",
   ]),
 })

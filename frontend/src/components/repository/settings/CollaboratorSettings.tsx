@@ -6,6 +6,9 @@ import {
   UserPlus,
   Users,
 } from "lucide-react"
+import { HasRole } from "@/components/guards/HasRole"
+import { useRepoPermissions } from "@/lib/auth/RepoPermissionManager"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 
@@ -67,6 +70,13 @@ export default function CollaboratorSettings({
   onDeleteCollaborator,
 }: CollaboratorSettingsProps) {
   const { username } = useAuth()
+  let canManage = false
+  try {
+    const perms = useRepoPermissions()
+    canManage = perms.role === "Owner" || perms.role === "Admin"
+  } catch {
+    canManage = false
+  }
 
   const [dialogOpen, setDialogOpen] =
     useState(false)
@@ -141,8 +151,21 @@ export default function CollaboratorSettings({
   const handleSubmit = async (
     data: AddCollaboratorInput,
   ) => {
-    await onAddCollaborator(data)
-    setDialogOpen(false)
+    const ident = data.identifier.trim().toLowerCase()
+    if (username && ident === username.toLowerCase()) {
+      toast.error("You cannot add yourself as a collaborator")
+      return
+    }
+    if (ident === ownerUsername.toLowerCase()) {
+      toast.error("Cannot add repository owner as collaborator")
+      return
+    }
+    try {
+      await onAddCollaborator(data)
+      setDialogOpen(false)
+    } catch {
+      // keep dialog open to show error
+    }
   }
 
   // ------------------------------------------
@@ -251,18 +274,23 @@ export default function CollaboratorSettings({
           </p>
         </div>
 
-        <Button
-          onClick={() => setDialogOpen(true)}
-          className="
-            shrink-0 gap-2
-            bg-green-600 text-white
-            shadow-sm
-            hover:bg-green-700
-          "
-        >
-          <UserPlus className="size-4" />
-          Add collaborator
-        </Button>
+        <HasRole roles={["Owner", "Admin"]}>
+          <Button
+            onClick={() => setDialogOpen(true)}
+            className="
+              shrink-0 gap-2
+              bg-green-600 text-white
+              shadow-sm
+              hover:bg-green-700
+            "
+          >
+            <UserPlus className="size-4" />
+            Add collaborator
+          </Button>
+        </HasRole>
+        {!canManage && (
+          <p className="text-xs text-muted-foreground">Only owners and admins can manage collaborators</p>
+        )}
       </div>
 
       {/* ====================================== */}
@@ -446,17 +474,19 @@ export default function CollaboratorSettings({
                     : `There are no collaborators with the ${roleFilter} role.`}
                 </p>
 
-                {roleFilter === "All" && (
-                  <Button
-                    variant="outline"
-                    className="mt-5 gap-2"
-                    onClick={() =>
-                      setDialogOpen(true)
-                    }
-                  >
-                    <UserPlus className="size-4" />
-                    Add collaborator
-                  </Button>
+                {roleFilter === "All" && canManage && (
+                  <HasRole roles={["Owner", "Admin"]}>
+                    <Button
+                      variant="outline"
+                      className="mt-5 gap-2"
+                      onClick={() =>
+                        setDialogOpen(true)
+                      }
+                    >
+                      <UserPlus className="size-4" />
+                      Add collaborator
+                    </Button>
+                  </HasRole>
                 )}
               </div>
             ) : (

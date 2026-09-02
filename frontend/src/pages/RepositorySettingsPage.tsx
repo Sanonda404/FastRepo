@@ -6,6 +6,7 @@ import {
   Shield,
 } from "lucide-react"
 import { useParams } from "react-router-dom"
+import { useAuth } from "@/lib/auth/use-auth"
 
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 import type { RepositoryRole } from "@/lib/auth/permissions"
@@ -67,6 +68,7 @@ export default function RepositorySettingsPage() {
     owner = "jane",
     repository = "fastrepo",
   } = useParams()
+  const { username: currentUsername, isLoggedIn } = useAuth()
 
   const [role, setRole] =
     useState<RepositoryRole>("Viewer")
@@ -143,15 +145,34 @@ export default function RepositorySettingsPage() {
   ) => {
     if (!owner || !repository) return
 
+    const ident = data.identifier.trim().toLowerCase()
+    if (currentUsername && ident === currentUsername.toLowerCase()) {
+      const msg = "You cannot add yourself as a collaborator"
+      setActionError(msg)
+      throw new Error(msg)
+    }
+    if (ident === owner.toLowerCase()) {
+      const msg = "Cannot add repository owner as collaborator"
+      setActionError(msg)
+      throw new Error(msg)
+    }
+
     setActionLoading(true)
     setActionError(null)
 
     try {
-      await addCollaborator(
+      const created = await addCollaborator(
         owner,
         repository,
         data,
       )
+      setCollaborators((prev) => {
+        const exists = prev.find((c) => c.id === created.id || c.username.toLowerCase() === created.username.toLowerCase())
+        if (exists) {
+          return prev.map((c) => (c.id === created.id || c.username.toLowerCase() === created.username.toLowerCase() ? created : c))
+        }
+        return [...prev, created]
+      })
     } catch (err) {
       setActionError(
         getErrorMessage(err),
@@ -267,26 +288,33 @@ export default function RepositorySettingsPage() {
             )}
 
             {activeTab === "collaborators" && (
-              <RepoPermissionProvider role = {role}>
-                <CollaboratorSettings
-                  ownerUsername={owner}
-                  isPrivate={
-                    repositoryData?.is_private ?? false
-                  }
-                  loading={actionLoading}
-                  error={actionError}
-                  collaborators={collaborators}
-                  onAddCollaborator={
-                    handleAddCollaborator
-                  }
-                  onChangeRole={
-                    handleChangeRole
-                  }
-                  onDeleteCollaborator={
-                    handleDeleteCollaborator
-                  }
-                />
-              </RepoPermissionProvider>
+              !isLoggedIn ? (
+                <div className="rounded-xl border border-dashed p-10 text-center">
+                  <p className="text-sm font-medium">Please sign in to manage collaborators</p>
+                  <p className="mt-1 text-xs text-muted-foreground">You need to be logged in and have admin access.</p>
+                </div>
+              ) : (
+                <RepoPermissionProvider role = {role}>
+                  <CollaboratorSettings
+                    ownerUsername={owner}
+                    isPrivate={
+                      repositoryData?.is_private ?? false
+                    }
+                    loading={actionLoading}
+                    error={actionError}
+                    collaborators={collaborators}
+                    onAddCollaborator={
+                      handleAddCollaborator
+                    }
+                    onChangeRole={
+                      handleChangeRole
+                    }
+                    onDeleteCollaborator={
+                      handleDeleteCollaborator
+                    }
+                  />
+                </RepoPermissionProvider>
+              )
             )}
 
             {activeTab === "permissions" && (
