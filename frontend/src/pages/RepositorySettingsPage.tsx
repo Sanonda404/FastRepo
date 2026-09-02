@@ -80,6 +80,8 @@ export default function RepositorySettingsPage() {
   const [repositoryData, setRepositoryData] =
     useState<RepositoryResponse | null>(null)
 
+  const [displayRepository, setDisplayRepository] = useState(repository)
+
   const [actionLoading, setActionLoading] =
     useState(false)
   
@@ -210,11 +212,20 @@ export default function RepositorySettingsPage() {
   };
 
 
+  // keep header title in sync immediately via effects
+  useEffect(() => {
+    setDisplayRepository(repository)
+  }, [repository])
+
+  useEffect(() => {
+    if (repositoryData?.name) setDisplayRepository(repositoryData.name)
+  }, [repositoryData?.name])
+
   return (
     <RepositoryLayout
       role={role}
       owner={owner}
-      repository={repository}
+      repository={displayRepository}
       activeTab="Settings"
     >
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
@@ -250,7 +261,8 @@ export default function RepositorySettingsPage() {
             {activeTab === "general" && (
               <GeneralSettings
                 owner={owner}
-                repository={repository}
+                repository={displayRepository}
+                initialDescription={repositoryData?.description ?? null}
               />
             )}
 
