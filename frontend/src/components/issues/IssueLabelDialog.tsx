@@ -159,6 +159,13 @@ export default function IssueLabelDialog({
 
                 <input
                   type="color"
+                  value={selectedColor}
+                  onChange={(e) =>
+                    form.setValue("color", e.target.value, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
                   className="
                     absolute
                     inset-0
@@ -166,21 +173,22 @@ export default function IssueLabelDialog({
                     cursor-pointer
                     opacity-0
                   "
-                  {...form.register(
-                    "color"
-                  )}
                 />
               </label>
 
               <Input
+                value={selectedColor}
+                onChange={(e) =>
+                  form.setValue("color", e.target.value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
                 placeholder="#6b7280"
                 className="
                   rounded-lg
                   font-mono
                 "
-                {...form.register(
-                  "color"
-                )}
               />
             </div>
 
