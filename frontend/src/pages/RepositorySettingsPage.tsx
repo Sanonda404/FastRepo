@@ -18,6 +18,7 @@ import { getRepository } from "@/lib/apis/repository_apis"
 import SettingsSidebar from "@/components/repository/settings/SettingsSidebar"
 import GeneralSettings from "@/components/repository/settings/GeneralSettings"
 import CollaboratorSettings from "@/components/repository/settings/CollaboratorSettings"
+import BranchPermissions from "@/components/repository/settings/BranchPermissions"
 import type { CollaboratorResponse, CollaboratorRole, RepositoryResponse } from '../lib/interfaces';
 import type { AddCollaboratorInput } from "@/lib/schemas/repository_collaborators"
 import { RepoPermissionProvider } from "@/components/context/RepoPermissionContext"
@@ -325,10 +326,16 @@ export default function RepositorySettingsPage() {
             )}
 
             {activeTab === "branches" && (
-              <ComingSoon
-                title="Branches"
-                description="Configure branch protection rules."
-              />
+              !isLoggedIn ? (
+                <div className="rounded-xl border border-dashed p-10 text-center">
+                  <p className="text-sm font-medium">Please sign in to manage branch permissions</p>
+                  <p className="mt-1 text-xs text-muted-foreground">You need to be logged in and have admin access.</p>
+                </div>
+              ) : (
+                <RepoPermissionProvider role={role}>
+                  <BranchPermissions owner={owner} repository={displayRepository} />
+                </RepoPermissionProvider>
+              )
             )}
 
 
