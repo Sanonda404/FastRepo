@@ -1,27 +1,57 @@
-type IssueLabel = {
-  id: number | string
-  name: string
-  color?: string | null
-}
+import type { IssueLabel } from '../../lib/interfaces';
 
 type IssueLabelsProps = {
   labels?: IssueLabel[]
+  removable?: boolean
+  onRemove?: (id: number | string) => void
 }
 
-export default function IssueLabels({ labels = [] }: IssueLabelsProps) {
+export default function IssueLabels({
+  labels = [],
+  removable = false,
+  onRemove,
+}: IssueLabelsProps) {
   if (!labels.length) return null
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {labels.map((label) => (
-        <span
-          key={label.id}
-          className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
-          style={label.color ? { borderColor: label.color } : undefined}
-        >
-          {label.name}
-        </span>
-      ))}
+    <div className="flex flex-wrap items-center gap-2">
+      {labels.map((label) => {
+        const color = label.color || "#6b7280"
+
+        return (
+          <span
+            key={label.id}
+            className="group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all hover:shadow-sm"
+            style={{
+              borderColor: `${color}55`,
+              backgroundColor: `${color}12`,
+              color,
+            }}
+          >
+            <span
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+
+            <span>{label.name}</span>
+
+            {removable && onRemove && (
+              <button
+                type="button"
+                onClick={() => onRemove(label.id)}
+                className="ml-0.5 rounded-full p-0.5 opacity-50 transition-opacity hover:bg-black/10 hover:opacity-100"
+                title={`Remove ${label.name}`}
+              >
+                <span className="sr-only">
+                  Remove {label.name}
+                </span>
+
+                ×
+              </button>
+            )}
+          </span>
+        )
+      })}
     </div>
   )
 }

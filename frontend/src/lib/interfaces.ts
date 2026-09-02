@@ -119,6 +119,7 @@ export interface IssueLabel {
 
 export interface Issue {
   id: number
+  number : number
 
   title: string
   body : string
@@ -128,7 +129,7 @@ export interface Issue {
   author_username: string
 
   labels: IssueLabel[]
-  assignees: string[]
+  assignees: IssueAssigneeResponse[]
 
   comments_count: number
   pull_requests_count: number
@@ -140,6 +141,32 @@ export interface Issue {
 export interface IssuesWitRole {
   issues : Issue[],
   role : RepositoryRole
+}
+
+export interface IssueCommentRequest{
+  body : string
+}
+
+export interface IssueCommentResponse{
+  id : number
+  issue_id : number
+  author_username : string
+  body : string
+  created_at : string
+}
+
+export interface IssueAssigneeRequest {
+  username: string;
+}
+
+export interface IssueAssigneeResponse {
+  username: string;
+}
+
+export interface LabelRequest {
+  id : number;
+  name: string;
+  color: string;
 }
 
 export interface TeamMember {

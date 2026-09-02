@@ -69,7 +69,7 @@ export default function App() {
         <Route path="/:owner/:repository" element={<RepositoryPage />} />
         <Route path="/:owner/:repository/issues" element={<RepositoryIssuesPage />} />
         <Route path="/:owner/:repository/issues/create" element={<RepositoryIssueNew />} />
-        <Route path="/:owner/:repository/issues/:issueId" element={<RepositoryIssueDetails />} />
+        <Route path="/:owner/:repository/issues/:issueNumber" element={<RepositoryIssueDetails />} />
         <Route path="/:owner/:repository/pulls" element={<RepositoryPullsPage />} />
         <Route path="/:owner/:repository/teams" element={<RepositoryTeamsPage />} />
         <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />

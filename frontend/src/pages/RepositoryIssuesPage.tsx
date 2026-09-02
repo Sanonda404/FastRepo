@@ -147,6 +147,7 @@ export default function RepositoryIssuesPage() {
           {!loading && !error && (
             <IssueList
               issues={filteredIssues}
+              setIssues={setIssues}
               owner={owner}
               repository={repository}
             />
