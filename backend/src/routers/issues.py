@@ -22,7 +22,7 @@ from services.issues import (
     get_all_issues_in_repo,
     get_issue_by_number,
     delete_issue_by_number,
-    close_issue_by_no,
+    close_or_reopen_issue_by_no,
     add_issue_assignee,
     remove_issue_assignee,
     list_issue_assignees,
@@ -32,6 +32,7 @@ from services.issues import (
     is_issue_assignee,
 )
 from auth.auth import get_current_user, get_optional_current_user
+from auth.permission import get_role
 from auth.repository_auth import _viewable_repo, _get_viewable_repo
 from typing import List
 
@@ -78,6 +79,24 @@ async def get_all_issues(
             detail=str(e)
         )
 
+@router.get("/{owner_name}/{repo_name}/{issue_number}",response_model=IssueSummary,status_code=status.HTTP_200_OK,)
+async def get_issue_by_no(
+    owner_name : str,
+    repo_name: str,
+    issue_number : int,
+    current_user = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool)
+):
+    try:
+        repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+
+        return await get_issue_by_number(pool, repo.id, issue_number)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=str(e)
+        )
+
 
 @router.delete("/{owner_name}/{repo_name}/{issue_number}",response_model=IssueResponse,status_code=status.HTTP_200_OK,)
 async def delete_issue(
@@ -90,7 +109,7 @@ async def delete_issue(
     try:
         repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
 
-        issue : IssueResponse = await get_issue_by_number(pool, repo.id, repo.name, issue_number)
+        issue = await get_issue_by_number(pool, repo.id, issue_number)
         
         if issue.author_username != current_user["username"] and not await can_access_repository(pool, repo.id, current_user["id"]):
             raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
@@ -105,8 +124,8 @@ async def delete_issue(
         )
 
 
-@router.patch("/{owner_name}/{repo_name}/{issue_number}",response_model=IssueResponse,status_code=status.HTTP_200_OK,)
-async def close_issue(
+@router.patch("/{owner_name}/{repo_name}/{issue_number}",response_model=IssueSummary,status_code=status.HTTP_200_OK,)
+async def close_or_reopen_issue(
     owner_name : str,
     repo_name: str,
     issue_number : int,
@@ -116,7 +135,7 @@ async def close_issue(
     try:
         repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
 
-        issue : IssueResponse = await get_issue_by_number(pool, repo.id, repo.name, issue_number)
+        issue = await get_issue_by_number(pool, repo.id, issue_number)
         if issue is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -127,10 +146,10 @@ async def close_issue(
                 and not await is_issue_assignee(pool, repo.id, issue_number, current_user["username"])):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to close this issue"
+                detail="You don't have permission to close or reopen this issue"
             )
 
-        updated_issue = await close_issue_by_no(pool, current_user["id"], repo.id, issue_number,
+        updated_issue = await close_or_reopen_issue_by_no(pool, current_user["id"], repo.id, issue_number,
                                 current_user["username"], repo.name)
         
         return updated_issue
@@ -143,7 +162,7 @@ async def close_issue(
 
 async def _issue_for_manage(pool, owner_name, repo_name, issue_number, current_user):
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
-    issue = await get_issue_by_number(pool, repo.id, repo.name, issue_number)
+    issue = await get_issue_by_number(pool, repo.id, issue_number)
     if (issue.author_username != current_user["username"]
             and not await can_access_repository(pool, repo.id, current_user["id"])):
         raise HTTPException(
@@ -180,8 +199,18 @@ async def assign_user(
     try:
         repo = await _issue_for_manage(pool, owner_name, repo_name, issue_number, current_user)
         user = await get_user_by_username_or_email(pool, payload.username)
+
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
+        
+        role = await get_role(pool, owner_name, repo_name, current_user)
+        if role is 'Viewer':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not allowed to assign users to issues")
+        
+        #check if user is a collaborator
+        if not await can_access_repository(pool, repo.id, user["id"]):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a collaborator of this repository")
+        
         return AssigneeResponse(username=await add_issue_assignee(pool, repo.id, issue_number, payload.username))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

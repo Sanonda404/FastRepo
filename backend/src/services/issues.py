@@ -1,8 +1,9 @@
-from schemas.issues import IssueCreateRequest, IssueResponse, LabelResponse, IssueSummary, IssueLabel
-from sqls.issue_sqls import CREATE_ISSUE, GET_ALL_ISSUES, GET_ISSUE_BY_NUMBER, DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER, GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, LIST_ASSIGNEES, CREATE_LABEL, ATTACH_LABEL, DETACH_LABEL, LIST_ISSUE_LABELS
+from schemas.issues import IssueCreateRequest, IssueResponse, LabelResponse, IssueSummary, IssueLabel, AssigneeResponse
+from sqls.issue_sqls import CREATE_ISSUE, GET_ALL_ISSUES, GET_ISSUE_BY_NUMBER, DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER, GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, LIST_ASSIGNEES, CREATE_LABEL, ATTACH_LABEL, DETACH_LABEL, LIST_ISSUE_LABELS
 from fastapi import HTTPException
 from typing import List
 import asyncpg
+import json
 
 async def create_issue_in_repo(pool: asyncpg.Pool, author_id: int, repo_id: int, repo_name: str,  author_name: str, payload: IssueCreateRequest):
     async with pool.acquire() as conn:
@@ -40,19 +41,30 @@ async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: st
         response: List[IssueSummary] = []
 
         for row in rows:
-            labels : List[IssueLabel] = []
-            assignees : List[str] = []
-            
-            for label in row["labels"]:
-                labels.append(IssueLabel(
-                    id = label["id"],
-                    name = label["name"],
-                    color = label["color"]
-                ))
-            
-            for user in row["assignees"]:
-                assignees.append(user)
-            
+            # Parse JSON arrays returned by PostgreSQL
+            labels_data = row["labels"] or []
+            assignees_data = row["assignees"] or []
+
+            # If asyncpg returns them as strings, decode JSON
+            if isinstance(labels_data, str):
+                labels_data = json.loads(labels_data)
+            if isinstance(assignees_data, str):
+                assignees_data = json.loads(assignees_data)
+
+            labels: List[IssueLabel] = [
+                IssueLabel(
+                    id=label["id"],
+                    name=label["name"],
+                    color=label["color"]
+                )
+                for label in labels_data
+            ]
+
+            assignees: List[AssigneeResponse] = [
+                    AssigneeResponse(username=user) for user in assignees_data
+                ]
+
+
             response.append(IssueSummary(
                 id=row["id"],
                 author_username=row["author_username"],
@@ -71,15 +83,37 @@ async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: st
 
         return response
 
-async def get_issue_by_number(pool: asyncpg.Pool, repo_id: int, repo_name: str, issue_no : int) -> IssueResponse:
+async def get_issue_by_number(pool: asyncpg.Pool, repo_id: int, issue_no : int) -> IssueSummary:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(GET_ISSUE_BY_NUMBER, repo_id, issue_no)
         if row is None:
             raise HTTPException(status_code=404, detail="Issue not found")
+        
+        labels_data = row["labels"] or []
+        assignees_data = row["assignees"] or []
 
-        response = IssueResponse(
+        # If asyncpg returns them as strings, decode JSON
+        if isinstance(labels_data, str):
+            labels_data = json.loads(labels_data)
+        if isinstance(assignees_data, str):
+            assignees_data = json.loads(assignees_data)
+
+        labels: List[IssueLabel] = [
+            IssueLabel(
+                id=label["id"],
+                name=label["name"],
+                color=label["color"]
+            )
+            for label in labels_data
+        ]
+
+        assignees: List[AssigneeResponse] = [
+            AssigneeResponse(username=user) for user in assignees_data
+        ]
+
+
+        return IssueSummary(
             id=row["id"],
-            repository_name=repo_name,
             author_username=row["author_username"],
             closed_by_username=row["closed_by_username"],
             title=row["title"],
@@ -87,10 +121,12 @@ async def get_issue_by_number(pool: asyncpg.Pool, repo_id: int, repo_name: str, 
             number=row["number"],
             state=row["state"],
             created_at=row["created_at"],
-            closed_at=row["closed_at"]
-        )
-
-        return response
+            closed_at=row["closed_at"],
+            labels=labels,
+            assignees=assignees,
+            comments_count=row["comments_count"],
+            pull_requests_count=row["pull_requests_count"]
+            )
 
 async def delete_issue_by_number(pool: asyncpg.Pool, repo_id: int, repo_name: str, issue_no : int) -> IssueResponse:
     async with pool.acquire() as conn:
@@ -115,26 +151,13 @@ async def get_issue_repository(pool: asyncpg.Pool, issue_id: int):
     async with pool.acquire() as conn:
         return await conn.fetchrow(GET_ISSUE_REPOSITORY, issue_id)
 
-async def close_issue_by_no(pool: asyncpg.Pool, closed_by_id : int, repo_id: int, issue_no: int, closed_by_username : str, repo_name : str) -> IssueResponse:
+async def close_or_reopen_issue_by_no(pool: asyncpg.Pool, closed_by_id : int, repo_id: int, issue_no: int, closed_by_username : str, repo_name : str) -> IssueSummary:
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER, closed_by_id, repo_id, issue_no)
+        row = await conn.fetchrow(CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER, closed_by_id, repo_id, issue_no)
         if row is None:
             raise HTTPException(status_code=404, detail="No issues found for this repository")
 
-        response = IssueResponse(
-            id=row["id"],
-            repository_name=repo_name,
-            author_username=row["author_username"],
-            closed_by_username= closed_by_username,
-            title=row["title"],
-            body=row["body"],
-            number=row["number"],
-            state=row["state"],
-            created_at=row["created_at"],
-            closed_at=row["closed_at"]
-        )
-
-        return response
+        return await get_issue_by_number(pool, repo_id, issue_no)
 
 async def add_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int, username: str) -> str:
     async with pool.acquire() as conn:

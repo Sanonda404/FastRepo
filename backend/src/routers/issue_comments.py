@@ -12,27 +12,30 @@ from services.issue_comments import (
     delete_issue_comment_by_id,
     get_repo_id_by_issue_comment_id
 )
-from services.issues import get_issue_repository
+from services.issues import get_issue_by_number
 from services.repository_crud import can_access_repository
 from auth.auth import get_current_user, get_optional_current_user
-from auth.repository_auth import _issue_repo_viewable, _issue_repo_viewable_optional_login
+from auth.repository_auth import _viewable_repo, _get_viewable_repo
 from typing import List
 
 router = APIRouter(
-    prefix="/issues-comments",
-    tags=["issues-comments"]
+    prefix="/comments",
+    tags=["comments"]
 )
 
-@router.post("/{issue_id}",response_model=IssueCommentResponse,status_code=status.HTTP_201_CREATED,)
+@router.post("/{owner}/{repo_name}/{issue_number}",response_model=IssueCommentResponse,status_code=status.HTTP_201_CREATED,)
 async def create_issue(
-    issue_id : int,
+    owner: str,
+    repo_name: str,
+    issue_number: int,
     payload: IssueCommentCreateRequest,
     current_user = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        await _issue_repo_viewable(pool, issue_id, current_user)
-        new_issue_cmnt = await create_issue_comment_by_issue_id(pool, issue_id, current_user["id"], current_user["username"], payload)
+        repo = await _viewable_repo(pool, owner, repo_name, current_user)
+        issue = await get_issue_by_number(pool, repo.id, issue_number)
+        new_issue_cmnt = await create_issue_comment_by_issue_id(pool, issue.id, current_user["id"], current_user["username"], payload)
         return new_issue_cmnt
     
     except ValueError as e:
@@ -42,15 +45,19 @@ async def create_issue(
         )
 
 
-@router.get("/{issue_id}",response_model=List[IssueCommentResponse],status_code=status.HTTP_200_OK,)
+@router.get("/{owner}/{repo_name}/{issue_number}",response_model=List[IssueCommentResponse],status_code=status.HTTP_200_OK,)
 async def get_all_issue_comments(
-    issue_id : int,
+    owner: str,
+    repo_name: str,
+    issue_number: int,
     current_user = Depends(get_optional_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
-        await _issue_repo_viewable_optional_login(pool, issue_id, current_user)
-        issue_cmnts = await get_all_issue_comment_by_issue_id(pool, issue_id)
+        await _get_viewable_repo(pool, owner, repo_name, current_user)
+        repo = await _get_viewable_repo(pool, owner, repo_name, current_user)
+        issue = await get_issue_by_number(pool, repo.id, issue_number)
+        issue_cmnts = await get_all_issue_comment_by_issue_id(pool, issue.id)
         return issue_cmnts
     
     except ValueError as e:
@@ -60,15 +67,17 @@ async def get_all_issue_comments(
         )
 
 
-@router.delete("/{issue_cmnt_id}",response_model=IssueCommentResponse,status_code=status.HTTP_200_OK)
+@router.delete("/{owner}/{repo_name}/{issue_cmnt_id}",response_model=IssueCommentResponse,status_code=status.HTTP_200_OK)
 async def delete_issue(
-    issue_cmnt_id : int,
+    owner: str,
+    repo_name: str,
+    issue_cmnt_id: int,
     current_user = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     try:
         comment = await get_issue_comment_by_id(pool, issue_cmnt_id)
-        await _issue_repo_viewable(pool, comment.issue_id, current_user)
+        await _viewable_repo(pool, owner, repo_name, current_user)
         repo_id = await get_repo_id_by_issue_comment_id(pool, issue_cmnt_id)
         if(comment.author_username != current_user["username"] and not await can_access_repository(pool, repo_id, current_user["id"])):
             raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, 

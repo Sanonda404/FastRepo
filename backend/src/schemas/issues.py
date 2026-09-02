@@ -48,7 +48,7 @@ class IssueSummary(BaseModel):
     number: int
 
     labels: List[IssueLabel]
-    assignees: List[str]
+    assignees: List[AssigneeResponse]
 
     comments_count: int
     pull_requests_count: int

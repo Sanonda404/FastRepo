@@ -11,49 +11,79 @@ CREATE_ISSUE = """
 """
 
 GET_ALL_ISSUES = """
-    SELECT i.id, u.username as author_username, u2.username as closed_by_username,
-    i.title, i.body, i.state, i.number, i.created_at, i.closed_at,
-    (SELECT count(*) FROM issue_comments WHERE issue_id = i.id) as comments_count,
-    (SELECT count(*) FROM issue_pull_requests WHERE issue_id = i.id) as pull_requests_count,
-    COALESCE(
-        (SELECT ARRAY_AGG(ROW(l.id, l.name, l.color))
-        FROM issue_labels il
-        INNER JOIN labels l ON il.label_id = l.id
-        WHERE il.issue_id = i.id), '{}'
-    ) AS labels,
-    COALESCE(
-        (SELECT ARRAY_AGG(u3.username)
-        FROM issue_assignees ia
-        INNER JOIN users u3 ON ia.user_id = u3.id
-        WHERE ia.issue_id = i.id), '{}'
-    ) AS assignees
+    SELECT i.id,
+           u.username AS author_username,
+           u2.username AS closed_by_username,
+           i.title,
+           i.body,
+           i.state,
+           i.number,
+           i.created_at,
+           i.closed_at,
+           (SELECT COUNT(*) FROM issue_comments WHERE issue_id = i.id) AS comments_count,
+           (SELECT COUNT(*) FROM issue_pull_requests WHERE issue_id = i.id) AS pull_requests_count,
+           COALESCE(
+               (SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                   'id', l.id,
+                   'name', l.name,
+                   'color', l.color
+               ))
+                FROM issue_labels il
+                INNER JOIN labels l ON il.label_id = l.id
+                WHERE il.issue_id = i.id), '[]'
+           ) AS labels,
+           COALESCE(
+               (SELECT JSON_AGG(u3.username)
+                FROM issue_assignees ia
+                INNER JOIN users u3 ON ia.user_id = u3.id
+                WHERE ia.issue_id = i.id), '[]'
+           ) AS assignees
     FROM issues i
-    INNER JOIN users u
-    ON i.author_id = u.id
-    LEFT OUTER JOIN users u2
-    ON i.closed_by_id = u2.id
-    WHERE repository_id = $1
+    INNER JOIN users u ON i.author_id = u.id
+    LEFT OUTER JOIN users u2 ON i.closed_by_id = u2.id
+    WHERE i.repository_id = $1;
 """
 
 GET_ISSUE_BY_NUMBER = """
-    SELECT i.id, u.username as author_username, u2.username as closed_by_username,
-    i.title, i.body, i.state, i.number, i.created_at, i.closed_at
+       SELECT i.id,
+           u.username AS author_username,
+           u2.username AS closed_by_username,
+           i.title,
+           i.body,
+           i.state,
+           i.number,
+           i.created_at,
+           i.closed_at,
+           (SELECT COUNT(*) FROM issue_comments WHERE issue_id = i.id) AS comments_count,
+           (SELECT COUNT(*) FROM issue_pull_requests WHERE issue_id = i.id) AS pull_requests_count,
+           COALESCE(
+               (SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                   'id', l.id,
+                   'name', l.name,
+                   'color', l.color
+               ))
+                FROM issue_labels il
+                INNER JOIN labels l ON il.label_id = l.id
+                WHERE il.issue_id = i.id), '[]'
+           ) AS labels,
+           COALESCE(
+               (SELECT JSON_AGG(u3.username)
+                FROM issue_assignees ia
+                INNER JOIN users u3 ON ia.user_id = u3.id
+                WHERE ia.issue_id = i.id), '[]'
+           ) AS assignees
     FROM issues i
-    INNER JOIN users u
-    ON i.author_id = u.id
-    LEFT OUTER JOIN users u2
-    ON i.closed_by_id = u2.id
-    WHERE repository_id = $1 AND number = $2
+    INNER JOIN users u ON i.author_id = u.id
+    LEFT OUTER JOIN users u2 ON i.closed_by_id = u2.id
+    WHERE i.repository_id = $1
+    AND i.number = $2;
 """
 
-
-CLOSE_ISSUE_BY_REPO_ID_AND_NUMBER = """
+CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER = """
     UPDATE issues
-    SET closed_by_id = $1, closed_at = NOW(), state = 'closed'
+    SET closed_by_id = $1, closed_at = NOW(), state = CASE WHEN state = 'open' THEN 'closed' ELSE 'open' END
     WHERE repository_id = $2 AND number = $3
-    RETURNING id, title, body, state, number, created_at, closed_at,
-    (SELECT username FROM users u
-    WHERE u.id = issues.author_id) as author_username
+    RETURNING id;
 """
 
 DELETE_ISSUE_BY_REPO_ID_AND_NUMBER = """
