@@ -128,18 +128,29 @@ async def git_receive_pack(
     policy = PushPolicy(repo["id"], role, user)
 
     def _handle() -> bytes:
-        output = pack_handler(repo["id"], "git-receive-pack", input_data, policy=policy)
+        try:
+            output = pack_handler(repo["id"], "git-receive-pack", input_data, policy=policy)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            if policy.violations:
+                _rollback_refs(repo["id"], policy.commands)
+            raise
         if policy.violations:
             _rollback_refs(repo["id"], policy.commands)
         return output
 
-    output: bytes = await run_in_threadpool(_handle)
-
-    if policy.violations:
-        raise HTTPException(
-            status_code=403,
-            detail="folder write denied: " + ", ".join(sorted(set(policy.violations))),
-        )
+    try:
+        output: bytes = await run_in_threadpool(_handle)
+    except Exception as e:
+        from dulwich.errors import HookError
+        if isinstance(e, HookError):
+            if policy.violations:
+                _rollback_refs(repo["id"], policy.commands)
+            raise HTTPException(status_code=403, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
     return Response(
         content=output,

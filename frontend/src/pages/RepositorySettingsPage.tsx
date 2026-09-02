@@ -3,12 +3,10 @@ import {
   Users,
   Settings2,
   GitBranch,
-  GitPullRequest,
-  Webhook,
   Shield,
-  Trash2,
 } from "lucide-react"
 import { useParams } from "react-router-dom"
+import { useAuth } from "@/lib/auth/use-auth"
 
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 import type { RepositoryRole } from "@/lib/auth/permissions"
@@ -20,6 +18,8 @@ import { getRepository } from "@/lib/apis/repository_apis"
 import SettingsSidebar from "@/components/repository/settings/SettingsSidebar"
 import GeneralSettings from "@/components/repository/settings/GeneralSettings"
 import CollaboratorSettings from "@/components/repository/settings/CollaboratorSettings"
+import BranchPermissions from "@/components/repository/settings/BranchPermissions"
+import FolderPermissions from "@/components/repository/settings/FolderPermissions"
 import type { CollaboratorResponse, CollaboratorRole, RepositoryResponse } from '../lib/interfaces';
 import type { AddCollaboratorInput } from "@/lib/schemas/repository_collaborators"
 import { RepoPermissionProvider } from "@/components/context/RepoPermissionContext"
@@ -30,9 +30,6 @@ export type SettingsTab =
   | "collaborators"
   | "permissions"
   | "branches"
-  | "pull-requests"
-  | "webhooks"
-  | "danger"
 
 interface SettingsTabItem {
   id: SettingsTab
@@ -57,7 +54,7 @@ const SETTINGS_TABS: SettingsTabItem[] = [
   {
     id: "permissions",
     label: "Access & permissions",
-    description: "Roles and permissions",
+    description: "Configure for paths",
     icon: Shield,
   },
   {
@@ -66,24 +63,6 @@ const SETTINGS_TABS: SettingsTabItem[] = [
     description: "Branch protection",
     icon: GitBranch,
   },
-  {
-    id: "pull-requests",
-    label: "Pull requests",
-    description: "Pull request settings",
-    icon: GitPullRequest,
-  },
-  {
-    id: "webhooks",
-    label: "Webhooks",
-    description: "External integrations",
-    icon: Webhook,
-  },
-  {
-    id: "danger",
-    label: "Danger Zone",
-    description: "Destructive actions",
-    icon: Trash2,
-  },
 ]
 
 export default function RepositorySettingsPage() {
@@ -91,6 +70,7 @@ export default function RepositorySettingsPage() {
     owner = "jane",
     repository = "fastrepo",
   } = useParams()
+  const { username: currentUsername, isLoggedIn } = useAuth()
 
   const [role, setRole] =
     useState<RepositoryRole>("Viewer")
@@ -103,6 +83,8 @@ export default function RepositorySettingsPage() {
   
   const [repositoryData, setRepositoryData] =
     useState<RepositoryResponse | null>(null)
+
+  const [displayRepository, setDisplayRepository] = useState(repository)
 
   const [actionLoading, setActionLoading] =
     useState(false)
@@ -165,15 +147,34 @@ export default function RepositorySettingsPage() {
   ) => {
     if (!owner || !repository) return
 
+    const ident = data.identifier.trim().toLowerCase()
+    if (currentUsername && ident === currentUsername.toLowerCase()) {
+      const msg = "You cannot add yourself as a collaborator"
+      setActionError(msg)
+      throw new Error(msg)
+    }
+    if (ident === owner.toLowerCase()) {
+      const msg = "Cannot add repository owner as collaborator"
+      setActionError(msg)
+      throw new Error(msg)
+    }
+
     setActionLoading(true)
     setActionError(null)
 
     try {
-      await addCollaborator(
+      const created = await addCollaborator(
         owner,
         repository,
         data,
       )
+      setCollaborators((prev) => {
+        const exists = prev.find((c) => c.id === created.id || c.username.toLowerCase() === created.username.toLowerCase())
+        if (exists) {
+          return prev.map((c) => (c.id === created.id || c.username.toLowerCase() === created.username.toLowerCase() ? created : c))
+        }
+        return [...prev, created]
+      })
     } catch (err) {
       setActionError(
         getErrorMessage(err),
@@ -234,11 +235,20 @@ export default function RepositorySettingsPage() {
   };
 
 
+  // keep header title in sync immediately via effects
+  useEffect(() => {
+    setDisplayRepository(repository)
+  }, [repository])
+
+  useEffect(() => {
+    if (repositoryData?.name) setDisplayRepository(repositoryData.name)
+  }, [repositoryData?.name])
+
   return (
     <RepositoryLayout
       role={role}
       owner={owner}
-      repository={repository}
+      repository={displayRepository}
       activeTab="Settings"
     >
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
@@ -274,100 +284,71 @@ export default function RepositorySettingsPage() {
             {activeTab === "general" && (
               <GeneralSettings
                 owner={owner}
-                repository={repository}
+                repository={displayRepository}
+                initialDescription={repositoryData?.description ?? null}
               />
             )}
 
             {activeTab === "collaborators" && (
-              <RepoPermissionProvider role = {role}>
-                <CollaboratorSettings
-                  ownerUsername={owner}
-                  isPrivate={
-                    repositoryData?.is_private ?? false
-                  }
-                  loading={actionLoading}
-                  error={actionError}
-                  collaborators={collaborators}
-                  onAddCollaborator={
-                    handleAddCollaborator
-                  }
-                  onChangeRole={
-                    handleChangeRole
-                  }
-                  onDeleteCollaborator={
-                    handleDeleteCollaborator
-                  }
-                />
-              </RepoPermissionProvider>
+              !isLoggedIn ? (
+                <div className="rounded-xl border border-dashed p-10 text-center">
+                  <p className="text-sm font-medium">Please sign in to manage collaborators</p>
+                  <p className="mt-1 text-xs text-muted-foreground">You need to be logged in and have admin access.</p>
+                </div>
+              ) : (
+                <RepoPermissionProvider role = {role}>
+                  <CollaboratorSettings
+                    ownerUsername={owner}
+                    isPrivate={
+                      repositoryData?.is_private ?? false
+                    }
+                    loading={actionLoading}
+                    error={actionError}
+                    collaborators={collaborators}
+                    onAddCollaborator={
+                      handleAddCollaborator
+                    }
+                    onChangeRole={
+                      handleChangeRole
+                    }
+                    onDeleteCollaborator={
+                      handleDeleteCollaborator
+                    }
+                  />
+                </RepoPermissionProvider>
+              )
             )}
 
             {activeTab === "permissions" && (
-              <ComingSoon
-                title="Access & permissions"
-                description="Configure repository roles and permissions."
-              />
+              !isLoggedIn ? (
+                <div className="rounded-xl border border-dashed p-10 text-center">
+                  <p className="text-sm font-medium">Please sign in to manage folder permissions</p>
+                  <p className="mt-1 text-xs text-muted-foreground">You need to be logged in and have admin access.</p>
+                </div>
+              ) : (
+                <RepoPermissionProvider role={role}>
+                  <FolderPermissions owner={owner} repository={displayRepository} />
+                </RepoPermissionProvider>
+              )
             )}
 
             {activeTab === "branches" && (
-              <ComingSoon
-                title="Branches"
-                description="Configure branch protection rules."
-              />
+              !isLoggedIn ? (
+                <div className="rounded-xl border border-dashed p-10 text-center">
+                  <p className="text-sm font-medium">Please sign in to manage branch permissions</p>
+                  <p className="mt-1 text-xs text-muted-foreground">You need to be logged in and have admin access.</p>
+                </div>
+              ) : (
+                <RepoPermissionProvider role={role}>
+                  <BranchPermissions owner={owner} repository={displayRepository} />
+                </RepoPermissionProvider>
+              )
             )}
 
-            {activeTab === "pull-requests" && (
-              <ComingSoon
-                title="Pull requests"
-                description="Configure pull request behaviour."
-              />
-            )}
 
-            {activeTab === "webhooks" && (
-              <ComingSoon
-                title="Webhooks"
-                description="Connect FastRepo with external services."
-              />
-            )}
-
-            {activeTab === "danger" && (
-              <ComingSoon
-                title="Danger Zone"
-                description="Permanent and destructive repository actions."
-              />
-            )}
           </main>
         </div>
       </div>
     </RepositoryLayout>
-  )
-}
-
-function ComingSoon({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold">
-        {title}
-      </h2>
-
-      <p className="mt-1 text-sm text-muted-foreground">
-        {description}
-      </p>
-
-      <div className="mt-8 rounded-xl border border-dashed p-10 text-center">
-        <p className="text-sm font-medium">
-          Coming soon
-        </p>
-
-        <p className="mt-1 text-xs text-muted-foreground">
-          This settings section will be implemented here.
-        </p>
-      </div>
-    </div>
   )
 }

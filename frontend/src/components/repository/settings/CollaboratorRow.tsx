@@ -19,6 +19,7 @@ import {
 import type { CollaboratorResponse } from "@/lib/interfaces"
 
 import { HasRole } from "@/components/guards/HasRole"
+import { useRepoPermissions } from "@/lib/auth/RepoPermissionManager"
 
 import RoleBadge from "./RoleBadge"
 import type { CollaboratorRole } from '@/lib/interfaces';
@@ -74,6 +75,14 @@ export default function CollaboratorRow({
 
   const isViewer =
     collaborator.role === "Viewer"
+
+  let canManage = false
+  try {
+    const perms = useRepoPermissions()
+    canManage = perms.role === "Owner" || perms.role === "Admin"
+  } catch {
+    canManage = false
+  }
 
   return (
     <div
@@ -174,7 +183,7 @@ export default function CollaboratorRow({
           - Removing yourself
         */}
 
-        {!isSelf && (
+        {!isSelf && canManage && (
           <DropdownMenu>
 
             <DropdownMenuTrigger >

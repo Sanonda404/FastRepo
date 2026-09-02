@@ -96,6 +96,18 @@ export function unstarRepository(owner: string, name: string): Promise<StarRespo
   return api<StarResponse>(`/repositories/${owner}/${name}/star`, { method: "DELETE" });
 }
 
+export function deleteRepository(owner: string, name: string): Promise<void> {
+  return api<void>(`/repositories/${owner}/${name}`, { method: "DELETE" });
+}
+
+export function updateRepository(
+  owner: string,
+  name: string,
+  payload: { name?: string; description?: string | null; is_private?: boolean },
+): Promise<RepositoryResponse> {
+  return api<RepositoryResponse>(`/repositories/${owner}/${name}`, { method: "PATCH", body: payload });
+}
+
 /** @deprecated use starRepository/unstarRepository for idempotent behaviour */
 export function toggleStar(owner: string, name: string): Promise<StarResponse> {
   return starRepository(owner, name);

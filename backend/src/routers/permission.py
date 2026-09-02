@@ -88,26 +88,3 @@ async def delete_permission(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail=str(e)
         )
-
-@router.delete("/{owner_name}/{repo_name}/{permission_id}",response_model=None,status_code=status.HTTP_200_OK,)
-async def update_permission(
-    owner_name : str,
-    repo_name: str,
-    permission_id : int,
-    current_user = Depends(get_current_user),
-    pool: asyncpg.Pool = Depends(get_pool)
-):
-    try:
-        if(await can_manage_team(pool, owner_name, repo_name, current_user) is False):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=str("You don't have permission to manage permissions")
-            )
-
-        return await update_permission_by_id(pool, permission_id)
-    
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail=str(e)
-        )
