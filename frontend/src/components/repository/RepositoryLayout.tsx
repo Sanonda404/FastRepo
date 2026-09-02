@@ -1,12 +1,10 @@
 import type { ReactNode } from "react"
 import { Lock } from "lucide-react"
 import {
-  Activity,
   BookOpen,
   CircleDot,
   GitPullRequest,
   Settings,
-  ShieldCheck,
   Users,
 } from "lucide-react"
 import { Link } from "react-router-dom"
@@ -26,8 +24,6 @@ const tabs = [
   { label: "Issues", path: "/issues", icon: CircleDot },
   { label: "Pull requests", path: "/pulls", icon: GitPullRequest },
   { label: "Teams", path: "/teams", icon: Users },
-  { label: "Activity", path: "/activity", icon: Activity },
-  { label: "Permissions", path : "/permissions", icon: ShieldCheck },
   { label: "Settings", path: "/settings", icon: Settings },
 ]
 

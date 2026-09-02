@@ -10,7 +10,6 @@ import RepositoryCreatePage from "./pages/RepositoryCreatePage";
 import RepositoryIssuesPage from "./pages/RepositoryIssuesPage";
 import RepositoryPullsPage from "./pages/RepositoryPullsPage";
 import RepositoryTeamsPage from "./pages/RepositoryTeamsPage";
-import RepositoryActivityPage from "./pages/RepositoryActivityPage";
 import RepositorySettingsPage from "./pages/RepositorySettingsPage";
 import RepositoryIssueNew from './pages/RepositoryIssueCreatePage';
 import RepositoryIssueDetails from "./pages/RepositoryIssueDetails";
@@ -73,7 +72,6 @@ export default function App() {
         <Route path="/:owner/:repository/pulls" element={<RepositoryPullsPage />} />
         <Route path="/:owner/:repository/teams" element={<RepositoryTeamsPage />} />
         <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />
-        <Route path="/:owner/:repository/activity" element={<RepositoryActivityPage />} />
 
         {/* Default Route */}
         <Route path="*" element={<Navigate to="/" replace />} />

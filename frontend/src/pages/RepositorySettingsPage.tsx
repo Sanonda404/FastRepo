@@ -3,10 +3,7 @@ import {
   Users,
   Settings2,
   GitBranch,
-  GitPullRequest,
-  Webhook,
   Shield,
-  Trash2,
 } from "lucide-react"
 import { useParams } from "react-router-dom"
 
@@ -30,9 +27,6 @@ export type SettingsTab =
   | "collaborators"
   | "permissions"
   | "branches"
-  | "pull-requests"
-  | "webhooks"
-  | "danger"
 
 interface SettingsTabItem {
   id: SettingsTab
@@ -65,24 +59,6 @@ const SETTINGS_TABS: SettingsTabItem[] = [
     label: "Branches",
     description: "Branch protection",
     icon: GitBranch,
-  },
-  {
-    id: "pull-requests",
-    label: "Pull requests",
-    description: "Pull request settings",
-    icon: GitPullRequest,
-  },
-  {
-    id: "webhooks",
-    label: "Webhooks",
-    description: "External integrations",
-    icon: Webhook,
-  },
-  {
-    id: "danger",
-    label: "Danger Zone",
-    description: "Destructive actions",
-    icon: Trash2,
   },
 ]
 
@@ -315,26 +291,7 @@ export default function RepositorySettingsPage() {
               />
             )}
 
-            {activeTab === "pull-requests" && (
-              <ComingSoon
-                title="Pull requests"
-                description="Configure pull request behaviour."
-              />
-            )}
 
-            {activeTab === "webhooks" && (
-              <ComingSoon
-                title="Webhooks"
-                description="Connect FastRepo with external services."
-              />
-            )}
-
-            {activeTab === "danger" && (
-              <ComingSoon
-                title="Danger Zone"
-                description="Permanent and destructive repository actions."
-              />
-            )}
           </main>
         </div>
       </div>
