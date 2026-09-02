@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=6)
+    old_password: Optional[str] = Field(None, min_length=6)
 
     model_config = ConfigDict(extra="forbid")
 

@@ -1,6 +1,6 @@
 import asyncpg
 from schemas.user import UserCreate, UserUpdate
-from auth.auth import get_password_hash
+from auth.auth import get_password_hash, verify_password
 from sqls.user_sqls import (
     REGISTER_USER,
     GET_USER_BY_USERNAME,
@@ -75,7 +75,15 @@ async def get_user_by_id(pool: asyncpg.Pool, user_id: int) -> dict | None:
         return _with_profile_url(row)
 
 async def update_user(pool: asyncpg.Pool, user_id: int, user_in: UserUpdate, profile_pic: tuple[bytes, str] | None = None) -> dict:
-    hashed_password = get_password_hash(user_in.password) if user_in.password else None
+    hashed_password = None
+    if user_in.password is not None:
+        if not user_in.old_password:
+            raise ValueError("Old password is required to change password")
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT password_hash FROM users WHERE id=$1", user_id)
+            if row is None or not verify_password(user_in.old_password, row["password_hash"]):
+                raise ValueError("Incorrect old password")
+        hashed_password = get_password_hash(user_in.password)
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(

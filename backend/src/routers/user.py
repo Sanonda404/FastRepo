@@ -184,6 +184,7 @@ async def update_me(
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username cannot be changed")
             email = form.get("email")
             password = form.get("password")
+            old_password = form.get("old_password")
             pic = form.get("profile_pic") or form.get("profile_picture") or form.get("avatar")
             if pic and hasattr(pic, "read"):
                 content = await pic.read()  # type: ignore
@@ -191,7 +192,11 @@ async def update_me(
                 _validate_pic(content, mime)
                 profile_pic = (content, mime)
             try:
-                user_in = UserUpdate(email=str(email) if email else None, password=str(password) if password else None)
+                user_in = UserUpdate(
+                    email=str(email) if email else None,
+                    password=str(password) if password else None,
+                    old_password=str(old_password) if old_password else None,
+                )
             except ValidationError as ve:
                 raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(ve))
         else:

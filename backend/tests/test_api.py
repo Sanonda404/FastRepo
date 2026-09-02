@@ -169,7 +169,7 @@ class TestUserUpdateDelete:
             new_pass = "newpass789"
             r = client.patch(
                 "/users/me",
-                json={"email": f"{username}@new.com", "password": new_pass},
+                json={"email": f"{username}@new.com", "password": new_pass, "old_password": PASSWORD},
                 headers=auth(token),
             )
             assert r.status_code == 200
