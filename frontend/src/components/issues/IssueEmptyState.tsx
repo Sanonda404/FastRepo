@@ -12,8 +12,7 @@ export default function IssueEmptyState({
   return (
     <div className="
       rounded-xl
-      border
-      border-dashed
+      border border-dashed border-foreground/10
       bg-muted/10
       p-6
       text-center

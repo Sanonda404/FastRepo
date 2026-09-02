@@ -30,12 +30,11 @@ export default function IssueLabelItem({
       justify-between
       gap-3
       rounded-xl
-      border
+      border border-foreground/10
       bg-background
       px-3 py-2.5
-      transition-all
-      hover:border-primary/20
-      hover:shadow-sm
+      transition-colors
+      hover:bg-muted/30
     ">
       <div className="
         flex

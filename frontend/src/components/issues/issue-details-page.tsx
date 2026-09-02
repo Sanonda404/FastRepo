@@ -438,14 +438,13 @@ export default function IssueDetailsPage({
       {/* Loading */}
       {loading && !error && (
         <div className="
-          rounded-2xl
-          border
+          rounded-xl
           bg-card
           p-16
           text-center
           text-sm
           text-muted-foreground
-          shadow-sm
+          ring-1 ring-foreground/10
         ">
           Loading issue...
         </div>

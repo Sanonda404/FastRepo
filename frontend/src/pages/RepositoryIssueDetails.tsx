@@ -14,6 +14,7 @@ export default function RepositoryIssueDetails() {
   const [role, setRole] = useState<RepositoryRole>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  void loading; void error
   const [collaborators, setCollaborators] = useState<CollaboratorResponse[]>([])
 
   useEffect(() => {

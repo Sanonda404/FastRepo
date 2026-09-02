@@ -21,7 +21,7 @@ export default function IssueActivity({
     <div className="flex flex-wrap items-center gap-2">
 
       {assignees.length > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-1.5">
+        <div className="flex items-center gap-2 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5">
 
           <Users className="size-3.5 text-muted-foreground" />
 
@@ -72,7 +72,7 @@ function ActivityStat({
   label: string
 }) {
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs">
+    <div className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5 text-xs">
 
       <span className="text-muted-foreground">
         {icon}

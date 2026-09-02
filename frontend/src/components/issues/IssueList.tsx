@@ -16,7 +16,7 @@ export default function IssueList({
 }: IssueListProps) {
   if (!issues.length) {
     return (
-      <div className="rounded-2xl border bg-card p-14 text-center shadow-sm">
+      <div className="m-4 rounded-xl border border-dashed border-foreground/10 bg-muted/10 p-14 text-center">
 
         <div className="
           mx-auto
@@ -24,7 +24,7 @@ export default function IssueList({
           size-12
           items-center
           justify-center
-          rounded-2xl
+          rounded-xl
           bg-muted
         ">
           <span className="text-xl">
@@ -46,10 +46,11 @@ export default function IssueList({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+    <div className="overflow-hidden">
 
       {issues.map((issue) => (
         <IssueItem
+          key={issue.id}
           issue={issue}
           href={`/${owner}/${repository}/issues/${issue.number}`}
           owner={owner}

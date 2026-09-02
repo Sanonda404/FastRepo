@@ -40,16 +40,15 @@ export default function IssueAssignees({
   return (
     <section className="
       overflow-hidden
-      rounded-2xl
-      border
+      rounded-xl
       bg-card
-      shadow-sm
+      ring-1 ring-foreground/10
     ">
       <div className="
         flex
         items-center
         justify-between
-        border-b
+        border-b border-foreground/10
         bg-muted/20
         px-5 py-4
       ">
@@ -129,11 +128,10 @@ export default function IssueAssignees({
                     items-center
                     justify-between
                     rounded-xl
-                    border
+                    border border-foreground/10
                     bg-background
                     px-3 py-2.5
-                    transition-all
-                    hover:border-primary/20
+                    transition-colors
                     hover:bg-muted/30
                   "
                 >

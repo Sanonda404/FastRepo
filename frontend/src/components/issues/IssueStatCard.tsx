@@ -15,7 +15,7 @@ export default function IssueStatCard({
       items-center
       gap-3
       rounded-xl
-      border
+      border border-foreground/10
       bg-background
       px-4 py-3
       transition-colors

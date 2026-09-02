@@ -22,10 +22,9 @@ export default function IssueHeader({
   return (
     <section className="
       overflow-hidden
-      rounded-2xl
-      border
+      rounded-xl
       bg-card
-      shadow-sm
+      ring-1 ring-foreground/10
     ">
       <div className="p-6">
         <div className="

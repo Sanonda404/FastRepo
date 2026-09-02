@@ -97,7 +97,7 @@ export default function IssueItem({
       to={href}
       className="
         group block
-        border-b border-border/60
+        border-b border-foreground/10
         px-5 py-4
         transition-colors
         last:border-b-0
@@ -161,14 +161,8 @@ export default function IssueItem({
 
             {/* Actions */}
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }}
-                  className="
+              <DropdownMenuTrigger
+                className="
                     flex size-8
                     shrink-0
                     items-center
@@ -185,10 +179,13 @@ export default function IssueItem({
                     focus:ring-2
                     focus:ring-ring
                   "
-                  aria-label="Issue actions"
-                >
-                  <MoreHorizontal className="size-4" />
-                </button>
+                aria-label="Issue actions"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+              >
+                <MoreHorizontal className="size-4" />
               </DropdownMenuTrigger>
 
               <DropdownMenuContent

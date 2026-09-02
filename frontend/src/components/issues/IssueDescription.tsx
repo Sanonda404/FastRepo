@@ -8,13 +8,12 @@ export default function IssueDescription({
   return (
     <section className="
       overflow-hidden
-      rounded-2xl
-      border
+      rounded-xl
       bg-card
-      shadow-sm
+      ring-1 ring-foreground/10
     ">
       <div className="
-        border-b
+        border-b border-foreground/10
         bg-muted/20
         px-6 py-4
       ">

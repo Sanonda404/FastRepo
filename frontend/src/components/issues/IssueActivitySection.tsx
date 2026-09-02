@@ -41,10 +41,9 @@ export default function IssueActivitySection({
   return (
     <section className="
       overflow-hidden
-      rounded-2xl
-      border
+      rounded-xl
       bg-card
-      shadow-sm
+      ring-1 ring-foreground/10
     ">
       <div className="
         flex
@@ -52,7 +51,7 @@ export default function IssueActivitySection({
         items-center
         justify-between
         gap-3
-        border-b
+        border-b border-foreground/10
         bg-muted/20
         px-6 py-4
       ">
@@ -137,8 +136,8 @@ export default function IssueActivitySection({
         {commentsLoading ? (
           <div className="
             rounded-xl
-            border
-            border-dashed
+            border border-dashed border-foreground/10
+            bg-muted/10
             p-8
             text-center
             text-sm

@@ -23,13 +23,12 @@ export default function IssueCommentItem({
   return (
     <article className="
       group
-      rounded-2xl
-      border
+      rounded-xl
+      border border-foreground/10
       bg-background
       p-4
-      transition-all
-      hover:border-primary/20
-      hover:shadow-sm
+      transition-colors
+      hover:bg-muted/30
     ">
       <div className="
         flex
@@ -130,6 +129,7 @@ export default function IssueCommentItem({
       <div className="
         mt-4
         rounded-xl
+        border border-foreground/10
         bg-muted/30
         px-4 py-3
         text-sm

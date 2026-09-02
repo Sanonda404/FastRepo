@@ -13,6 +13,7 @@ import {
 } from "@/lib/schemas/issue"
 
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Label } from "@/components/ui/label"
 
 import {
@@ -65,19 +66,15 @@ export default function IssueCommentDialog({
       open={open}
       onOpenChange={setOpen}
     >
-      <DialogTrigger>
-        <Button
-          type="button"
-          size="sm"
-          className="rounded-lg"
-        >
-          <MessageSquarePlus className="
+      <DialogTrigger
+        className={buttonVariants({ size: "sm", className: "rounded-lg" })}
+      >
+        <MessageSquarePlus className="
             mr-2
             size-4
           " />
 
           Add comment
-        </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg">

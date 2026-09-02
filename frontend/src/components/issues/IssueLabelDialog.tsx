@@ -10,6 +10,7 @@ import {
 } from "@/lib/schemas/issue"
 
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -65,14 +66,10 @@ export default function IssueLabelDialog({
       open={open}
       onOpenChange={setOpen}
     >
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-8 rounded-lg"
-        >
-          <Tag className="size-4" />
-        </Button>
+      <DialogTrigger
+        className={buttonVariants({ variant: "outline", size: "icon", className: "size-8 rounded-lg" })}
+      >
+        <Tag className="size-4" />
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">

@@ -13,6 +13,7 @@ import {
 } from "@/lib/schemas/issue"
 
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { Label } from "@/components/ui/label"
 
 import {
@@ -72,14 +73,10 @@ export default function IssueAssigneeDialog({
 
   return (
     <Dialog>
-      <DialogTrigger>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-8 rounded-lg"
-        >
-          <UserPlus className="size-4" />
-        </Button>
+      <DialogTrigger
+        className={buttonVariants({ variant: "outline", size: "icon", className: "size-8 rounded-lg" })}
+      >
+        <UserPlus className="size-4" />
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
