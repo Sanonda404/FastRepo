@@ -56,8 +56,12 @@ _OBJ_TAG = 4
 
 
 def _db_sha(sha: ObjectID | str) -> str:
-    """dulwich object id (hex bytes) -> DB varchar value"""
-    return sha.decode("ascii") if isinstance(sha, bytes) else sha
+    """dulwich object id to characters"""
+    if isinstance(sha, bytes):
+        if len(sha) == 20:
+            return sha.hex()
+        return sha.decode("ascii")
+    return sha
 
 
 def _entry_target(mode: int, sha: str) -> tuple[str | None, str | None]:
