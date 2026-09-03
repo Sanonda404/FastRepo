@@ -63,13 +63,12 @@ async def create_issue(
         )
 
 @router.get("/assigned/{username}", response_model=List[AssignedIssueResponse], status_code=status.HTTP_200_OK)
-async def get_assigneed_issues_of_user(
+async def get_assigned_issues_of_user(
     username: str,
     current_user = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     try:
-        print("here")
         if current_user["username"] != username:
             return []
         return await get_assigned_issues(pool, current_user["id"])
