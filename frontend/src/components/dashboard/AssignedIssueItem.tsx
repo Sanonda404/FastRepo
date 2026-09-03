@@ -40,7 +40,7 @@ export default function AssignedIssueItem({
       to={href}
       className="
         group flex items-center gap-3
-        border-b border-border/60
+        border-b border-foreground/10
         px-4 py-3.5
         transition-colors
         last:border-b-0

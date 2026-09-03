@@ -24,7 +24,7 @@ export default function AssignedIssueItem({
       to={href}
       className="
         group block
-        border-b border-border/60
+        border-b border-foreground/10
         px-5 py-4
         transition-colors
         last:border-b-0

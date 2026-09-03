@@ -45,7 +45,7 @@ export default function AssignedIssues({
       )}
 
       {!error && issues === null && (
-        <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+        <div className="rounded-xl bg-card p-6 text-sm text-muted-foreground ring-1 ring-foreground/10">
           Loading assigned issues…
         </div>
       )}
@@ -54,10 +54,10 @@ export default function AssignedIssues({
         <div
           className="
             rounded-xl
-            border
             bg-card
             px-6 py-10
             text-center
+            ring-1 ring-foreground/10
           "
         >
           <ClipboardList className="mx-auto size-8 text-muted-foreground/50" />
@@ -77,8 +77,8 @@ export default function AssignedIssues({
           className="
             overflow-hidden
             rounded-xl
-            border
             bg-card
+            ring-1 ring-foreground/10
           "
         >
           {issues.map((issue) => (
