@@ -8,8 +8,9 @@ import { Pencil, Image as ImageIcon, X, Loader2, Mail, Lock } from "lucide-react
 
 import { api, getErrorMessage, updateProfileApi } from "@/lib/apis/api"
 import { getAssignedIssues } from "@/lib/apis/issue_apis"
+import { getStarredRepositories } from "@/lib/apis/repository_apis"
 import { useAuth } from "@/lib/auth/use-auth"
-import type { RepositoryResponse, UserResponse, AssignedIssueResponse } from "@/lib/interfaces"
+import type { RepositoryResponse, RepositoryDetails, UserResponse, AssignedIssueResponse } from "@/lib/interfaces"
 import RepositoryCard from "@/components/repository-card"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import AssignedIssues from "@/components/profile/AssignedIssues"
+import StarredRepositories from "@/components/profile/StarredRepositories"
 
 const editSchema = z
   .object({
@@ -67,6 +69,9 @@ export default function UserProfilePage() {
   const [assignedIssues, setAssignedIssues] = useState<AssignedIssueResponse[] | null>(null)
 
   const [assignedIssuesError, setAssignedIssuesError] = useState<string | null>(null)
+
+  const [starredRepos, setStarredRepos] = useState<RepositoryDetails[] | null>(null)
+  const [starredError, setStarredError] = useState<string | null>(null)
 
   const isOwnProfile = isLoggedIn && currentUsername !== null && username === currentUsername
 
@@ -111,6 +116,24 @@ export default function UserProfilePage() {
         }
       })
 
+    return () => {
+      active = false
+    }
+  }, [username])
+
+  useEffect(() => {
+    if (!username) return
+    let active = true
+    getStarredRepositories(username)
+      .then((data) => {
+        if (active) {
+          setStarredRepos(data)
+          setStarredError(null)
+        }
+      })
+      .catch((err) => {
+        if (active) setStarredError(getErrorMessage(err))
+      })
     return () => {
       active = false
     }
@@ -409,9 +432,15 @@ export default function UserProfilePage() {
           />
         )}
 
-
         <section data-testid="repositories" className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold">Repositories</h2>
+          <div className="mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold">Repositories</h2>
+            {repos && repos.length > 0 && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {repos.length}
+              </span>
+            )}
+          </div>
           {reposError && <p className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{reposError}</p>}
           {!reposError && repos === null && <p className="text-sm text-muted-foreground">Loading repositories…</p>}
           {repos !== null && repos.length === 0 && <p className="text-sm text-muted-foreground">No repositories found.</p>}
@@ -423,6 +452,10 @@ export default function UserProfilePage() {
             </div>
           )}
         </section>
+
+        {username && (
+          <StarredRepositories repos={starredRepos} error={starredError} username={username} />
+        )}
       </main>
       <Footer />
     </div>

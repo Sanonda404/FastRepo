@@ -25,7 +25,8 @@ from sqls.repository_sqls import (
     GET_STAR,
     INSERT_STAR,
     REMOVE_STAR,
-    GET_REPOSITORY_STAR_COUNT
+    GET_REPOSITORY_STAR_COUNT,
+    GET_STARRED_REPOS_OF_USER
 )
 from models.git import EMPTY_TREE_SHA
 
@@ -236,5 +237,16 @@ async def get_star(pool: asyncpg.Pool, repo_id: int, user_id: int | None) -> Sta
                 is_starred = await conn.fetchval(GET_STAR, user_id, repo_id) is not None
             star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
             return StarResponse(is_starred=is_starred, star_count=star_count)
+        except asyncpg.PostgresError:
+            raise HTTPException(status_code=500, detail="Database error occurred")
+
+async def list_starred_repositories(pool: asyncpg.Pool, starred_username: str, viewer_id: int | None) -> List[RepositoryDetails]:
+    async with pool.acquire() as conn:
+        try:
+            rows = await conn.fetch(GET_STARRED_REPOS_OF_USER, starred_username, viewer_id)
+            res: List[RepositoryDetails] = []
+            for row in rows:
+                res.append(RepositoryDetails(**dict(row)))
+            return res
         except asyncpg.PostgresError:
             raise HTTPException(status_code=500, detail="Database error occurred")

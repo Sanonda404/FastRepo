@@ -109,11 +109,10 @@ export function updateRepository(
   return api<RepositoryResponse>(`/repositories/${owner}/${name}`, { method: "PATCH", body: payload });
 }
 
-/** @deprecated use starRepository/unstarRepository for idempotent behaviour */
-export function toggleStar(owner: string, name: string): Promise<StarResponse> {
-  return starRepository(owner, name);
-}
-
 export function getRepositoryPermissions(owner: string, name: string): Promise<PermissionResponse[]> {
   return api<PermissionResponse[]>(`/permissions/${owner}/${name}`);
+}
+
+export function getStarredRepositories(username: string): Promise<RepositoryDetails[]> {
+  return api<RepositoryDetails[]>(`/repositories/starred/${encodeURIComponent(username)}`);
 }

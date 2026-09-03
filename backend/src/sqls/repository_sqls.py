@@ -207,4 +207,42 @@ INSERT_STAR = """
 GET_REPOSITORY_STAR_COUNT = """
     SELECT count(*) FROM stars
     WHERE repository_id = $1
-"""
+    """
+
+GET_STARRED_REPOS_OF_USER = """
+    SELECT
+        r.id,
+        r.name,
+        r.description,
+        r.is_private,
+        r.owner_id,
+        r.default_branch,
+        r.parent_repository_id,
+        r.created_at,
+        u.username AS owner_username,
+        pu.username AS parent_owner_username,
+        p.name AS parent_repository_name,
+        COALESCE(
+            CASE
+                WHEN r.owner_id = $2 THEN 'Owner'
+                ELSE (SELECT rc.role FROM repository_collaborators rc WHERE rc.repository_id = r.id AND rc.user_id = $2)
+            END,
+            'Viewer'
+        ) AS role
+    FROM stars s
+    JOIN repositories r ON r.id = s.repository_id
+    JOIN users u ON u.id = r.owner_id
+    LEFT JOIN repositories p ON p.id = r.parent_repository_id
+    LEFT JOIN users pu ON pu.id = p.owner_id
+    JOIN users su ON su.id = s.user_id
+    WHERE su.username = $1
+    AND (
+        r.is_private = FALSE
+        OR r.owner_id = $2
+        OR EXISTS (
+            SELECT 1 FROM repository_collaborators rc
+            WHERE rc.repository_id = r.id AND rc.user_id = $2
+        )
+    )
+    ORDER BY s.created_at DESC
+    """

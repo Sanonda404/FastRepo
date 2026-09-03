@@ -32,7 +32,8 @@ from services.repository_crud import (
     can_access_repository,
     get_star,
     star_repository,
-    unstar_repository
+    unstar_repository,
+    list_starred_repositories
 )
 from services.git_read import (
     get_branches,
@@ -48,6 +49,7 @@ from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _get_viewable_repo, _viewable_repo
 from models.git import EMPTY_TREE_SHA_HEX
 from auth.permission import get_role
+from services.user import get_user_by_username
 
 router = APIRouter(
     prefix="/repositories",
@@ -76,6 +78,22 @@ async def list_my_repositories(
 ):
     """List all repositories accessible to the current user (owned or collaborated)."""
     return await list_all_repositories_of_user(pool, current_user["id"])
+
+
+@router.get("/starred/{username}", response_model=List[RepositoryDetails])
+async def list_starred(
+    username: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """List repositories starred by a user, filtered by viewability for the current viewer.
+    Anonymous viewers only see public starred repos."""
+    # verify starred user exists
+    starred_user = await get_user_by_username(pool, username)
+    if starred_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    viewer_id = current_user["id"] if current_user else None
+    return await list_starred_repositories(pool, username, viewer_id)
 
 
 @router.get("/{owner_name}", response_model=List[RepositoryResponse])
