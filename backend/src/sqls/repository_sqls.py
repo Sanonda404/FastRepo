@@ -142,8 +142,9 @@ FORK_REPOSITORY = """
 """
 GET_LIST_OF_ACCESSIBLE_FORKS = """
     SELECT
-        c.id, c.name, c.description, c.is_private, c.owner_id, c.default_branch, c.parent_repository_id, c.created_at
+        c.id, c.name, c.description, c.is_private, c.owner_id, u.username AS owner_username, c.default_branch, c.parent_repository_id, c.created_at
     FROM repositories c
+    JOIN users u ON u.id = c.owner_id
     WHERE c.parent_repository_id = $1
     AND (
         c.is_private = FALSE
@@ -208,6 +209,14 @@ GET_REPOSITORY_STAR_COUNT = """
     SELECT count(*) FROM stars
     WHERE repository_id = $1
     """
+
+GET_STARGAZERS = """
+    SELECT u.id, u.username, s.created_at
+    FROM stars s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.repository_id = $1
+    ORDER BY s.created_at DESC
+"""
 
 GET_STARRED_REPOS_OF_USER = """
     SELECT

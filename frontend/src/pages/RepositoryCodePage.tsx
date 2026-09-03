@@ -9,6 +9,7 @@ import { Link, useParams } from "react-router-dom"
 import { CodeViewer } from "@/components/code/CodeViewer"
 import GoToFileDialog from "@/components/code/GoToFileDialog"
 import RepositoryHeader from "@/components/repository/RepositoryHeader"
+import RepositoryAboutStats from "@/components/repository/RepositoryAboutStats"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { getErrorMessage } from "@/lib/apis/api"
 import {
@@ -190,7 +191,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                 ? "Loading description…"
                 : repoMeta?.description || "No description provided."}
             </p>
-
+              <RepositoryAboutStats owner={owner} repository={repository} />
             </section>
 
             <section aria-label="Contributors" className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">

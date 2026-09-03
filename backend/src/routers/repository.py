@@ -26,6 +26,7 @@ from services.repository_crud import (
     list_all_repositories,
     list_all_repositories_of_user,
     list_fork_repositories,
+    list_stargazers,
     update_repository,
     delete_repository,
     fork_repository,
@@ -198,7 +199,7 @@ async def do_fork_repository(
                     detail=str(e)
         )
 
-@router.get("/{owner_name}/{repo_name}/forks", response_model=List[RepositoryResponse])
+@router.get("/{owner_name}/{repo_name}/forks", response_model=List[RepositoryDetails])
 async def list_forks(
     owner_name : str,
     repo_name : str,
@@ -281,6 +282,17 @@ async def view_tree(
         raise HTTPException(status_code=404, detail="Tree not found")
     return tree
 
+
+@router.get("/{owner_name}/{repo_name}/stargazers")
+async def list_stargazers_route(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict | None = Depends(get_optional_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """List users who starred the repository. Private repos require access."""
+    repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+    return await list_stargazers(pool, repo.id)
 
 @router.get("/{owner_name}/{repo_name}/star", response_model=StarResponse)
 async def get_star_status(

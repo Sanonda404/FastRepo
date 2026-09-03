@@ -26,6 +26,7 @@ from sqls.repository_sqls import (
     INSERT_STAR,
     REMOVE_STAR,
     GET_REPOSITORY_STAR_COUNT,
+    GET_STARGAZERS,
     GET_STARRED_REPOS_OF_USER
 )
 from models.git import EMPTY_TREE_SHA
@@ -182,7 +183,6 @@ async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, p
                 new_repo = RepositoryResponse(**dict(row))
                 
                 #copy git objects, refs and parent links to the new repo id
-                #blobs/tags/tree_entries first: commits/refs FK-reference them
                 await conn.execute(COPY_FORK_BLOBS, new_repo.id, source_repo.id)
                 await conn.execute(COPY_FORK_TAGS, new_repo.id, source_repo.id)
                 await conn.execute(COPY_FORK_TREE_ENTRIES, new_repo.id, source_repo.id)
@@ -194,15 +194,20 @@ async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, p
             except asyncpg.UniqueViolationError:
                 raise ValueError("Repository with same name already exists")
 
-async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: int | None) -> List[RepositoryResponse]:
+async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: int | None) -> List[RepositoryDetails]:
     async with pool.acquire() as conn:
             try:
                 rows = await conn.fetch(
                     GET_LIST_OF_ACCESSIBLE_FORKS, repo_id, user_id
                 )
-                res : List[RepositoryResponse] = []
+                res : List[RepositoryDetails] = []
                 for row in rows:
-                    res.append(RepositoryResponse(**dict(row)))
+                    d = dict(row)
+                    if "owner_username" not in d:
+                        d["owner_username"] = ""
+                    d.setdefault("parent_owner_username", None)
+                    d.setdefault("parent_repository_name", None)
+                    res.append(RepositoryDetails(**d))
                 return res
             except asyncpg.UniqueViolationError:
                 raise ValueError("Repository with same name already exists")
@@ -237,6 +242,14 @@ async def get_star(pool: asyncpg.Pool, repo_id: int, user_id: int | None) -> Sta
                 is_starred = await conn.fetchval(GET_STAR, user_id, repo_id) is not None
             star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
             return StarResponse(is_starred=is_starred, star_count=star_count)
+        except asyncpg.PostgresError:
+            raise HTTPException(status_code=500, detail="Database error occurred")
+
+async def list_stargazers(pool: asyncpg.Pool, repo_id: int):
+    async with pool.acquire() as conn:
+        try:
+            rows = await conn.fetch(GET_STARGAZERS, repo_id)
+            return [{"id": r["id"], "username": r["username"], "created_at": r["created_at"]} for r in rows]
         except asyncpg.PostgresError:
             raise HTTPException(status_code=500, detail="Database error occurred")
 

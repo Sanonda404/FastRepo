@@ -86,6 +86,7 @@ export default function RepositoryHeader({
         : await starRepository(owner, repository);
       setStarCount(res.star_count);
       setIsStarred(res.is_starred);
+      window.dispatchEvent(new CustomEvent("repo-stats-updated", { detail: { owner, repository, star_count: res.star_count } }));
     } catch {
       // silent, could show toast
     }
@@ -111,6 +112,7 @@ export default function RepositoryHeader({
       setForkDescription("");
       setForkIsPrivate(false);
       setForkCount((c) => c + 1);
+      window.dispatchEvent(new CustomEvent("repo-stats-updated", { detail: { owner, repository, forkIncrement: 1 } }));
       if (username) {
         navigate(`/${username}/${newRepo.name}`);
       }

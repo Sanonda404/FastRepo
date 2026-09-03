@@ -81,12 +81,16 @@ export function forkRepository(owner: string, name: string, payload: ForkReposit
   return api<RepositoryResponse>(`/repositories/${owner}/${name}/fork`, { method: "POST", body: payload });
 }
 
-export function listForks(owner: string, name: string): Promise<RepositoryResponse[]> {
-  return api<RepositoryResponse[]>(`/repositories/${owner}/${name}/forks`);
+export function listForks(owner: string, name: string): Promise<RepositoryDetails[]> {
+  return api<RepositoryDetails[]>(`/repositories/${owner}/${name}/forks`);
 }
 
 export function getStar(owner: string, name: string): Promise<StarResponse> {
   return api<StarResponse>(`/repositories/${owner}/${name}/star`);
+}
+
+export function listStargazers(owner: string, name: string): Promise<{ id: number; username: string; created_at: string }[]> {
+  return api<{ id: number; username: string; created_at: string }[]>(`/repositories/${owner}/${name}/stargazers`);
 }
 
 export function starRepository(owner: string, name: string): Promise<StarResponse> {
