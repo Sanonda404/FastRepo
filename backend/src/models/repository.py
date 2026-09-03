@@ -10,8 +10,11 @@ CREATE TABLE IF NOT EXISTS repositories (
     default_branch VARCHAR(255) NOT NULL DEFAULT 'main',
     parent_repository_id INT REFERENCES repositories(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_owner_repo_name UNIQUE (owner_id, name)
-)"""
+    CONSTRAINT unique_owner_repo_name UNIQUE (owner_id, name),
+    CONSTRAINT valid_repo_name CHECK (name ~ '^[A-Za-z0-9._-]+$'),
+    CONSTRAINT valid_default_branch CHECK (default_branch ~ '^[A-Za-z0-9._-]+$')
+);
+"""
 
 REPOSITORIES_INDEX_DDL = """
 CREATE INDEX IF NOT EXISTS idx_repos_parent_id ON repositories(parent_repository_id)
