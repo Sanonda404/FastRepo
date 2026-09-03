@@ -29,8 +29,8 @@ export default function EmptyRepositoryInstructions({ owner, repository, activeB
   const host = typeof window !== "undefined" ? window.location.host : "localhost"
   const protocol = typeof window !== "undefined" ? window.location.protocol : "http:"
   const cloneUrl = isLoggedIn && username
-    ? `${protocol}//${username}:YOUR_PASSWORD@${host}/${owner}/${repository}.git`
-    : `${protocol}//${host}/${owner}/${repository}.git`
+    ? `${protocol}//${username}:YOUR_PASSWORD@${host}/${owner}/${repository}`
+    : `${protocol}//${host}/${owner}/${repository}`
 
   const isNonDefault = activeBranch !== "" && defaultBranch !== "" && activeBranch !== defaultBranch
   const displayName = username ?? "Your Name"
