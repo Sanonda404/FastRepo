@@ -172,3 +172,33 @@ IS_ISSUE_ASSIGNEE = """
         WHERE i.repository_id = $1 AND i.number = $2 AND u.username = $3
     )
 """
+
+GET_ASSIGNED_ISSUES = """
+    SELECT i.id,
+           i.title,
+           i.number,
+           i.state,
+           u.username AS author_username,
+           i.created_at,
+           i.closed_at,
+           i.repository_id,
+           r.name,
+           o.username AS owner_username,
+           COALESCE(
+               (SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                   'id', l.id,
+                   'name', l.name,
+                   'color', l.color
+               ))
+                FROM issue_labels il
+                INNER JOIN labels l ON il.label_id = l.id
+                WHERE il.issue_id = i.id), '[]'
+           ) AS labels
+    FROM issue_assignees ia
+    INNER JOIN issues i ON ia.issue_id = i.id
+    INNER JOIN users u ON i.author_id = u.id
+    INNER JOIN repositories r ON i.repository_id = r.id
+    INNER JOIN users o ON r.owner_id = o.id
+    WHERE ia.user_id = $1
+    ORDER BY i.created_at DESC;
+"""

@@ -13,6 +13,7 @@ from schemas.issues import (
     AssigneeResponse,
     IssueAssigneeRequest,
     IssueSummary,
+    AssignedIssueResponse,
 )
 from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
@@ -30,6 +31,7 @@ from services.issues import (
     detach_label,
     list_issue_labels,
     is_issue_assignee,
+    get_assigned_issues
 )
 from auth.auth import get_current_user, get_optional_current_user
 from auth.permission import get_role
@@ -59,6 +61,20 @@ async def create_issue(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+@router.get("/assigned/{username}", response_model=List[AssignedIssueResponse], status_code=status.HTTP_200_OK)
+async def get_assigneed_issues_of_user(
+    username: str,
+    current_user = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    try:
+        print("here")
+        if current_user["username"] != username:
+            return []
+        return await get_assigned_issues(pool, current_user["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/{owner_name}/{repo_name}",response_model=List[IssueSummary],status_code=status.HTTP_200_OK,)
@@ -209,7 +225,7 @@ async def assign_user(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
         
         role = await get_role(pool, owner_name, repo_name, current_user)
-        if role is 'Viewer':
+        if role == 'Viewer':
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not allowed to assign users to issues")
         
         #check if user is a collaborator
@@ -282,3 +298,4 @@ async def detach_label_from_issue(
         return await detach_label(pool, repo.id, issue_number, label_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+

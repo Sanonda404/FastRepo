@@ -1,5 +1,19 @@
-from schemas.issues import IssueCreateRequest, IssueResponse, LabelResponse, IssueSummary, IssueLabel, AssigneeResponse
-from sqls.issue_sqls import CREATE_ISSUE, GET_ALL_ISSUES, GET_ISSUE_BY_NUMBER, DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER, GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, LIST_ASSIGNEES, CREATE_LABEL, ATTACH_LABEL, DETACH_LABEL, LIST_ISSUE_LABELS
+from schemas.issues import IssueCreateRequest, IssueResponse, LabelResponse, IssueSummary, IssueLabel, AssigneeResponse, AssignedIssueResponse
+from sqls.issue_sqls import (
+    CREATE_ISSUE,
+    GET_ALL_ISSUES,
+    GET_ISSUE_BY_NUMBER, 
+    DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, 
+    CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER, 
+    GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, 
+    IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, 
+    LIST_ASSIGNEES, 
+    CREATE_LABEL, 
+    ATTACH_LABEL, 
+    DETACH_LABEL, 
+    LIST_ISSUE_LABELS,
+    GET_ASSIGNED_ISSUES
+)
 from fastapi import HTTPException
 from typing import List
 import asyncpg
@@ -213,3 +227,41 @@ async def list_issue_labels(pool: asyncpg.Pool, repo_id: int, issue_number: int)
 async def is_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int, username: str) -> bool:
     async with pool.acquire() as conn:
         return bool(await conn.fetchval(IS_ISSUE_ASSIGNEE, repo_id, issue_number, username))
+
+async def get_assigned_issues(pool: asyncpg.Pool, user_id: int) -> List[AssignedIssueResponse]:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(GET_ASSIGNED_ISSUES, user_id)
+
+        response: List[AssignedIssueResponse] = []
+
+        for row in rows:
+            labels_data = row["labels"] or []
+
+            # If asyncpg returns JSON arrays as strings, decode them
+            if isinstance(labels_data, str):
+                labels_data = json.loads(labels_data)
+
+            labels: List[IssueLabel] = [
+                IssueLabel(
+                    id=label["id"],
+                    name=label["name"],
+                    color=label["color"]
+                )
+                for label in labels_data
+            ]
+
+            response.append(AssignedIssueResponse(
+                id=row["id"],
+                title=row["title"],
+                number=row["number"],
+                state=row["state"],
+                author_username=row["author_username"],
+                created_at=row["created_at"],
+                closed_at=row["closed_at"],
+                repository_id=row["repository_id"],
+                repository_name=row["name"],
+                repository_owner=row["owner_username"],
+                labels=labels
+            ))
+
+        return response

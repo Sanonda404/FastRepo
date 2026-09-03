@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 class IssueCreateRequest(BaseModel):
     title : str = Field(..., min_length=1, max_length=255)
     body : str
@@ -55,3 +55,19 @@ class IssueSummary(BaseModel):
 
     created_at: datetime
     closed_at : Optional[datetime]
+
+
+class AssignedIssueResponse(BaseModel):
+    id: int
+    title: str
+    number: int
+    state: Literal["open", "closed"]
+    author_username: str
+    created_at: datetime
+    closed_at: datetime | None
+
+    repository_id: int
+    repository_name: str
+    repository_owner: str
+
+    labels: List[IssueLabel]
