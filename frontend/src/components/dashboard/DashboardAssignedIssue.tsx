@@ -1,8 +1,9 @@
 import { ClipboardList, ArrowRight } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { useAuth } from "@/lib/auth/use-auth"
 import type { AssignedIssueResponse } from "@/lib/interfaces"
-import AssignedIssueItem from "@/components/profile/AssignedIssueItem"
+import AssignedIssueItem from "@/components/dashboard/AssignedIssueItem"
 
 type DashboardAssignedIssuesProps = {
   issues: AssignedIssueResponse[] | null
@@ -13,6 +14,7 @@ export default function DashboardAssignedIssues({
   issues,
   error,
 }: DashboardAssignedIssuesProps) {
+  const { username } = useAuth()
   return (
     <section
       data-testid="assigned-issues"
@@ -49,12 +51,9 @@ export default function DashboardAssignedIssues({
           </p>
         </div>
 
-        {issues && issues.length > 0 && (
+        {issues && issues.length > 0 && username && (
           <Link
-            to={`/users/${encodeURIComponent(
-              // username will be supplied through URL below
-              ""
-            )}`}
+            to={`/${encodeURIComponent(username)}`}
             className="
               hidden
               items-center
@@ -81,7 +80,7 @@ export default function DashboardAssignedIssues({
 
       {/* Loading */}
       {!error && issues === null && (
-        <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+        <div className="rounded-xl bg-card p-6 text-sm text-muted-foreground ring-1 ring-foreground/10">
           Loading assigned issues…
         </div>
       )}
@@ -91,10 +90,10 @@ export default function DashboardAssignedIssues({
         <div
           className="
             rounded-xl
-            border
             bg-card
             px-6 py-8
             text-center
+            ring-1 ring-foreground/10
           "
         >
           <ClipboardList className="mx-auto size-8 text-muted-foreground/40" />
@@ -111,7 +110,7 @@ export default function DashboardAssignedIssues({
 
       {/* Issues */}
       {issues !== null && issues.length > 0 && (
-        <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           {issues.slice(0, 5).map((issue) => (
             <AssignedIssueItem
               key={`${issue.repository_id}-${issue.id}`}

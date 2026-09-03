@@ -12,6 +12,9 @@ import type {
 } from "@/lib/schemas/issue"
 
 import { HasRole } from "@/components/guards/HasRole"
+import { useAuth } from "@/lib/auth/use-auth"
+import { useRepoPermissions } from "@/lib/auth/RepoPermissionManager"
+import { Button } from "@/components/ui/button"
 
 import IssueAssigneeDialog from "./IssueAssigneeDialog"
 import IssueEmptyState from "./IssueEmptyState"
@@ -39,6 +42,17 @@ export default function IssueAssignees({
   onAdd,
   onRemove,
 }: Props) {
+  const { username: currentUsername } = useAuth()
+  const { role } = useRepoPermissions()
+  const isSelfAssigned = !!currentUsername && assignees.some((a) => a.username === currentUsername)
+  const canSelfAssign =
+    !!currentUsername &&
+    !isSelfAssigned &&
+    !isClosed &&
+    !mutating &&
+    role !== "Viewer" &&
+    role !== null
+
   return (
     <section className="
       overflow-hidden
@@ -86,23 +100,37 @@ export default function IssueAssignees({
         </div>
 
         {!isClosed && (
-          <HasRole
-            roles={[
-              "Owner",
-              "Admin",
-              "Maintainer",
-            ]}
-          >
-            <IssueAssigneeDialog
-              loading={mutating}
-              owner={owner}
-              collaborators={collaborators}
-              assignedUsernames={assignees.map(
-                (a) => a.username
-              )}
-              onSubmit={onAdd}
-            />
-          </HasRole>
+          <div className="flex items-center gap-2">
+            {canSelfAssign && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={mutating}
+                onClick={() => onAdd({ username: currentUsername! })}
+                className="rounded-lg text-xs"
+              >
+                Assign to me
+              </Button>
+            )}
+            <HasRole
+              roles={[
+                "Owner",
+                "Admin",
+                "Maintainer",
+                "Member",
+              ]}
+            >
+              <IssueAssigneeDialog
+                loading={mutating}
+                owner={owner}
+                collaborators={collaborators}
+                assignedUsernames={assignees.map(
+                  (a) => a.username
+                )}
+                onSubmit={onAdd}
+              />
+            </HasRole>
+          </div>
         )}
       </div>
 
@@ -176,21 +204,11 @@ export default function IssueAssignees({
                     </span>
                   </div>
 
-                  <HasRole
-                    roles={[
-                      "Owner",
-                      "Admin",
-                      "Maintainer",
-                    ]}
-                  >
+                  {assignee.username === currentUsername ? (
                     <button
                       type="button"
                       disabled={mutating || isClosed}
-                      onClick={() =>
-                        onRemove(
-                          assignee.username
-                        )
-                      }
+                      onClick={() => onRemove(assignee.username)}
                       className="
                         rounded-lg
                         p-1.5
@@ -205,12 +223,32 @@ export default function IssueAssignees({
                       "
                       title="Remove assignee"
                     >
-                      <span className="sr-only">
-                        Remove assignee
-                      </span>
-                      ×
+                      <span className="sr-only">Remove assignee</span>×
                     </button>
-                  </HasRole>
+                  ) : (
+                    <HasRole roles={["Owner", "Admin", "Maintainer", "Member"]}>
+                      <button
+                        type="button"
+                        disabled={mutating || isClosed}
+                        onClick={() => onRemove(assignee.username)}
+                        className="
+                          rounded-lg
+                          p-1.5
+                          text-muted-foreground
+                          opacity-0
+                          transition-all
+                          group-hover:opacity-100
+                          hover:bg-destructive/10
+                          hover:text-destructive
+                          disabled:pointer-events-none
+                          disabled:opacity-30
+                        "
+                        title="Remove assignee"
+                      >
+                        <span className="sr-only">Remove assignee</span>×
+                      </button>
+                    </HasRole>
+                  )}
                 </div>
               )
             )}
