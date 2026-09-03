@@ -4,6 +4,7 @@ import type {
   IssueAssigneeResponse,
   IssueLabel,
   IssueCommentResponse,
+  AssignedIssueResponse,
 } from "../interfaces";
 import { api } from "./api";
 
@@ -64,4 +65,8 @@ export async function getAllIssueAssignees(owner:string, repo_name: string, issu
 
 export async function getAllIssueLabels(owner:string, repo_name: string, issue_id : number): Promise<IssueLabel[]> {
   return api<IssueLabel[]>(`/issues/${owner}/${repo_name}/${issue_id}/labels`, { method: "GET"});
+}
+
+export async function getAssignedIssues(username: string): Promise<AssignedIssueResponse[]> {
+  return api<AssignedIssueResponse[]>(`/issues/assigned/${username}`, { method: "GET"});
 }

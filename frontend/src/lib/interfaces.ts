@@ -215,3 +215,19 @@ export interface ForkRepositoryRequest {
   description?: string
   is_private?: boolean
 }
+
+export interface AssignedIssueResponse {
+  id: number
+  title: string
+  number : number
+  state: "open" | "closed"
+  author_username: string
+  created_at: string
+  closed_at: string | null
+
+  repository_id: number
+  repository_name: string
+  repository_owner: string
+
+  labels: IssueLabel[]
+}

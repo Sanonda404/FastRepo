@@ -7,8 +7,9 @@ import { toast } from "sonner"
 import { Pencil, Image as ImageIcon, X, Loader2, Mail, Lock } from "lucide-react"
 
 import { api, getErrorMessage, updateProfileApi } from "@/lib/apis/api"
+import { getAssignedIssues } from "@/lib/apis/issue_apis"
 import { useAuth } from "@/lib/auth/use-auth"
-import type { RepositoryResponse, UserResponse } from "@/lib/interfaces"
+import type { RepositoryResponse, UserResponse, AssignedIssueResponse } from "@/lib/interfaces"
 import RepositoryCard from "@/components/repository-card"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -18,12 +19,12 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import AssignedIssues from "@/components/profile/AssignedIssues"
 
 const editSchema = z
   .object({
@@ -63,6 +64,9 @@ export default function UserProfilePage() {
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [picBust, setPicBust] = useState(0)
+  const [assignedIssues, setAssignedIssues] = useState<AssignedIssueResponse[] | null>(null)
+
+  const [assignedIssuesError, setAssignedIssuesError] = useState<string | null>(null)
 
   const isOwnProfile = isLoggedIn && currentUsername !== null && username === currentUsername
 
@@ -87,7 +91,30 @@ export default function UserProfilePage() {
     } else {
       setPreview(null)
     }
-  }, [watchedFile])
+    }, [watchedFile])
+
+    useEffect(() => {
+    if (!username) return
+
+    let active = true
+
+    getAssignedIssues(username)
+      .then((data) => {
+        if (active) {
+          setAssignedIssues(data)
+          setAssignedIssuesError(null)
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setAssignedIssuesError(getErrorMessage(err))
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [username])
 
   const fetchUser = () => {
     if (!username) return
@@ -373,6 +400,15 @@ export default function UserProfilePage() {
         ) : (
           <p className="text-sm text-muted-foreground">Loading profile…</p>
         )}
+
+        
+        {assignedIssues && assignedIssues.length > 0 && (
+          <AssignedIssues
+            issues={assignedIssues}
+            error={assignedIssuesError}
+          />
+        )}
+
 
         <section data-testid="repositories" className="mt-10">
           <h2 className="mb-4 text-lg font-semibold">Repositories</h2>

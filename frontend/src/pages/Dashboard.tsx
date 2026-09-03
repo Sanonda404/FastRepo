@@ -15,14 +15,19 @@ import { api, getErrorMessage } from "@/lib/apis/api"
 import StatCard from "@/components/stat-card"
 import RepositoryCard from "@/components/repository-card"
 import Footer from "@/components/footer"
-import type { RepositoryDetails, UserMeResponse } from "@/lib/interfaces"
+import type { RepositoryDetails, UserMeResponse, AssignedIssueResponse } from "@/lib/interfaces"
 import { getAllAccessibleRepositories } from "@/lib/apis/repository_apis"
+import { getAssignedIssues } from "@/lib/apis/issue_apis"
+import DashboardAssignedIssues from "@/components/dashboard/DashboardAssignedIssue"
 
 export default function Dashboard() {
   const { username } = useAuth()
   const [reposByUsername, setReposByUsername] = useState<Record<string, RepositoryDetails[]>>({})
   const [errorsByUsername, setErrorsByUsername] = useState<Record<string, string>>({})
   const [userMe, setUserMe] = useState<UserMeResponse | null>(null)
+  const [assignedIssues, setAssignedIssues] = useState<AssignedIssueResponse[] | null>(null)
+
+  const [assignedIssuesError, setAssignedIssuesError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!username || reposByUsername[username] || errorsByUsername[username]) return
@@ -46,6 +51,29 @@ export default function Dashboard() {
       })
       .catch(() => {})
     return () => { active = false }
+  }, [username])
+
+  useEffect(() => {
+    if (!username) return
+
+    let active = true
+
+    getAssignedIssues(username)
+      .then((data) => {
+        if (active) {
+          setAssignedIssues(data)
+          setAssignedIssuesError(null)
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setAssignedIssuesError(getErrorMessage(err))
+        }
+      })
+
+    return () => {
+      active = false
+    }
   }, [username])
 
   const repos = username ? reposByUsername[username] ?? null : null
@@ -105,6 +133,12 @@ export default function Dashboard() {
             </div>
           )}
         </section>
+
+        <DashboardAssignedIssues
+          issues={assignedIssues}
+          error={assignedIssuesError}
+        />
+
       </main>
       <Footer />
     </div>
