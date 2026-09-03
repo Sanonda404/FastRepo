@@ -14,8 +14,9 @@ import CreateTeamDialog from "@/components/team/CreateTeamDialog"
 import AddTeamMemberDialog from "@/components/team/AddMemberDialog"
 import EditTeamDialog from "@/components/team/EditTeamDialog"
 import DeleteTeamDialog from "@/components/team/DeleteTeamDialog"
+import { TeamDetailsDialog } from "@/components/team/TeamDetailsDialog"
 
-import type { Team } from "@/lib/interfaces"
+import { type PermissionResponse, type Team } from "@/lib/interfaces"
 
 import {
   type CreateTeamInput,
@@ -26,6 +27,7 @@ import {
 import { getErrorMessage } from "@/lib/apis/api"
 import { createTeam,getAllTeams, updateTeam, deleteTeam } from "@/lib/apis/team_apis"
 import { addExistingMember, addNewTeamMember } from "@/lib/apis/team_apis"
+import { getRepositoryPermissions } from "@/lib/apis/repository_apis"
 import { getRole } from "@/lib/apis/repository_apis"
 import type { RepositoryRole } from "@/lib/auth/permissions"
 import { getCollaborators } from "@/lib/apis/repository_collaborator_apis"
@@ -68,6 +70,9 @@ export default function RepositoryTeamsPage() {
   const [selectedTeam, setSelectedTeam] =
     useState<Team | null>(null)
 
+  const [permissions, setPermissions] = useState<PermissionResponse[]>([])
+  const [teamDetailsOpen, setTeamDetailsOpen] = useState(false)
+  
   const [actionLoading, setActionLoading] =
     useState(false)
 
@@ -135,6 +140,30 @@ export default function RepositoryTeamsPage() {
     }
   }, [owner, repository])
 
+  useEffect(() => {
+    if (!owner || !repository) return
+
+    let active = true
+
+    getRepositoryPermissions(owner, repository)
+      .then((data) => {
+        if (!active) return
+
+        setPermissions(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!active) return
+
+        setError(getErrorMessage(err))
+        setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [owner, repository])
+
   const openCreateTeam = () => {
     setSelectedParentTeam(null)
     setCreateDialogOpen(true)
@@ -160,6 +189,11 @@ export default function RepositoryTeamsPage() {
     setSelectedDeleteTeam(team)
     setError(null)
     setDeleteDialogOpen(true)
+  }
+
+  const openTeamDetails = (team: Team) => {
+    setSelectedTeam(team)
+    setTeamDetailsOpen(true)
   }
 
   const handleEditTeam = async (
@@ -323,6 +357,11 @@ export default function RepositoryTeamsPage() {
     }
   }
 
+  const teamPermissions = permissions?.filter(
+    (permission) => permission.team_id === selectedTeam?.id
+  ) ?? []
+
+
   if (!owner || !repository) {
     return <div>Invalid repository.</div>
   }
@@ -367,12 +406,16 @@ export default function RepositoryTeamsPage() {
             onAddMember={openAddMember}
             onEdit={openEditTeam}
             onDelete={openDeleteTeam}
+            onViewDetails={openTeamDetails}
           />
         ) : (
           <TeamList
             role={role ?? "Viewer"}
             teams={teams}
             onAddMember={openAddMember}
+            onViewDetails={openTeamDetails}
+            onEdit={openEditTeam}
+            onDelete={openDeleteTeam}
           />
         )}
 
@@ -426,6 +469,14 @@ export default function RepositoryTeamsPage() {
             setSelectedDeleteTeam(null)
           }}
           onConfirm={handleDeleteTeam}
+        />
+
+        <TeamDetailsDialog
+          open={teamDetailsOpen}
+          onOpenChange={setTeamDetailsOpen}
+          team={selectedTeam}
+          currentUserRole={role??"Viewer"}
+          permissions={teamPermissions}
         />
       </div>
     </RepositoryLayout>

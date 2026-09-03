@@ -10,6 +10,7 @@ interface TeamNodeProps {
   onAddMember: (team: Team) => void
   onEdit: (team: Team) => void
   onDelete: (team: Team) => void
+  onViewDetails: (team: Team) => void
 }
 
 export default function TeamNode({
@@ -20,6 +21,7 @@ export default function TeamNode({
   onAddMember,
   onEdit,
   onDelete,
+  onViewDetails,
 }: TeamNodeProps) {
   const children = childrenMap.get(team.id) ?? []
 
@@ -33,6 +35,7 @@ export default function TeamNode({
         onAddMember={onAddMember}
         onEdit={onEdit}
         onDelete={onDelete}
+        onViewDetails={onViewDetails}
       />
 
       {children.length > 0 && (
@@ -58,6 +61,7 @@ export default function TeamNode({
                   onAddMember={onAddMember}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onViewDetails={onViewDetails}
                 />
               </div>
             ))}

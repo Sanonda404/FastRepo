@@ -11,6 +11,7 @@ interface TeamHierarchyProps {
   onAddMember: (team: Team) => void
   onEdit: (team: Team) => void
   onDelete: (team: Team) => void
+  onViewDetails: (team: Team) => void
 }
 
 export default function TeamHierarchy({
@@ -20,6 +21,7 @@ export default function TeamHierarchy({
   onAddMember,
   onEdit,
   onDelete,
+  onViewDetails,
 }: TeamHierarchyProps) {
   const childrenMap = new Map<number, Team[]>()
 
@@ -67,6 +69,7 @@ export default function TeamHierarchy({
             onAddMember={onAddMember}
             onEdit={onEdit}
             onDelete={onDelete}
+            onViewDetails={onViewDetails}
           />
         ))}
       </div>

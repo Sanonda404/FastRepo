@@ -231,3 +231,13 @@ export interface AssignedIssueResponse {
 
   labels: IssueLabel[]
 }
+
+export interface PermissionResponse {
+  id: number
+  repository_id: number
+  team_id: number
+  team_name: string
+  target_type: "branch" | "folder"
+  target_identifier: string
+  allow_write: boolean
+}

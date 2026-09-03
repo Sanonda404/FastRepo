@@ -9,6 +9,7 @@ import type {
   RepositoryDetails,
   StarResponse,
   TreeResponse,
+  PermissionResponse,
 } from "../interfaces";
 import { api } from "./api";
 import type { RepositoryRole } from "../auth/permissions";
@@ -111,4 +112,8 @@ export function updateRepository(
 /** @deprecated use starRepository/unstarRepository for idempotent behaviour */
 export function toggleStar(owner: string, name: string): Promise<StarResponse> {
   return starRepository(owner, name);
+}
+
+export function getRepositoryPermissions(owner: string, name: string): Promise<PermissionResponse[]> {
+  return api<PermissionResponse[]>(`/permissions/${owner}/${name}`);
 }

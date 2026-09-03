@@ -5,6 +5,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Info,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ interface TeamCardProps {
   onAddMember: (team: Team) => void
   onEdit: (team: Team) => void
   onDelete: (team: Team) => void
+  onViewDetails: (team: Team) => void
 }
 
 export default function TeamCard({
@@ -40,6 +42,8 @@ export default function TeamCard({
   onAddMember,
   onEdit,
   onDelete,
+  onViewDetails,
+
 }: TeamCardProps) {
   return (
     <RepoPermissionProvider role = {role}>
@@ -58,6 +62,16 @@ export default function TeamCard({
                 {childCount === 1 ? "sub-team" : "sub-teams"}
               </span>
             )}
+
+            {/* View details button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onViewDetails(team)}
+              className="ml-2"
+            >
+              <Info className="size-4" />
+            </Button>
 
             {/* Team actions */}
             <HasCapability capability="canManageTeams">
