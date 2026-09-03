@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { deleteRepository, updateRepository } from "@/lib/apis/repository_apis"
 import { getErrorMessage } from "@/lib/apis/api"
+import { HasCapability } from "@/components/guards/HasCapability"
 
 interface GeneralSettingsProps {
   owner: string
@@ -147,20 +148,24 @@ export default function GeneralSettings({
         </Button>
       </section>
 
-      <section className="rounded-xl border border-destructive/30 p-5">
-        <h3 className="font-medium text-destructive">Delete repository</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Permanently delete this repository. This action cannot be undone.
-        </p>
-        <Button
-          variant="destructive"
-          className="mt-4 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          onClick={() => setConfirmDeleteOpen(true)}
-          data-testid="delete-repository-button"
-        >
-          Delete repository
-        </Button>
-      </section>
+      <HasCapability capability = "canDeleteRepo">
+        <section className="rounded-xl border border-destructive/30 p-5">
+          <h3 className="font-medium text-destructive">Delete repository</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Permanently delete this repository. This action cannot be undone.
+          </p>
+          
+            <Button
+              variant="destructive"
+              className="mt-4 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => setConfirmDeleteOpen(true)}
+              data-testid="delete-repository-button"
+            >
+              Delete repository
+            </Button>
+          
+        </section>
+      </HasCapability>
 
       <AlertDialog open={confirmNameOpen} onOpenChange={setConfirmNameOpen}>
         <AlertDialogContent>

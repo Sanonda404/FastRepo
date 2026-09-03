@@ -282,11 +282,13 @@ export default function RepositorySettingsPage() {
           {/* Content */}
           <main className="min-w-0 flex-1 p-6">
             {activeTab === "general" && (
+              <RepoPermissionProvider role={role}>
               <GeneralSettings
                 owner={owner}
                 repository={displayRepository}
                 initialDescription={repositoryData?.description ?? null}
               />
+              </RepoPermissionProvider>
             )}
 
             {activeTab === "collaborators" && (
