@@ -10,6 +10,7 @@ import { CodeViewer } from "@/components/code/CodeViewer"
 import GoToFileDialog from "@/components/code/GoToFileDialog"
 import RepositoryHeader from "@/components/repository/RepositoryHeader"
 import RepositoryAboutStats from "@/components/repository/RepositoryAboutStats"
+import EmptyRepositoryInstructions from "@/components/repository/EmptyRepositoryInstructions"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { getErrorMessage } from "@/lib/apis/api"
 import {
@@ -105,6 +106,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
     [branchList, branchSearch],
   )
   const file = fileResult?.key === `${owner}/${repository}@${activeBranch}:${filePath}` ? fileResult : null
+  const isEmptyRoot = !selectedFile && tree !== null && !tree.error && tree.entries !== undefined && tree.entries.length === 0 && path.length === 0
   const contributors = [
     { username: owner, role: "owner" },
     ...(collaborators ?? []).map(({ username, role }) => ({ username, role })),
@@ -173,12 +175,16 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                     </span>
                   ))}
                 </nav>
-                <div role="table" aria-label="Repository file explorer">
-                  <div role="row" className="hidden grid-cols-[minmax(14rem,2fr)_9rem] gap-4 border-b border-foreground/10 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid"><span role="columnheader">Name</span><span role="columnheader">Size</span></div>
-                  {!tree && <p className="px-4 py-6 text-sm text-muted-foreground">Loading contents…</p>}
-                  {tree?.entries && path.length > 0 && <button role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-foreground/10 px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => navigateToDir(path.slice(0, -1))}><span className="flex items-center gap-2 text-primary"><Folder className="size-4 fill-current/20" />..</span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">Up one level</span></button>}
-                  {tree?.entries?.map((entry) => <button key={entry.name} role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-foreground/10 px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => entry.type === "tree" ? openFolder(entry.name) : setSelectedFile(entry.name)}><span className="flex min-w-0 items-center gap-2 font-medium text-primary"><span>{entry.type === "tree" ? <Folder className="size-4 fill-current/20" /> : <FileCode2 className="size-4" />}</span><span className="truncate">{entry.name}</span></span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">{entry.size != null ? `${entry.size} bytes` : ""}</span></button>)}
-                </div>
+                {isEmptyRoot ? (
+                  <EmptyRepositoryInstructions owner={owner} repository={repository} activeBranch={activeBranch} defaultBranch={repoMeta?.default_branch ?? ""} />
+                ) : (
+                  <div role="table" aria-label="Repository file explorer">
+                    <div role="row" className="hidden grid-cols-[minmax(14rem,2fr)_9rem] gap-4 border-b border-foreground/10 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid"><span role="columnheader">Name</span><span role="columnheader">Size</span></div>
+                    {!tree && <p className="px-4 py-6 text-sm text-muted-foreground">Loading contents…</p>}
+                    {tree?.entries && path.length > 0 && <button role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-foreground/10 px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => navigateToDir(path.slice(0, -1))}><span className="flex items-center gap-2 text-primary"><Folder className="size-4 fill-current/20" />..</span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">Up one level</span></button>}
+                    {tree?.entries?.map((entry) => <button key={entry.name} role="row" className="grid w-full grid-cols-[1fr_auto] items-center gap-4 border-b border-foreground/10 px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/50 sm:grid-cols-[minmax(14rem,2fr)_9rem]" onClick={() => entry.type === "tree" ? openFolder(entry.name) : setSelectedFile(entry.name)}><span className="flex min-w-0 items-center gap-2 font-medium text-primary"><span>{entry.type === "tree" ? <Folder className="size-4 fill-current/20" /> : <FileCode2 className="size-4" />}</span><span className="truncate">{entry.name}</span></span><span className="text-right text-xs text-muted-foreground sm:text-left sm:text-sm">{entry.size != null ? `${entry.size} bytes` : ""}</span></button>)}
+                  </div>
+                )}
               </>}
             </section>
           </div>
