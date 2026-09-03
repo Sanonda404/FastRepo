@@ -32,8 +32,8 @@ export default function AssignedIssueItem({
   const isOpen = issue.state === "open"
 
   const href =
-    `/repositories/${issue.repository_owner}` +
-    `/${issue.repository_name}/issues/${issue.id}`
+    `/${issue.repository_owner}` +
+    `/${issue.repository_name}/issues/${issue.number}`
 
   return (
     <Link
@@ -75,7 +75,7 @@ export default function AssignedIssueItem({
           </h3>
 
           <span className="shrink-0 text-xs text-muted-foreground">
-            #{issue.id}
+            #{issue.number}
           </span>
         </div>
 

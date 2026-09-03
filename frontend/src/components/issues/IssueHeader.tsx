@@ -55,7 +55,7 @@ export default function IssueHeader({
                 font-medium
                 text-muted-foreground
               ">
-                #{issue.id}
+                #{issue.number}
               </span>
             </div>
 
