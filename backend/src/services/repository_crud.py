@@ -39,7 +39,7 @@ async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest
         try:
             async with conn.transaction():
                 row = await conn.fetchrow(
-                    CREATE_REPOSITORY, current_user["id"], payload.name, payload.description, payload.is_private
+                    CREATE_REPOSITORY, current_user["id"], payload.name, payload.description, payload.is_private, payload.default_branch
                 )
                 if row is None:
                     raise RuntimeError("Failed to create repository")

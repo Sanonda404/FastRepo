@@ -1,7 +1,7 @@
 # create new repository
 CREATE_REPOSITORY = """
-    INSERT INTO repositories (owner_id, name, description, is_private)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO repositories (owner_id, name, description, is_private, default_branch)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING id, owner_id, name, description, is_private, parent_repository_id, default_branch, created_at
 """
 

@@ -6,6 +6,7 @@ class RepositoryCreateRequest(BaseModel):
     name : str
     description : Optional[str] = None
     is_private : bool
+    default_branch: str = Field(default="main", pattern=r"^[A-Za-z0-9._-]+$")
 
 class RepositoryUpdateRequest(BaseModel):
     name : Optional[str] = None
