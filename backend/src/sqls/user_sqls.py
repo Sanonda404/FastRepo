@@ -80,10 +80,15 @@ DELETE_USER = """
 
 # stats for /users/me
 GET_USER_STATS = """
+WITH accessible_repos AS (
+    SELECT id FROM repositories WHERE owner_id = $1
+    UNION
+    SELECT repository_id AS id FROM repository_collaborators WHERE user_id = $1
+)
 SELECT
-    (SELECT COUNT(*) FROM commits WHERE author_name = $2) AS commits,
-    (SELECT COUNT(*) FROM issues WHERE repository_id IN (SELECT id FROM repositories WHERE owner_id = $1) AND state = 'open') AS open_issues,
-    (SELECT COUNT(*) FROM pull_requests WHERE repository_id IN (SELECT id FROM repositories WHERE owner_id = $1) AND state = 'open') AS open_pull_requests,
-    (SELECT COUNT(*) FROM repository_collaborators WHERE repository_id IN (SELECT id FROM repositories WHERE owner_id = $1)) AS collaborators,
-    (SELECT COUNT(*) FROM stars WHERE repository_id IN (SELECT id FROM repositories WHERE owner_id = $1)) AS stars
+    (SELECT COUNT(*) FROM commits c WHERE c.author_name = $2 AND c.repo_id IN (SELECT id FROM accessible_repos)) AS commits,
+    (SELECT COUNT(*) FROM issues WHERE repository_id IN (SELECT id FROM accessible_repos) AND state = 'open') AS open_issues,
+    (SELECT COUNT(*) FROM pull_requests WHERE repository_id IN (SELECT id FROM accessible_repos) AND state = 'open') AS open_pull_requests,
+    (SELECT COUNT(*) FROM repository_collaborators WHERE repository_id IN (SELECT id FROM accessible_repos)) AS collaborators,
+    (SELECT COUNT(*) FROM stars WHERE repository_id IN (SELECT id FROM accessible_repos)) AS stars
 """
