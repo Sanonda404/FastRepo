@@ -21,8 +21,8 @@ SECRET_KEY: str = SECRET_KEY_ENV
 ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/users/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/users/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/users/login", auto_error=False)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
