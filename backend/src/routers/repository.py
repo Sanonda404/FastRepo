@@ -108,7 +108,7 @@ async def list_repositories(
     if(current_user is None):
         return await list_all_public_repositories(pool, owner_name)
     if(owner_name == current_user["username"]):
-        return await list_all_repositories_of_user(pool, current_user["id"])
+        return await list_all_repositories(pool, current_user["id"])
     return await list_all_accessible_repositories(pool, owner_name, current_user["id"])
 
 @router.get("/{owner_name}/{repo_name}", response_model=RepositoryResponse)
