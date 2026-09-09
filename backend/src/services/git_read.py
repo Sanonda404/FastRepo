@@ -237,21 +237,29 @@ async def get_diff(
 
     files = []
     for change in changes:
-        if change.new is None:
-            continue
-        entry = change.new
-        path = entry.path.decode("utf-8", "replace")
         old_entry = change.old
-        old_path = None
-        if old_entry is not None and old_entry.path != entry.path:
-            old_path = old_entry.path.decode("utf-8", "replace")
-
-        old_bytes = blob_data.get(old_entry.sha.decode("ascii")) if old_entry else b""
-        new_bytes = blob_data.get(entry.sha.decode("ascii"))
-        if old_bytes is None:
-            old_bytes = b""
-        if new_bytes is None:
+        if change.new is None:
+            if old_entry is None:
+                continue
+            entry_path = old_entry.path.decode("utf-8", "replace")
+            entry = old_entry
+            path = entry_path
+            old_path = None
+            old_bytes = blob_data.get(old_entry.sha.decode("ascii")) or b""
             new_bytes = b""
+        else:
+            entry = change.new
+            path = entry.path.decode("utf-8", "replace")
+            old_path = None
+            if old_entry is not None and old_entry.path != entry.path:
+                old_path = old_entry.path.decode("utf-8", "replace")
+
+            old_bytes = blob_data.get(old_entry.sha.decode("ascii")) if old_entry else b""
+            new_bytes = blob_data.get(entry.sha.decode("ascii"))
+            if old_bytes is None:
+                old_bytes = b""
+            if new_bytes is None:
+                new_bytes = b""
 
         binary = b"\x00" in old_bytes or b"\x00" in new_bytes
         additions = deletions = 0
@@ -264,7 +272,7 @@ async def get_diff(
                 _text_lines(old_bytes),
                 _text_lines(new_bytes),
                 fromfile=f"a/{old_path or path}",
-                tofile=f"b/{path}",
+                tofile=f"b/{path}" if change.new is not None else "/dev/null",
                 lineterm="\n",
             ))
             for line in diff_lines:
@@ -272,7 +280,9 @@ async def get_diff(
                     additions += 1
                 elif line.startswith("-") and not line.startswith("---"):
                     deletions += 1
-            diff_text = "".join(diff_lines)
+            diff_text = "".join(
+                line if line.endswith("\n") else line + "\n" for line in diff_lines
+            )
 
         files.append({
             "path": path,

@@ -502,6 +502,26 @@ class TestReadEndpoints:
         assert r2.json()["author"] == repo["username"]
         assert r2.json()["diff"] == []
 
+    def test_commit_detail_includes_deleted_file(self, client, repo):
+        clone = self._push_repo(repo)
+        base = f"/repositories/{repo['username']}/{repo['name']}"
+        run_git(clone, "rm", "src/app.py")
+        run_git(clone, "commit", "-m", "Remove app")
+        push = subprocess.run(["git", "-C", str(clone), "push", "origin", "main"],
+                              capture_output=True, text=True,
+                              env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+        assert push.returncode == 0, push.stderr
+        head = client.get(f"{base}/commits").json()[0]["sha"]
+        detail = client.get(f"{base}/commits/{head}").json()
+        assert detail["message"] == "Remove app"
+        by_path = {f["path"]: f for f in detail["diff"]}
+        assert "src/app.py" in by_path
+        removed = by_path["src/app.py"]
+        assert removed["status"] == "deleted"
+        assert removed["additions"] == 0
+        assert removed["deletions"] == 1
+        assert "-print('hi')" in removed["diff"]
+
     def test_commit_author_email_from_users(self, client, repo, server_url):
         clone = self._push_repo(repo)
         # make_commit re-configures user identity, so commit manually
