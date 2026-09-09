@@ -2,6 +2,7 @@ import type { NewRepositoryInput } from "../schemas/repository";
 import type {
   BranchResponse,
   CollaboratorResponse,
+  CommitDetail,
   CommitPage,
   CommitSummary,
   FileResponse,
@@ -97,6 +98,10 @@ export async function listCommitsPage(owner: string, name: string, query: Commit
   if (query.merges && query.merges !== "all") params.set("merges", query.merges);
   const res = await apiClient.get<CommitSummary[]>(`/repositories/${owner}/${name}/commits?${params}`);
   return { commits: res.data, total: Number(res.headers["x-total-count"] ?? res.data.length) };
+}
+
+export function getCommit(owner: string, name: string, sha: string): Promise<CommitDetail> {
+  return api<CommitDetail>(`/repositories/${owner}/${name}/commits/${sha}`);
 }
 
 export function listCollaborators(owner: string, name: string): Promise<CollaboratorResponse[]> {

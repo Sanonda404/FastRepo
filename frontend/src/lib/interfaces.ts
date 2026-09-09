@@ -78,6 +78,27 @@ export interface CommitPage {
   total: number;
 }
 
+export interface FileChange {
+  path: string;
+  old_path: string | null;
+  status: string;
+  additions: number;
+  deletions: number;
+  binary: boolean;
+  diff: string | null;
+}
+
+export interface CommitDetail {
+  sha: string;
+  author: string;
+  author_email: string | null;
+  author_date: string;
+  message: string;
+  parents: string[];
+  root_tree_sha: string;
+  diff: FileChange[];
+}
+
 export interface TreeEntry {
   name: string;
   type: "blob" | "tree";
