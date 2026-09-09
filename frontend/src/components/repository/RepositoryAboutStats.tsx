@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { GitFork, Star } from "lucide-react"
+import { useAuth } from "@/lib/auth/use-auth"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { getStar, listForks, listStargazers } from "@/lib/apis/repository_apis"
 import type { RepositoryDetails } from "@/lib/interfaces"
@@ -8,6 +9,12 @@ import type { RepositoryDetails } from "@/lib/interfaces"
 type Props = { owner: string; repository: string }
 
 export default function RepositoryAboutStats({ owner, repository }: Props) {
+  const { isLoggedIn, username } = useAuth()
+  const host = typeof window !== "undefined" ? window.location.host : "localhost"
+  const protocol = typeof window !== "undefined" ? window.location.protocol : "http:"
+  const cloneUrl = isLoggedIn && username
+    ? `${protocol}//${username}:YOUR_PASSWORD@${host}/${owner}/${repository}`
+    : `${protocol}//${host}/${owner}/${repository}`
   const [forkCount, setForkCount] = useState<number | null>(null)
   const [starCount, setStarCount] = useState<number | null>(null)
   const [forksOpen, setForksOpen] = useState(false)
@@ -94,6 +101,12 @@ export default function RepositoryAboutStats({ owner, repository }: Props) {
             {starCount ?? "…"}
           </span>
         </button>
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium">Clone URL</span>
+          <pre data-testid="about-clone-url" className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+            <code>{cloneUrl}</code>
+          </pre>
+        </div>
       </div>
 
       <Dialog open={forksOpen} onOpenChange={setForksOpen}>

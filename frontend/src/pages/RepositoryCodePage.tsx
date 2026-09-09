@@ -150,7 +150,6 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                     {visibleBranches.map((item) => <button key={item.name} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => selectBranch(item.name)}><GitBranch className="size-4 text-muted-foreground" /><span className="flex-1">{item.name}</span>{item.is_default && <span className="text-xs text-muted-foreground">default</span>}{item.name === activeBranch && <Check className="size-4 text-primary" />}</button>)}
                     {!visibleBranches.length && <p className="p-3 text-sm text-muted-foreground">No branches found.</p>}
                   </div>
-                  <button className="mt-2 w-full border-t border-foreground/10 pt-3 text-left text-sm font-medium text-primary hover:underline">View all branches</button>
                 </div>}
               </div>
               <button className={buttonVariants({ variant: "outline", size: "sm" })} onClick={() => setGoToFileOpen(true)}><Search className="size-3.5" /> Go to file</button>
