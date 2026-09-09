@@ -111,7 +111,8 @@ UPDATE_REPOSITORY = """
     UPDATE repositories
     SET name = COALESCE($3, name),
         description = COALESCE($4, description),
-        is_private = COALESCE($5, is_private)
+        is_private = COALESCE($5, is_private),
+        default_branch = COALESCE($6, default_branch)
     WHERE owner_id = $1 AND name = $2
     RETURNING id, owner_id, name, description, is_private, parent_repository_id, default_branch, created_at
 """

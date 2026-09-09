@@ -25,7 +25,7 @@ export default function RepositoryCreatePage() {
       name: "",
       description: "",
       is_private: false,
-      default_branch: "main",
+      default_branch: "",
     },
   })
 

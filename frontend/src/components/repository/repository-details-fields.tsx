@@ -78,26 +78,34 @@ export default function RepositoryDetailsFields({
       <FormField
         control={form.control}
         name="default_branch"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="font-medium">Default branch</FormLabel>
-            <FormControl>
-              <div className="relative">
-                <GitBranch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  {...field}
-                  value={field.value ?? ""}
-                  className="h-11 pl-10"
-                  placeholder="main"
-                />
-              </div>
-            </FormControl>
-            <p className="text-xs text-muted-foreground">
-              The branch used as the default when working with this repository.
-            </p>
-            <FormMessage />
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const hasBranch = typeof field.value === "string" && field.value.trim() !== ""
+          return (
+            <FormItem>
+              <FormLabel className="font-medium">
+                Default branch{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <GitBranch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    {...field}
+                    value={field.value ?? ""}
+                    className="h-11 pl-10"
+                    placeholder="main"
+                  />
+                </div>
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                {hasBranch
+                  ? "If a default branch is set, an empty commit will be created."
+                  : "Leave empty for a repository with no initial commit."}
+              </p>
+              <FormMessage />
+            </FormItem>
+          )
+        }}
       />
     </>
   )

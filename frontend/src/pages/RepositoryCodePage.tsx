@@ -107,6 +107,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
   )
   const file = fileResult?.key === `${owner}/${repository}@${activeBranch}:${filePath}` ? fileResult : null
   const isEmptyRoot = !selectedFile && tree !== null && !tree.error && tree.entries !== undefined && tree.entries.length === 0 && path.length === 0
+  const isTrulyEmptyRepo = !selectedFile && path.length === 0 && !activeBranch && repoMeta !== null && !repoMeta.default_branch && branchList.length === 0 && tree === null
   const contributors = [
     { username: owner, role: "owner" },
     ...(collaborators ?? []).map(({ username, role }) => ({ username, role })),
@@ -175,7 +176,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                     </span>
                   ))}
                 </nav>
-                {isEmptyRoot ? (
+                {isEmptyRoot || isTrulyEmptyRepo ? (
                   <EmptyRepositoryInstructions owner={owner} repository={repository} activeBranch={activeBranch} defaultBranch={repoMeta?.default_branch ?? ""} />
                 ) : (
                   <div role="table" aria-label="Repository file explorer">

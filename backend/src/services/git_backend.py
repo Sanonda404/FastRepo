@@ -380,6 +380,40 @@ class RefContainer(RefsContainer):
         self._run(_inner())
         self._log(name, None, value, committer, timestamp, timezone, message)
 
+    def _auto_set_head(self, ref_name: str) -> None:
+        """Auto set HEAD and default_branch when first branch is pushed to empty repo."""
+        if not ref_name.startswith("refs/heads/"):
+            return
+        branch = ref_name.removeprefix("refs/heads/")
+        if not branch or not branch.strip():
+            return
+
+        async def _inner():
+            async with self._bridge.pool.acquire() as conn:
+                head = await conn.fetchval(
+                    "SELECT 1 FROM refs WHERE repo_id = $1 AND name = 'HEAD'",
+                    self._repo_id,
+                )
+                if head is not None:
+                    return
+                row = await conn.fetchrow(
+                    "SELECT default_branch FROM repositories WHERE id = $1",
+                    self._repo_id,
+                )
+                if row is None or row["default_branch"] is not None:
+                    return
+                await conn.execute(SET_SYMREF, self._repo_id, "HEAD", ref_name)
+                await conn.execute(
+                    "UPDATE repositories SET default_branch = $2 WHERE id = $1 AND default_branch IS NULL",
+                    self._repo_id,
+                    branch,
+                )
+
+        try:
+            self._run(_inner())
+        except Exception:
+            pass
+
     def set_if_equals(
         self,
         name: Ref,
@@ -411,6 +445,8 @@ class RefContainer(RefsContainer):
         result = self._run(_inner())
         if result:
             self._log(name, old_ref, new_ref, committer, timestamp, timezone, message)
+            if old_ref is None or old_ref == ZERO_SHA:
+                self._auto_set_head(_db_sha(name))
 
         return result
 
@@ -432,6 +468,7 @@ class RefContainer(RefsContainer):
 
         if result:
             self._log(name, None, ref, committer, timestamp, timezone, message)
+            self._auto_set_head(_db_sha(name))
 
         return result
 

@@ -34,7 +34,7 @@ export interface RepositoryResponse {
   name: string;
   description?: string;
   is_private: boolean;
-  default_branch: string;
+  default_branch: string | null;
   owner_id: number;
   parent_repository_id?: number | null;
   parent_owner_username?: string | null;
@@ -48,7 +48,7 @@ export interface RepositoryDetails {
   name: string;
   description?: string;
   is_private: boolean;
-  default_branch: string;
+  default_branch: string | null;
   owner_id: number;
   owner_username : string;
   parent_repository_id?: number | null;

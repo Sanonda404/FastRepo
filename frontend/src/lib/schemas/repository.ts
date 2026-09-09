@@ -10,7 +10,11 @@ export const newRepositorySchema = z.object({
   default_branch: z
     .string()
     .regex(/^[A-Za-z0-9._-]+$/, "Invalid branch name")
-    .default("main"),
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v && v.trim() !== "" ? v.trim() : null))
+    .nullable()
+    .default(null),
 });
 
 
