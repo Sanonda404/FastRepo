@@ -22,6 +22,7 @@ from dulwich.pack import (
     PackInflater,
     PackStreamCopier,
 )
+from dulwich.errors import HookError
 from dulwich.refs import RefsContainer, Ref, ObjectID, SYMREF, ZERO_SHA
 from dulwich.repo import MemoryRepo, BaseRepo
 from dulwich.config import ConfigFile
@@ -480,6 +481,8 @@ class RefContainer(RefsContainer):
         timestamp: int | None = None,
         timezone: int | None = None,
         message: bytes | None = None,
+        *,
+        force: bool = False,
     ) -> bool:
         async def _inner():
             async with self._bridge.pool.acquire() as conn:
@@ -489,6 +492,12 @@ class RefContainer(RefsContainer):
                         return old_ref is None or old_ref == ZERO_SHA
                     if old_ref is not None and row["value"] != _db_sha(old_ref):
                         return False
+                    ref_name = _db_sha(name)
+                    if not force and ref_name.startswith("refs/heads/"):
+                        head = await conn.fetchrow(READ_LOOSE_REF, self._repo_id, "HEAD")
+                        if head is not None and head["value"] == f"ref: {ref_name}":
+                            branch = ref_name.removeprefix("refs/heads/")
+                            raise HookError(f"cannot delete branch '{branch}': HEAD points to it")
                     await conn.execute(
                         REMOVE_REF_IF_EQUALS,
                         self._repo_id,

@@ -59,7 +59,7 @@ def _rollback_refs(repo_id: int, commands) -> None:
     refs = RefContainer(repo_id)
     for old_sha, new_sha, name in commands:
         if old_sha == ZERO_SHA:
-            refs.remove_if_equals(name, new_sha)
+            refs.remove_if_equals(name, new_sha, force=True)
         else:
             refs.set_if_equals(name, new_sha, old_sha)
 

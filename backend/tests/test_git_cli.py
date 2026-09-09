@@ -286,6 +286,20 @@ class TestGitCliHTTP:
         assert deleted.returncode == 0
         assert fetch_ref(repo["id"], "refs/heads/feature") is None
 
+    def test_delete_head_branch_rejected(self, repo):
+        clone = TMP_DIR / f"cloneh_{repo['name']}"
+        env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+        subprocess.run(["git", "clone", repo["url"], str(clone)],
+                       capture_output=True, text=True, env=env)
+        before = fetch_ref(repo["id"], "refs/heads/main")
+        assert before is not None
+        denied = subprocess.run(["git", "-C", str(clone), "push", "origin", "--delete", "main"],
+                                capture_output=True, text=True, env=env)
+        assert denied.returncode != 0
+        # branch and HEAD untouched
+        assert fetch_ref(repo["id"], "refs/heads/main") == before
+        assert fetch_ref(repo["id"], "HEAD") == "ref: refs/heads/main"
+
     def test_force_push_overwrites(self, repo):
         clone = TMP_DIR / f"clonef_{repo['name']}"
         env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
