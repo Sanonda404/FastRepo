@@ -41,7 +41,7 @@ def _run_async(coro):
     return asyncio.new_event_loop().run_until_complete(coro)
 
 
-def seed_repo(username: str, repo_name: str, password: str = GIT_PASSWORD) -> int:
+def seed_repo(username: str, repo_name: str, password: str = GIT_PASSWORD, default_branch: str | None = "main") -> int:
     """Create user + repo through the public API. Return repo_id."""
     with httpx.Client(base_url=SERVER_URL+"/api") as client:
         reg = client.post(
@@ -57,7 +57,7 @@ def seed_repo(username: str, repo_name: str, password: str = GIT_PASSWORD) -> in
         token = login.json()["access_token"]
         created = client.post(
             "/repositories/create",
-            json={"name": repo_name, "description": None, "is_private": False},
+            json={"name": repo_name, "description": None, "is_private": False, "default_branch": default_branch},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert created.status_code == 201, created.text
@@ -198,6 +198,47 @@ class TestGitCliHTTP:
 
         trees = run_git(clone_dir, "ls-tree", "-r", "HEAD").stdout.strip()
         assert trees == ""
+
+    def test_push_to_repo_without_default_branch(self, server_url):
+        """Empty repo (no default branch, no seeding commit): init locally,
+        push, HEAD + default_branch auto-set, clone works."""
+        username = unique("nobranch")
+        repo_name = unique("nobranch")
+        env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+        try:
+            repo_id = seed_repo(username, repo_name, default_branch=None)
+            assert fetch_ref(repo_id, "HEAD") is None
+
+            local = TMP_DIR / f"local_{repo_name}"
+            subprocess.run(["git", "init", str(local)], check=True,
+                           capture_output=True, text=True, env=env)
+            make_commit(local, "README.md", "# hi\n", "initial")
+            url = repo_url(server_url, username, repo_name, GIT_PASSWORD)
+            subprocess.run(["git", "-C", str(local), "remote", "add", "origin", url],
+                           check=True, capture_output=True, text=True, env=env)
+            push = subprocess.run(["git", "-C", str(local), "push", "origin", "HEAD:main"],
+                                  capture_output=True, text=True, env=env)
+            assert push.returncode == 0, push.stderr
+
+            assert fetch_ref(repo_id, "HEAD") == "ref: refs/heads/main"
+            assert fetch_ref(repo_id, "refs/heads/main") is not None
+            with httpx.Client(base_url=SERVER_URL + "/api") as client:
+                login = client.post("/users/login",
+                                    data={"username": username, "password": GIT_PASSWORD})
+                token = login.json()["access_token"]
+                meta = client.get(f"/repositories/{username}/{repo_name}",
+                                  headers={"Authorization": f"Bearer {token}"})
+                assert meta.json()["default_branch"] == "main"
+
+            clone_dir = TMP_DIR / f"clone_{repo_name}"
+            cloned = subprocess.run(["git", "clone", url, str(clone_dir)],
+                                    capture_output=True, text=True, env=env)
+            assert cloned.returncode == 0, cloned.stderr
+            assert (clone_dir / "README.md").read_text() == "# hi\n"
+        finally:
+            cleanup_repo(username, repo_name)
+
+
 
     def test_non_fast_forward_push_rejected(self, repo):
         clone1 = TMP_DIR / f"clone1_{repo['name']}"

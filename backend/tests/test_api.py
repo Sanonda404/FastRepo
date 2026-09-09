@@ -144,8 +144,14 @@ class TestRepositoryEndpoints:
             body = created.json()
             assert body["name"] == repo_name
             assert body["owner_id"] > 0
-            assert body["default_branch"] == "main"
+            # omitted default_branch -> no seeding commit
+            assert body["default_branch"] is None
             assert body["is_private"] is False
+
+            seeded_name = unique("seeded")
+            seeded = create_repo(client, seeded_name, token, default_branch="main")
+            assert seeded.status_code == 201
+            assert seeded.json()["default_branch"] == "main"
 
             dup = create_repo(client, repo_name, token)
             assert dup.status_code == 400
@@ -346,7 +352,7 @@ class TestRepositoryViewUpdateDelete:
         repo_name = unique("repo")
         fork_name = unique("fork")
         try:
-            assert create_repo(client, repo_name, token).status_code == 201
+            assert create_repo(client, repo_name, token, default_branch="main").status_code == 201
             src_id = client.get(f"/repositories/{owner}/{repo_name}").json()["id"]
             ok = client.post(
                 f"/repositories/{owner}/{repo_name}/fork",
