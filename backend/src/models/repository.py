@@ -7,12 +7,12 @@ CREATE TABLE IF NOT EXISTS repositories (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_private BOOLEAN NOT NULL DEFAULT FALSE,
-    default_branch VARCHAR(255) NOT NULL DEFAULT 'main',
+    default_branch VARCHAR(255),
     parent_repository_id INT REFERENCES repositories(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_owner_repo_name UNIQUE (owner_id, name),
     CONSTRAINT valid_repo_name CHECK (name ~ '^[A-Za-z0-9._-]+$'),
-    CONSTRAINT valid_default_branch CHECK (default_branch ~ '^[A-Za-z0-9._-]+$')
+    CONSTRAINT valid_default_branch CHECK (default_branch IS NULL OR default_branch ~ '^[A-Za-z0-9._-]+$')
 );
 """
 

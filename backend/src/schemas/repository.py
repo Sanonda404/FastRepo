@@ -1,17 +1,96 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional
+import re
+
+_BRANCH_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 class RepositoryCreateRequest(BaseModel):
     name : str
     description : Optional[str] = None
     is_private : bool
-    default_branch: str = Field(default="main", pattern=r"^[A-Za-z0-9._-]+$")
+    default_branch: Optional[str] = Field(default=None)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _normalize_name(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, v):
+        if not v:
+            raise ValueError("Repository name is required")
+        if not _REPO_NAME_RE.match(v):
+            raise ValueError("Invalid repository name")
+        return v
+
+    @field_validator("default_branch", mode="before")
+    @classmethod
+    def _normalize_branch(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v
+
+    @field_validator("default_branch")
+    @classmethod
+    def _validate_branch(cls, v):
+        if v is None:
+            return None
+        if not _BRANCH_RE.match(v):
+            raise ValueError("Invalid branch name")
+        return v
 
 class RepositoryUpdateRequest(BaseModel):
     name : Optional[str] = None
     description : Optional[str] = None
     is_private : Optional[bool] = None
+    default_branch: Optional[str] = Field(default=None)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _normalize_name(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, v):
+        if v is None:
+            return None
+        if not v:
+            raise ValueError("Repository name is required")
+        if not _REPO_NAME_RE.match(v):
+            raise ValueError("Invalid repository name")
+        return v
+
+    @field_validator("default_branch", mode="before")
+    @classmethod
+    def _normalize_branch(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v
+
+    @field_validator("default_branch")
+    @classmethod
+    def _validate_branch(cls, v):
+        if v is None:
+            return None
+        if not _BRANCH_RE.match(v):
+            raise ValueError("Invalid branch name")
+        return v
 
 class RepositoryResponse(BaseModel):
     id : int
@@ -19,7 +98,7 @@ class RepositoryResponse(BaseModel):
     description : Optional[str] = None
     is_private : bool
     owner_id : int
-    default_branch : str
+    default_branch : Optional[str] = None
     parent_repository_id : Optional[int] = None
     parent_owner_username : Optional[str] = None
     parent_repository_name : Optional[str] = None
