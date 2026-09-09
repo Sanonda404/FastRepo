@@ -131,6 +131,7 @@ class CommitSummary(BaseModel):
     author_email: Optional[str] = None
     author_date: datetime
     message: str
+    is_merge: bool = False
 
 class FileChange(BaseModel):
     path: str

@@ -98,10 +98,38 @@ async def get_branches(pool: asyncpg.Pool, repo_id: int) -> list[dict]:
 
 
 async def get_history(
-    pool: asyncpg.Pool, repo_id: int, head_sha: str, limit: int, offset: int
-) -> list[dict]:
-    """BFS over parent edges"""
+    pool: asyncpg.Pool,
+    repo_id: int,
+    head_sha: str,
+    limit: int,
+    offset: int,
+    search: str | None = None,
+    author: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    merges: str | None = None,
+) -> tuple[list[dict], int]:
+    """BFS over parent edges. Returns page items, total matching."""
+    from datetime import datetime, timezone
+
+    def _parse_dt(value: str | None):
+        if not value:
+            return None
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    since_dt = _parse_dt(since)
+    until_dt = _parse_dt(until)
+    query = (search or "").strip().lower()
+    author_q = (author or "").strip().lower()
+
     order: list[str] = []
+    merge_of: dict[str, bool] = {}
     seen: set[str] = set()
     pending: list[str] = [head_sha]
     seen.add(head_sha)
@@ -115,33 +143,49 @@ async def get_history(
             parents.setdefault(row["commit_sha"], []).append(row["parent_sha"])
         for sha in batch:
             order.append(sha)
-            if len(order) >= offset + limit:
-                pending = []
-                break
+            merge_of[sha] = len(parents.get(sha, [])) > 1
             for parent_sha in parents.get(sha, []):
                 if parent_sha not in seen:
                     seen.add(parent_sha)
                     pending.append(parent_sha)
 
-    slice_shas = order[offset:]
-    if not slice_shas:
-        return []
+    if not order:
+        return [], 0
     async with pool.acquire() as conn:
-        metas = await conn.fetch(GET_COMMITS_META, repo_id, slice_shas)
+        metas = await conn.fetch(GET_COMMITS_META, repo_id, order)
     by_sha = {m["sha"]: m for m in metas}
-    result = []
-    for sha in slice_shas:
+
+    filtered = []
+    for sha in order:
         m = by_sha.get(sha)
         if m is None:
             continue
-        result.append({
+        name = m["author_name"] or ""
+        message = (m["message"] or "").rstrip("\n")
+        if query and query not in message.lower() and query not in name.lower() and query not in sha.lower():
+            continue
+        if author_q and author_q not in name.lower():
+            continue
+        date = m["author_date"]
+        if since_dt is not None and date is not None and date < since_dt:
+            continue
+        if until_dt is not None and date is not None and date > until_dt:
+            continue
+        is_merge = merge_of.get(sha, False)
+        if merges == "merges" and not is_merge:
+            continue
+        if merges == "regular" and is_merge:
+            continue
+        filtered.append({
             "sha": sha,
-            "author": m["author_name"] or "",
+            "author": name,
             "author_email": m["author_email"],
-            "author_date": m["author_date"],
-            "message": (m["message"] or "").rstrip("\n"),
+            "author_date": date,
+            "message": message,
+            "is_merge": is_merge,
         })
-    return result
+    total = len(filtered)
+    return filtered[offset:offset + limit], total
 
 
 async def get_commit(pool: asyncpg.Pool, repo_id: int, sha: str) -> dict | None:

@@ -458,7 +458,8 @@ class TestReadEndpoints:
         assert commits[-1]["author"] == repo["username"]
         assert commits[-1]["author_email"] == f"{repo['username']}@test.com"
         for c in commits[:-1]:
-            assert set(c) == {"sha", "author", "author_email", "author_date", "message"}
+            assert set(c) == {"sha", "author", "author_email", "author_date", "message", "is_merge"}
+            assert c["is_merge"] is False
             assert c["author"] == "Test User"
             assert c["author_date"]
         # only-requested fields: no parents/diff leak

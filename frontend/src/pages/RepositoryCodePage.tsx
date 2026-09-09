@@ -159,7 +159,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
               <div className="flex flex-wrap items-center gap-3 border-b border-foreground/10 px-4 py-3 text-sm">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{(latest?.author ?? owner).charAt(0).toUpperCase()}</div>
                 <span>                 {latest ? <><strong><Link to={`/${latest.author}`} className="hover:underline">{latest.author}</Link></strong> <span className="text-muted-foreground">committed</span> {latest.message}</> : <span className="text-muted-foreground">Loading history…</span>}</span>
-                {latest && <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha.slice(0, 7)}<button className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</button></span>}
+                {latest && <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha.slice(0, 7)}<Link to={`/${owner}/${repository}/commits${activeBranch ? `?ref=${encodeURIComponent(activeBranch)}` : ""}`} className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</Link></span>}
               </div>
 
               {tree?.error && <p className="px-4 py-6 text-sm text-destructive">{tree.error}</p>}

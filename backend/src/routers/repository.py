@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from typing import List
 import asyncpg
 
@@ -227,18 +227,29 @@ async def list_branches(
 async def list_commits(
     owner_name: str,
     repo_name: str,
+    response: Response,
     ref: str | None = Query(None, description="Branch name, tag, or commit sha. Defaults to default branch."),
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    search: str | None = Query(None, description="Match against message, author, or sha."),
+    author: str | None = Query(None, description="Match against author name."),
+    since: str | None = Query(None, description="Only commits on or after this ISO date."),
+    until: str | None = Query(None, description="Only commits on or before this ISO date."),
+    merges: str | None = Query(None, pattern="^(all|regular|merges)$", description="Commit type filter."),
     current_user: dict | None = Depends(get_optional_current_user),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
-    """Commit history: author, time, message only."""
     repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
     head_sha = await resolve_ref(pool, repo.id, ref)
     if head_sha is None:
         raise HTTPException(status_code=404, detail="Ref not found")
-    return await get_history(pool, repo.id, head_sha, limit, offset)
+    items, total = await get_history(
+        pool, repo.id, head_sha, limit, offset,
+        search=search, author=author, since=since, until=until, merges=merges,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+    return items
 
 @router.get("/{owner_name}/{repo_name}/commits/{sha}", response_model=CommitDetail)
 async def view_commit(

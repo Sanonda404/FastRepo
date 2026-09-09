@@ -70,6 +70,12 @@ export interface CommitSummary {
   author_email: string | null;
   author_date: string;
   message: string;
+  is_merge?: boolean;
+}
+
+export interface CommitPage {
+  commits: CommitSummary[];
+  total: number;
 }
 
 export interface TreeEntry {

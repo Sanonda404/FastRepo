@@ -11,6 +11,7 @@ import RepositoryIssuesPage from "./pages/RepositoryIssuesPage";
 import RepositoryPullsPage from "./pages/RepositoryPullsPage";
 import RepositoryTeamsPage from "./pages/RepositoryTeamsPage";
 import RepositorySettingsPage from "./pages/RepositorySettingsPage";
+import RepositoryCommitsPage from "./pages/RepositoryCommitsPage";
 import RepositoryIssueNew from './pages/RepositoryIssueCreatePage';
 import RepositoryIssueDetails from "./pages/RepositoryIssueDetails";
 import UserProfilePage from "./pages/UserProfilePage";
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/:owner/:repository/issues" element={<RepositoryIssuesPage />} />
         <Route path="/:owner/:repository/issues/create" element={<RepositoryIssueNew />} />
         <Route path="/:owner/:repository/issues/:issueNumber" element={<RepositoryIssueDetails />} />
+        <Route path="/:owner/:repository/commits" element={<RepositoryCommitsPage />} />
         <Route path="/:owner/:repository/pulls" element={<RepositoryPullsPage />} />
         <Route path="/:owner/:repository/teams" element={<RepositoryTeamsPage />} />
         <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />

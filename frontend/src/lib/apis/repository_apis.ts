@@ -2,6 +2,7 @@ import type { NewRepositoryInput } from "../schemas/repository";
 import type {
   BranchResponse,
   CollaboratorResponse,
+  CommitPage,
   CommitSummary,
   FileResponse,
   ForkRepositoryRequest,
@@ -11,7 +12,7 @@ import type {
   TreeResponse,
   PermissionResponse,
 } from "../interfaces";
-import { api } from "./api";
+import { api, apiClient } from "./api";
 import type { RepositoryRole } from "../auth/permissions";
 
 export async function createRepository(data: NewRepositoryInput): Promise<RepositoryResponse> {
@@ -71,6 +72,31 @@ export function getFile(owner: string, name: string, filePath: string, ref: stri
 export function listCommits(owner: string, name: string, ref: string, limit = 1): Promise<CommitSummary[]> {
   const params = new URLSearchParams({ ref, limit: String(limit) });
   return api<CommitSummary[]>(`/repositories/${owner}/${name}/commits?${params}`);
+}
+
+export interface CommitHistoryQuery {
+  ref?: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  author?: string;
+  since?: string;
+  until?: string;
+  merges?: "all" | "regular" | "merges";
+}
+
+export async function listCommitsPage(owner: string, name: string, query: CommitHistoryQuery): Promise<CommitPage> {
+  const params = new URLSearchParams();
+  if (query.ref) params.set("ref", query.ref);
+  params.set("limit", String(query.pageSize ?? 20));
+  params.set("offset", String(((query.page ?? 1) - 1) * (query.pageSize ?? 20)));
+  if (query.search) params.set("search", query.search);
+  if (query.author) params.set("author", query.author);
+  if (query.since) params.set("since", query.since);
+  if (query.until) params.set("until", query.until);
+  if (query.merges && query.merges !== "all") params.set("merges", query.merges);
+  const res = await apiClient.get<CommitSummary[]>(`/repositories/${owner}/${name}/commits?${params}`);
+  return { commits: res.data, total: Number(res.headers["x-total-count"] ?? res.data.length) };
 }
 
 export function listCollaborators(owner: string, name: string): Promise<CollaboratorResponse[]> {
