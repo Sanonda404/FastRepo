@@ -108,7 +108,7 @@ export function deleteRepository(owner: string, name: string): Promise<void> {
 export function updateRepository(
   owner: string,
   name: string,
-  payload: { name?: string; description?: string | null; is_private?: boolean },
+  payload: { name?: string; description?: string | null; is_private?: boolean; default_branch?: string | null },
 ): Promise<RepositoryResponse> {
   return api<RepositoryResponse>(`/repositories/${owner}/${name}`, { method: "PATCH", body: payload });
 }

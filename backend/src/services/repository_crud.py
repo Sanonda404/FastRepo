@@ -29,6 +29,7 @@ from sqls.repository_sqls import (
     GET_STARGAZERS,
     GET_STARRED_REPOS_OF_USER
 )
+from sqls.git_sqls import SET_SYMREF
 from models.git import EMPTY_TREE_SHA
 
 from sqls.git_sqls import INSERT_HEAD_REF, INSERT_COMMIT, UPSERT_REF
@@ -143,14 +144,31 @@ async def list_all_public_repositories(pool : asyncpg.Pool, owner_name : str) ->
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")
 
-async def update_repository(pool: asyncpg.Pool, owner_id: int, repo_name: str, payload: RepositoryUpdateRequest) -> RepositoryResponse:
+async def update_repository(pool: asyncpg.Pool, repo_id: int, repo_name: str, payload: RepositoryUpdateRequest) -> RepositoryResponse:
     async with pool.acquire() as conn:
         try:
-            row = await conn.fetchrow(
-                UPDATE_REPOSITORY, owner_id, repo_name, payload.name, payload.description, payload.is_private, payload.default_branch
-            )
-            if row is None:
-                raise HTTPException(status_code=404, detail="Repository not found")
+            async with conn.transaction():
+                exists = await conn.fetchval(
+                    "SELECT 1 FROM repositories WHERE id = $1 AND name = $2",
+                    repo_id, repo_name,
+                )
+                if not exists:
+                    raise HTTPException(status_code=404, detail="Repository not found")
+                if payload.default_branch:
+                    branch_ref = f"refs/heads/{payload.default_branch}"
+                    exists = await conn.fetchval(
+                        "SELECT 1 FROM refs WHERE repo_id = $1 AND name = $2",
+                        repo_id, branch_ref,
+                    )
+                    if not exists:
+                        raise ValueError(f"Branch '{payload.default_branch}' does not exist")
+                row = await conn.fetchrow(
+                    UPDATE_REPOSITORY, repo_id, repo_name, payload.name, payload.description, payload.is_private, payload.default_branch
+                )
+                if row is None:
+                    raise HTTPException(status_code=404, detail="Repository not found")
+                if payload.default_branch:
+                    await conn.execute(SET_SYMREF, repo_id, "HEAD", f"refs/heads/{payload.default_branch}")
             return RepositoryResponse(**dict(row))
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")

@@ -113,7 +113,7 @@ UPDATE_REPOSITORY = """
         description = COALESCE($4, description),
         is_private = COALESCE($5, is_private),
         default_branch = COALESCE($6, default_branch)
-    WHERE owner_id = $1 AND name = $2
+    WHERE id = $1 AND name = $2
     RETURNING id, owner_id, name, description, is_private, parent_repository_id, default_branch, created_at
 """
 
