@@ -330,7 +330,7 @@
   margin-top: 4px;
   border: 0;
   border-radius: 15px;
-  background: #16a34a;;
+  background: 	#4169E1;
   color: #fff !important;
   font-size: 15px;
   font-weight: 700;
@@ -344,6 +344,7 @@
 .auth-submit-btn:hover {
   filter: brightness(1.04);
   box-shadow: 0 10px 24px rgba(78, 102, 187, 0.18);
+  background: #003366;
 }
 
 .auth-submit-btn:active {
