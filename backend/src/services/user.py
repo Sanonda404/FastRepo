@@ -74,6 +74,18 @@ async def get_user_by_id(pool: asyncpg.Pool, user_id: int) -> dict | None:
         row = await conn.fetchrow("SELECT id, username, email, profile_pic_id FROM users WHERE id=$1", user_id)
         return _with_profile_url(row)
 
+async def update_password(pool: asyncpg.Pool, user_id: int, email: str, new_pass: str) -> None:
+    hashed_password = get_password_hash(new_pass)
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                UPDATE_USER, user_id, email, hashed_password
+            )
+            if row is None:
+                raise ValueError("User not found")
+        except asyncpg.UniqueViolationError:
+            raise ValueError("Username or email already registered")
+
 async def update_user(pool: asyncpg.Pool, user_id: int, user_in: UserUpdate, profile_pic: tuple[bytes, str] | None = None) -> dict:
     hashed_password = None
     if user_in.password is not None:

@@ -1,12 +1,13 @@
 import base64
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+import os
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import ValidationError
 import asyncpg
 
 from services.database import get_pool
-from schemas.user import UserCreate, UserUpdate, UserResponse, UserMeResponse, Token
+from schemas.user import UserCreate, UserUpdate, UserResponse, UserMeResponse, Token, ForgotPasswordRequest, ResetPasswordRequest
 from services.user import (
     create_user,
     get_user_by_username,
@@ -17,11 +18,16 @@ from services.user import (
     get_user_stats,
     get_profile_pic_by_user_id,
     get_profile_pic_by_username,
+    update_password
 )
 from auth.auth import (
+    create_reset_password_token,
     verify_password,
     create_access_token,
     get_current_user,
+    verify_reset_password_token,
+    create_reset_password_link,
+    send_reset_password_email,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
@@ -252,3 +258,55 @@ async def delete_me(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    pool: asyncpg.Pool = Depends(get_pool)
+):
+    """
+    Generates a password reset token and dispatches an email.
+    Always returns 200 to prevent user account enumeration.
+    """
+    user = await get_user_by_username_or_email(pool, payload.email)
+
+    if user:
+        reset_token = create_reset_password_token(
+            data={"sub": user["email"], "user_id": user["id"]}
+        )
+        
+        reset_link = create_reset_password_link(reset_token)
+        
+        background_tasks.add_task(
+            send_reset_password_email,
+            email_to=user["email"],
+            username=user["username"],
+            reset_link=reset_link
+        )
+
+    return {
+        "message": "If an account with that email exists, a password reset link has been sent."
+    }
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    payload: ResetPasswordRequest,
+    pool: asyncpg.Pool = Depends(get_pool)
+):
+    """
+    Verifies the reset JWT and updates the user's password in PostgreSQL.
+    """
+    
+    user_email = verify_reset_password_token(payload.token)
+
+    user = await get_user_by_username_or_email(pool, user_email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+    await update_password(pool, user["id"], user["email"], payload.new_password)
+
+    return {"message": "Password updated successfully. You can now log in with your new password."}
+

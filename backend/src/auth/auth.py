@@ -2,6 +2,9 @@ import base64
 import os
 import bcrypt
 import asyncpg
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, Request, status
@@ -20,6 +23,10 @@ if not SECRET_KEY_ENV:
 SECRET_KEY: str = SECRET_KEY_ENV
 ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+RESET_PASSWORD_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("RESET_PASSWORD_TOKEN_EXPIRE_MINUTES", "5"))
+FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")  # Default to localhost if not set
+GMAIL_USER = os.getenv("GMAIL_USER")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/users/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/users/login", auto_error=False)
@@ -49,6 +56,118 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_reset_password_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=RESET_PASSWORD_TOKEN_EXPIRE_MINUTES)
+        
+    # Enforce scope and timestamp claims
+    to_encode.update({
+        "exp": expire,
+        "type": "reset_password"  # Prevents token reuse on standard login/API endpoints
+    })
+    
+    encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def verify_reset_password_token(token: str) -> str:
+    """
+    Verifies the reset JWT and returns the user's email or ID.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # Verify scope to prevent access-token injection
+        if payload.get("type") != "reset_password":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token scope for password reset."
+            )
+            
+        user_email = payload.get("sub")
+        if user_email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload."
+            )
+            
+        return user_email
+        
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Password reset token has expired or is invalid."
+        )
+
+def create_reset_password_link(reset_token: str) -> str:
+    """
+    Generates a password reset link for the given email.
+    """
+    reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
+    return reset_link
+
+
+def send_reset_password_email(email_to: str, username: str, reset_link: str):
+    """Dispatches a password reset email via Gmail SMTP using STARTTLS."""
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        raise ValueError("Gmail credentials are missing from environment variables.")
+
+    # 1. Construct email message headers
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "Reset Your Password"
+    message["From"] = f"FastRepo Team <{GMAIL_USER}>"
+    message["To"] = email_to
+
+    # 2. Plain-text body fallback
+    text_content = (
+        f"Hi {username},\n\n"
+        f"You requested a password reset. Click the link below to set a new password:\n"
+        f"{reset_link}\n\n"
+        f"This link will expire in 5 minutes. If you did not request this, please ignore this email."
+    )
+
+    # 3. HTML formatted body
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+          <h2 style="color: #2563eb;">Password Reset Request</h2>
+          <p>Hi <strong>{username}</strong>,</p>
+          <p>We received a request to reset your password. Click the button below to choose a new password:</p>
+          <div style="margin: 25px 0;">
+            <a href="{reset_link}" 
+               style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+               Reset Password
+            </a>
+          </div>
+          <p style="font-size: 0.9em; color: #666;">
+            This link will expire in <strong>5 minutes</strong>. If you didn't request a password reset, you can safely ignore this email.
+          </p>
+        </div>
+      </body>
+    </html>
+    """
+
+    message.attach(MIMEText(text_content, "plain"))
+    message.attach(MIMEText(html_content, "html"))
+
+    # 4. Connect to Gmail SMTP server
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()  # Upgrade connection to secure TLS
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, email_to, message.as_string())
+    except Exception as e:
+        # Log email sending errors in production
+        print(f"Failed to send email to {email_to}: {str(e)}")
+        raise e
+
 
 async def get_user_by_id(pool: asyncpg.Pool, id: int) -> dict | None:
     async with pool.acquire() as conn:
