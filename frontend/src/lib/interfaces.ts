@@ -14,6 +14,15 @@ export interface UpdateProfilePayload {
   profile_pic?: File | null;
 }
 
+export interface ForgotPasswordRequest {
+    email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
 export interface UserResponse {
   id: number;
   username: string;

@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import {
   GitBranch,
   Lock,
@@ -449,10 +450,26 @@ export default function AuthPage() {
           <div className="auth-switch">
             {mode === "login" ? (
               <>
-                <span>Don't have an account?</span>
-                <button type="button" onClick={() => switchMode("register")}>
-                  Register
-                </button>
+                <div className="mt-4 flex flex-col items-center gap-2 text-sm">
+                  <Link
+                    to="/forgot-password"
+                    className="text-blue-500 hover:text-blue-800 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-600">Don't have an account?</span>
+                    <button
+                      type="button"
+                      onClick={() => switchMode("register")}
+                      className="text-blue-600 font-medium hover:text-blue-800 hover:underline"
+                    >
+                      Register
+                    </button>
+                  </div>
+                </div>
+
               </>
             ) : (
               <>
