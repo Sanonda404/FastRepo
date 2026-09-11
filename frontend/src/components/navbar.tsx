@@ -81,7 +81,7 @@ export default function Navbar() {
           <>
             <Link
               to="/login"
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
+              className={buttonVariants({ variant: "ghost", size: "lg" })}
             >
               Sign in
             </Link>

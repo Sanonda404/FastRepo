@@ -61,13 +61,13 @@ export default function HomePage() {
           <div className="mt-10 flex items-center justify-center gap-3">
             <Link
               to="/login?mode=register"
-              className={buttonVariants({ variant: "default", size: "lg" })}
+              className="bg-emerald-600 hover:bg-green-800 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300"
             >
               Get started
             </Link>
             <Link
               to="/login"
-              className={buttonVariants({ variant: "outline", size: "lg" })}
+              className="bg-transparent border border-gray-500 hover:bg-gray-100 hover:text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-300"
             >
               Sign in
             </Link>

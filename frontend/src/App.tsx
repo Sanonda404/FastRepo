@@ -18,6 +18,7 @@ import RepositoryIssueDetails from "./pages/RepositoryIssueDetails";
 import UserProfilePage from "./pages/UserProfilePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import DocsPage from "./pages/DocsPage";
 import { Toaster } from "@/components/ui/sonner";
 import { clearAuthToken, getAuthToken } from "@/lib/apis/api";
 
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />
         <Route  path="/forgot-password" element={<ForgotPasswordPage />}/>
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/docs" element={<DocsPage />} />
 
         {/* Default Route */}
         <Route path="*" element={<Navigate to="/" replace />} />
