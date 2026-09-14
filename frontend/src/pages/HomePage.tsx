@@ -7,7 +7,6 @@ import {
   GitMerge,
 } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button-variants";
 import { FeatureGrid } from "@/components/feature-grid";
 import Footer from "@/components/footer";
 

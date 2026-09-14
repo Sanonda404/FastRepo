@@ -64,8 +64,6 @@ apiClient.interceptors.response.use(
 )
 
 export async function loginApi(formData: FormData) {
-  console.log("loginApi called with formData:", formData);
-
   const response = await apiClient.post<{
     access_token: string;
     token_type: string;
@@ -124,6 +122,11 @@ export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const detail: unknown = err.response?.data?.detail
     if (typeof detail === "string") return detail
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { msg?: string }
+      if (first?.msg) return first.msg
+    }
+    if (detail) return String(detail)
     return err.message
   }
   if (err instanceof Error) return err.message

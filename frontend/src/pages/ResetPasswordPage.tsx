@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link, useSearchParams } from "react-router-dom"
+import { useState, useRef, useEffect } from "react"
+import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -9,6 +9,7 @@ import { ArrowRight, KeyRound, Loader2, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { resetPassword } from "@/lib/apis/user_apis"
+import { getErrorMessage } from "@/lib/apis/api"
 
 const resetPasswordSchema = z
   .object({
@@ -24,11 +25,26 @@ type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const token = searchParams.get("token")
+  const tokenRef = useRef<string | null>(searchParams.get("token"))
+
+  useEffect(() => {
+    const t = searchParams.get("token")
+    if (t) {
+      tokenRef.current = t
+      navigate(location.pathname, { replace: true })
+    } else if (!tokenRef.current) {
+      tokenRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const token = tokenRef.current
 
   const form = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),

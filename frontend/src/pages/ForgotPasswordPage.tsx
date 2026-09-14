@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { forgotPassword } from "@/lib/apis/user_apis"
+import { getErrorMessage } from "@/lib/apis/api"
 
 import {
   ArrowRight,
@@ -27,6 +28,7 @@ type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
 export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const form = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -38,8 +40,11 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (data: ForgotPasswordInput) => {
     try {
       setLoading(true)
+      setError(null)
       await forgotPassword(data)
       setSubmitted(true)
+    } catch (err: unknown) {
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -85,6 +90,12 @@ export default function ForgotPasswordPage() {
             onSubmit={form.handleSubmit(handleSubmit)}
             className="space-y-5"
           >
+            {error && (
+              <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">
                 Email address
