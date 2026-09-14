@@ -50,14 +50,9 @@ export default function ResetPasswordPage() {
 
       await resetPassword({ token, new_password: data.password })
 
-      console.log({
-        token,
-        new_password: data.password,
-      })
-
       setSuccess(true)
-    } catch {
-      setError("Unable to reset your password. Please try again. Error")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || "Unable to reset your password. Please try again.")
     } finally {
       setLoading(false)
     }
