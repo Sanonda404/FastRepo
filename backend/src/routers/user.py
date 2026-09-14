@@ -1,7 +1,11 @@
+import asyncio
 import base64
+import logging
+import smtplib
+import socket
 from datetime import timedelta
 import os
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import ValidationError
 import asyncpg
@@ -12,6 +16,7 @@ from services.user import (
     create_user,
     get_user_by_username,
     get_user_by_username_or_email,
+    get_user_by_email,
     get_user_by_id,
     update_user,
     delete_user,
@@ -262,28 +267,36 @@ async def delete_me(
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 async def forgot_password(
     payload: ForgotPasswordRequest,
-    background_tasks: BackgroundTasks,
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     """
-    Generates a password reset token and dispatches an email.
-    Always returns 200 to prevent user account enumeration.
+    Generates a password reset token and dispatches an email synchronously.
     """
-    user = await get_user_by_username_or_email(pool, payload.email)
+    user = await get_user_by_email(pool, payload.email)
 
     if user:
         reset_token = create_reset_password_token(
             data={"sub": user["email"], "user_id": user["id"]}
         )
-        
+
         reset_link = create_reset_password_link(reset_token)
-        
-        background_tasks.add_task(
-            send_reset_password_email,
-            email_to=user["email"],
-            username=user["username"],
-            reset_link=reset_link
-        )
+
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(
+                    send_reset_password_email,
+                    email_to=user["email"],
+                    username=user["username"],
+                    reset_link=reset_link,
+                ),
+                timeout=10,
+            )
+        except (smtplib.SMTPException, OSError, socket.error, TimeoutError, asyncio.TimeoutError, ValueError) as e:
+            logging.getLogger(__name__).exception("Failed to send reset email to %s", user["email"])
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not send reset email. Please try again.",
+            ) from e
 
     return {
         "message": "If an account with that email exists, a password reset link has been sent."
@@ -295,16 +308,16 @@ async def reset_password(
     pool: asyncpg.Pool = Depends(get_pool)
 ):
     """
-    Verifies the reset JWT and updates the user's password in PostgreSQL.
+    Verifies the reset JWT and updates the user's password
     """
     
     user_email = verify_reset_password_token(payload.token)
 
-    user = await get_user_by_username_or_email(pool, user_email)
+    user = await get_user_by_email(pool, user_email)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found."
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Password reset token has expired or is invalid.",
         )
     await update_password(pool, user["id"], user["email"], payload.new_password)
 

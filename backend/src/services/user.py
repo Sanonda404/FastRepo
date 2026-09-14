@@ -5,6 +5,7 @@ from sqls.user_sqls import (
     REGISTER_USER,
     GET_USER_BY_USERNAME,
     GET_USER_BY_EMAIL_OR_USERNAME,
+    GET_USER_BY_EMAIL,
     UPDATE_USER,
     DELETE_USER,
     GET_USER_STATS,
@@ -69,6 +70,11 @@ async def get_user_by_username_or_email(pool : asyncpg.Pool, identifier: str) ->
         row = await conn.fetchrow(GET_USER_BY_EMAIL_OR_USERNAME, identifier)
         return _with_profile_url(row)
 
+async def get_user_by_email(pool: asyncpg.Pool, email: str) -> dict | None:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(GET_USER_BY_EMAIL, email)
+        return _with_profile_url(row)
+
 async def get_user_by_id(pool: asyncpg.Pool, user_id: int) -> dict | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT id, username, email, profile_pic_id FROM users WHERE id=$1", user_id)
@@ -77,14 +83,11 @@ async def get_user_by_id(pool: asyncpg.Pool, user_id: int) -> dict | None:
 async def update_password(pool: asyncpg.Pool, user_id: int, email: str, new_pass: str) -> None:
     hashed_password = get_password_hash(new_pass)
     async with pool.acquire() as conn:
-        try:
-            row = await conn.fetchrow(
-                UPDATE_USER, user_id, email, hashed_password
-            )
-            if row is None:
-                raise ValueError("User not found")
-        except asyncpg.UniqueViolationError:
-            raise ValueError("Username or email already registered")
+        row = await conn.fetchrow(
+            UPDATE_USER, user_id, email, hashed_password
+        )
+        if row is None:
+            raise ValueError("User not found")
 
 async def update_user(pool: asyncpg.Pool, user_id: int, user_in: UserUpdate, profile_pic: tuple[bytes, str] | None = None) -> dict:
     hashed_password = None

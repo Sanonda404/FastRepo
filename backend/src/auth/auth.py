@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import bcrypt
 import asyncpg
@@ -24,7 +25,7 @@ SECRET_KEY: str = SECRET_KEY_ENV
 ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 RESET_PASSWORD_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("RESET_PASSWORD_TOKEN_EXPIRE_MINUTES", "5"))
-FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")  # Default to localhost if not set
+FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
@@ -65,10 +66,9 @@ def create_reset_password_token(data: dict, expires_delta: Optional[timedelta] =
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=RESET_PASSWORD_TOKEN_EXPIRE_MINUTES)
         
-    # Enforce scope and timestamp claims
     to_encode.update({
         "exp": expire,
-        "type": "reset_password"  # Prevents token reuse on standard login/API endpoints
+        "type": "reset_password"
     })
     
     encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -82,7 +82,6 @@ def verify_reset_password_token(token: str) -> str:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         
-        # Verify scope to prevent access-token injection
         if payload.get("type") != "reset_password":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -117,13 +116,11 @@ def send_reset_password_email(email_to: str, username: str, reset_link: str):
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         raise ValueError("Gmail credentials are missing from environment variables.")
 
-    # 1. Construct email message headers
     message = MIMEMultipart("alternative")
     message["Subject"] = "Reset Your Password"
     message["From"] = f"FastRepo Team <{GMAIL_USER}>"
     message["To"] = email_to
 
-    # 2. Plain-text body fallback
     text_content = (
         f"Hi {username},\n\n"
         f"You requested a password reset. Click the link below to set a new password:\n"
@@ -131,7 +128,6 @@ def send_reset_password_email(email_to: str, username: str, reset_link: str):
         f"This link will expire in 5 minutes. If you did not request this, please ignore this email."
     )
 
-    # 3. HTML formatted body
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -157,16 +153,11 @@ def send_reset_password_email(email_to: str, username: str, reset_link: str):
     message.attach(MIMEText(text_content, "plain"))
     message.attach(MIMEText(html_content, "html"))
 
-    # 4. Connect to Gmail SMTP server
-    try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()  # Upgrade connection to secure TLS
-            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_USER, email_to, message.as_string())
-    except Exception as e:
-        # Log email sending errors in production
-        print(f"Failed to send email to {email_to}: {str(e)}")
-        raise e
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+        server.starttls()
+        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        server.sendmail(GMAIL_USER, email_to, message.as_string())
+    logging.getLogger(__name__).info("Sent password reset email to %s", email_to)
 
 
 async def get_user_by_id(pool: asyncpg.Pool, id: int) -> dict | None:

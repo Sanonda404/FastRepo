@@ -19,6 +19,13 @@ GET_USER_BY_EMAIL_OR_USERNAME = """
         WHERE email = $1 OR username = $1;
 """
 
+# get user's information by email
+GET_USER_BY_EMAIL = """
+        SELECT id, username, email, profile_pic_id
+        FROM users
+        WHERE email = $1;
+"""
+
 # get user's information by id
 GET_USER_BY_ID = """
         SELECT id, username, email, password_hash, profile_pic_id
