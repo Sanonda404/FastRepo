@@ -8,11 +8,13 @@ from schemas.pull_request import (
     PullRequestUpdateRequest,
     MergeResponse,
 )
+from schemas.repository import FileChange
 from services.repository_crud import get_repository, can_access_repository
 from services.pull_request import (
     create_pull_request,
     get_all_pull_requests,
     get_pull_request,
+    get_pull_files,
     update_pull_request,
     delete_pull_request,
 )
@@ -99,6 +101,24 @@ async def modify_pull(
     if payload.state is not None and payload.state not in ("open", "closed"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid state")
     return await update_pull_request(pool, repo.id, pull_request_id, payload)
+
+
+@router.get("/{owner_name}/{repo_name}/{pull_request_id}/files", response_model=list[FileChange])
+async def pull_files(
+    owner_name: str,
+    repo_name: str,
+    pull_request_id: int,
+    current_user=Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    pr = await get_pull_request(pool, repo.id, pull_request_id)
+    if pr is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pull request not found")
+    try:
+        return await get_pull_files(pool, pr)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{owner_name}/{repo_name}/{pull_request_id}", status_code=status.HTTP_204_NO_CONTENT)

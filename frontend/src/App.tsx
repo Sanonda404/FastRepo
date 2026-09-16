@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/auth/use-auth";
 import RepositoryCreatePage from "./pages/RepositoryCreatePage";
 import RepositoryIssuesPage from "./pages/RepositoryIssuesPage";
 import RepositoryPullsPage from "./pages/RepositoryPullsPage";
+import PullCreatePage from "./pages/PullCreatePage";
+import PullDetailPage from "./pages/PullDetailPage";
 import RepositoryTeamsPage from "./pages/RepositoryTeamsPage";
 import RepositorySettingsPage from "./pages/RepositorySettingsPage";
 import RepositoryCommitsPage from "./pages/RepositoryCommitsPage";
@@ -77,6 +79,8 @@ export default function App() {
         <Route path="/:owner/:repository/commits" element={<RepositoryCommitsPage />} />
         <Route path="/:owner/:repository/commits/:sha" element={<RepositoryCommitReportPage />} />
         <Route path="/:owner/:repository/pulls" element={<RepositoryPullsPage />} />
+        <Route path="/:owner/:repository/pulls/create" element={<PullCreatePage />} />
+        <Route path="/:owner/:repository/pulls/:pullNumber" element={<PullDetailPage />} />
         <Route path="/:owner/:repository/teams" element={<RepositoryTeamsPage />} />
         <Route path="/:owner/:repository/settings" element={<RepositorySettingsPage />} />
         <Route  path="/forgot-password" element={<ForgotPasswordPage />}/>

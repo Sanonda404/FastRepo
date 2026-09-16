@@ -7,6 +7,7 @@ export interface RoleCapabilities {
   canPushDirectly: boolean;
   canCreateBranch: boolean;
   canDeleteRepo: boolean;
+  canOpenPullRequest: boolean;
 }
 
 export const ROLE_CAPABILITIES: Record<RepositoryRole, RoleCapabilities> = {
@@ -17,6 +18,7 @@ export const ROLE_CAPABILITIES: Record<RepositoryRole, RoleCapabilities> = {
     canPushDirectly: true,
     canCreateBranch: true,
     canDeleteRepo: true,
+    canOpenPullRequest: true,
   },
   Admin: {
     canManageSettings: true,
@@ -25,6 +27,7 @@ export const ROLE_CAPABILITIES: Record<RepositoryRole, RoleCapabilities> = {
     canPushDirectly: true,
     canCreateBranch: true,
     canDeleteRepo: false,
+    canOpenPullRequest: true,
   },
   Maintainer: {
     canManageSettings: false,
@@ -33,6 +36,7 @@ export const ROLE_CAPABILITIES: Record<RepositoryRole, RoleCapabilities> = {
     canPushDirectly: true,
     canCreateBranch: true,
     canDeleteRepo: false,
+    canOpenPullRequest: true,
   },
   Member: {
     canManageSettings: false,
@@ -41,6 +45,7 @@ export const ROLE_CAPABILITIES: Record<RepositoryRole, RoleCapabilities> = {
     canPushDirectly: false, // Subject to team/path rules
     canCreateBranch: true,
     canDeleteRepo: false,
+    canOpenPullRequest: true,
   },
   Viewer: {
     canManageSettings: false,
@@ -49,5 +54,6 @@ export const ROLE_CAPABILITIES: Record<RepositoryRole, RoleCapabilities> = {
     canPushDirectly: false,
     canCreateBranch: false,
     canDeleteRepo: false,
+    canOpenPullRequest: false,
   },
 };

@@ -58,6 +58,11 @@ GET_BRANCH_REF = """
     WHERE repo_id = $1 AND name = $2
 """
 
+REF_EXISTS = """
+    SELECT 1 FROM refs
+    WHERE repo_id = $1 AND name = $2
+"""
+
 GET_REPO_BY_ID = """
     SELECT id, owner_id, name, description, is_private, default_branch, parent_repository_id, created_at
     FROM repositories WHERE id = $1

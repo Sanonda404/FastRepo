@@ -154,6 +154,33 @@ export interface CollaboratorResponse {
 }
 
 
+export type PullState = "open" | "closed"
+
+export interface PullRequest {
+  id: number
+  repository_id: number
+  author_id: number | null
+  author_username: string | null
+  title: string | null
+  body: string | null
+  state: PullState
+  source_branch: string
+  target_branch: string
+  source_repository_id: number | null
+  created_at: string
+  closed_at: string | null
+}
+
+export interface PullReview {
+  id: number
+  pull_request_id: number
+  reviewer_id: number | null
+  reviewer_username: string | null
+  decision: string
+  body: string | null
+  reviewed_at: string
+}
+
 export type IssueStatus = "open" | "closed"
 
 export interface IssueLabel {
