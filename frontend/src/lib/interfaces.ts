@@ -183,8 +183,12 @@ export interface PullReview {
 
 export interface PullMergeable {
   mergeable: boolean
-  reason?: string
+  reason: string | null
   conflicts: string[]
+}
+
+export interface MergePullResult extends PullRequest {
+  merge_commit_sha: string | null
 }
 
 export type IssueStatus = "open" | "closed"

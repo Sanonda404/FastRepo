@@ -130,9 +130,11 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     if (pr?.state !== "open") {
+      setMergeStatus(null)
       return
     }
     let active = true
+    setMergeStatusLoading(true)
     getPullMergeable(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -291,7 +293,13 @@ export default function PullDetailPage() {
                       <Button
                         type="button"
                         size="sm"
-                        disabled={mutating || mergeStatusLoading || !mergeStatus?.mergeable}
+                        disabled={
+                          mutating ||
+                          mergeStatusLoading ||
+                          !mergeStatus?.mergeable ||
+                          hasRejected ||
+                          hasRequestedChanges
+                        }
                         onClick={handleMerge}
                       >
                         {mutating
@@ -305,7 +313,15 @@ export default function PullDetailPage() {
                 )}
                 {canMerge && pr.state === "open" && (
                   <div className="mt-2 text-xs">
-                    {mergeStatusLoading ? (
+                    {hasRejected ? (
+                      <span className="font-semibold text-destructive">
+                        Merging blocked — pull request has been rejected by a reviewer.
+                      </span>
+                    ) : hasRequestedChanges ? (
+                      <span className="text-amber-600 dark:text-amber-400">
+                        Merging blocked — changes have been requested.
+                      </span>
+                    ) : mergeStatusLoading ? (
                       <span className="text-muted-foreground">Checking mergeability...</span>
                     ) : mergeStatus?.mergeable ? (
                       <span className="text-emerald-600 dark:text-emerald-400">
@@ -316,7 +332,7 @@ export default function PullDetailPage() {
                         {mergeStatus?.reason ?? mergeError ?? "Not mergeable."}
                       </span>
                     )}
-                    {mergeStatus && mergeStatus.conflicts.length > 0 && (
+                    {!hasRejected && !hasRequestedChanges && mergeStatus && mergeStatus.conflicts.length > 0 && (
                       <ul className="mt-1 space-y-0.5 font-mono">
                         {mergeStatus.conflicts.map((path) => (
                           <li key={path} className="text-destructive">conflict: {path}</li>
