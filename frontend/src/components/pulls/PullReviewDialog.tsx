@@ -1,92 +1,138 @@
 import { useState } from "react"
-import { MessageSquarePlus, Send } from "lucide-react"
-
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
-import {
-  pullReviewSchema,
-  type PullReviewInput,
-} from "@/lib/schemas/pull"
-
 import { Button } from "@/components/ui/button"
-import { buttonVariants } from "@/components/ui/button-variants"
-import { Label } from "@/components/ui/label"
-
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { pullReviewSchema, type PullReviewInput } from "@/lib/schemas/pull"
 
-type Props = {
-  loading: boolean
+interface PullReviewDialogProps {
   onSubmit: (data: PullReviewInput) => Promise<void>
+  loading?: boolean
 }
 
-export default function PullReviewDialog({ loading, onSubmit }: Props) {
+export default function PullReviewDialog({
+  onSubmit,
+  loading = false,
+}: PullReviewDialogProps) {
   const [open, setOpen] = useState(false)
 
   const form = useForm<PullReviewInput>({
     resolver: zodResolver(pullReviewSchema),
     defaultValues: {
+      decision: "APPROVE",
       body: "",
     },
   })
 
-  const handleSubmit = async (data: PullReviewInput) => {
+  const handleSubmit = async (values: PullReviewInput) => {
     try {
-      await onSubmit(data)
+      await onSubmit(values)
       form.reset()
       setOpen(false)
-    } catch {
-      // Parent displays the API error.
+    } catch (error) {
+      console.error("Failed to submit review:", error)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className={buttonVariants({ size: "sm", className: "rounded-lg" })}>
-        <MessageSquarePlus className="mr-2 size-4" />
-        Add review
+      <DialogTrigger>
+        <Button disabled={loading} size="sm">
+          {loading ? "Submitting..." : "Submit Review"}
+        </Button>
       </DialogTrigger>
-
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add a review</DialogTitle>
+          <DialogTitle>Review Pull Request</DialogTitle>
           <DialogDescription>
-            Share feedback or questions about this pull request.
+            Submit your decision and review comment on this pull request.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="pull-review">Review</Label>
-            <textarea
-              id="pull-review"
-              rows={6}
-              placeholder="Write your review..."
-              className="flex w-full resize-none rounded-xl border bg-background px-3 py-2.5 text-sm shadow-sm outline-none transition placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-              {...form.register("body")}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="decision"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Decision</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select review decision" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="APPROVE">Approve</SelectItem>
+                      <SelectItem value="REQUEST_CHANGES">Request Changes</SelectItem>
+                      <SelectItem value="COMMENT">Comment</SelectItem>
+                      <SelectItem value="REJECT">Reject</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            {form.formState.errors.body && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.body?.message}
-              </p>
-            )}
-          </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={loading} className="rounded-lg">
-              <Send className="mr-2 size-4" />
-              {loading ? "Posting..." : "Post review"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <FormField
+              control={form.control}
+              name="body"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormLabel>Comments</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder="Leave your review comments here..."
+                      rows={4}
+                      aria-invalid={fieldState.invalid}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Submitting..." : "Submit"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

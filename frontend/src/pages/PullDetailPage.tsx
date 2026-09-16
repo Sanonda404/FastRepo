@@ -16,7 +16,9 @@ import {
   deletePullReview,
   getPull,
   getPullFiles,
+  getPullMergeable,
   listPullReviews,
+  mergePull,
 } from "@/lib/apis/pull_apis"
 import { getRole } from "@/lib/apis/repository_apis"
 import { getCollaborators } from "@/lib/apis/repository_collaborator_apis"
@@ -25,6 +27,7 @@ import { formatRelativeDate } from "@/lib/format-date"
 import type {
   CollaboratorResponse,
   FileChange,
+  PullMergeable,
   PullRequest,
   PullReview,
 } from "@/lib/interfaces"
@@ -47,6 +50,10 @@ export default function PullDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [reviewsError, setReviewsError] = useState<string | null>(null)
   const [filesError, setFilesError] = useState<string | null>(null)
+  const [mergeStatus, setMergeStatus] = useState<PullMergeable | null>(null)
+  const [mergeStatusLoading, setMergeStatusLoading] = useState(false)
+  const [mergeError, setMergeError] = useState<string | null>(null)
+  const [filesNonce, setFilesNonce] = useState(0)
   const [mutating, setMutating] = useState(false)
 
   useEffect(() => {
@@ -60,7 +67,7 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     let active = true
-    setLoading(true)
+    // Removed synchronous setLoading(true)
     getPull(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -81,7 +88,7 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     let active = true
-    setReviewsLoading(true)
+    // Removed synchronous setReviewsLoading(true)
     listPullReviews(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -102,7 +109,7 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     let active = true
-    setFilesLoading(true)
+    // Removed synchronous setFilesLoading(true)
     getPullFiles(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -119,10 +126,38 @@ export default function PullDetailPage() {
     return () => {
       active = false
     }
-  }, [owner, repository, pullId])
+  }, [owner, repository, pullId, filesNonce])
+
+  useEffect(() => {
+    if (pr?.state !== "open") {
+      return
+    }
+    let active = true
+    getPullMergeable(owner, repository, pullId)
+      .then((data) => {
+        if (active) {
+          setMergeStatus(data)
+          setMergeError(null)
+        }
+      })
+      .catch((err) => {
+        if (active) setMergeError(getErrorMessage(err))
+      })
+      .finally(() => {
+        if (active) setMergeStatusLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [owner, repository, pullId, pr?.state])
 
   const isCollaborator =
     role === "Owner" || collaborators.some((c) => c.username === username)
+
+  // Direct decisions from the reviews array
+  const hasRejected = reviews.some((r) => r.decision === "REJECT")
+  const hasRequestedChanges = reviews.some((r) => r.decision === "REQUEST_CHANGES")
+  const isApproved = reviews.some((r) => r.decision === "APPROVE")
 
   const handleCreateReview = async (data: PullReviewInput) => {
     setMutating(true)
@@ -168,10 +203,28 @@ export default function PullDetailPage() {
     }
   }
 
+  const handleMerge = async () => {
+    if (!pr || pr.state !== "open") return
+    setMutating(true)
+    try {
+      const merged = await mergePull(owner, repository, pullId)
+      setPr(merged)
+      setMergeError(null)
+      setFilesNonce((n) => n + 1)
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setMergeError(message)
+      setError(message)
+    } finally {
+      setMutating(false)
+    }
+  }
+
   const additions = files.reduce((n, f) => n + f.additions, 0)
   const deletions = files.reduce((n, f) => n + f.deletions, 0)
   const canModify = pr != null && (pr.author_username === username || isCollaborator)
   const isClosed = pr?.state === "closed"
+  const canMerge = role === "Owner" || role === "Admin" || role === "Maintainer"
 
   return (
     <RepositoryLayout
@@ -190,6 +243,7 @@ export default function PullDetailPage() {
             </div>
           ) : (
             <>
+              {/* Header section */}
               <section className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -219,7 +273,7 @@ export default function PullDetailPage() {
                   <p className="mt-3 whitespace-pre-wrap text-sm">{pr.body}</p>
                 )}
                 {canModify && (
-                  <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -233,15 +287,64 @@ export default function PullDetailPage() {
                           ? "Close pull request"
                           : "Reopen pull request"}
                     </Button>
+                    {canMerge && pr.state === "open" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={mutating || mergeStatusLoading || !mergeStatus?.mergeable}
+                        onClick={handleMerge}
+                      >
+                        {mutating
+                          ? "Merging..."
+                          : mergeStatusLoading
+                            ? "Checking..."
+                            : "Merge pull request"}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {canMerge && pr.state === "open" && (
+                  <div className="mt-2 text-xs">
+                    {mergeStatusLoading ? (
+                      <span className="text-muted-foreground">Checking mergeability...</span>
+                    ) : mergeStatus?.mergeable ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        Ready to merge — no conflicts.
+                      </span>
+                    ) : (
+                      <span className="text-destructive">
+                        {mergeStatus?.reason ?? mergeError ?? "Not mergeable."}
+                      </span>
+                    )}
+                    {mergeStatus && mergeStatus.conflicts.length > 0 && (
+                      <ul className="mt-1 space-y-0.5 font-mono">
+                        {mergeStatus.conflicts.map((path) => (
+                          <li key={path} className="text-destructive">conflict: {path}</li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 )}
               </section>
 
+              {/* Reviews section */}
               <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-foreground/10 bg-muted/20 px-6 py-4">
                   <div className="flex items-center gap-2">
                     <MessageCircle className="size-4 text-primary" />
                     <h2 className="font-semibold">Reviews</h2>
+                  </div>
+                  {/* Cleaned Review Status Indicator */}
+                  <div className="text-xs font-medium">
+                    {hasRejected ? (
+                      <span className="font-semibold text-destructive">Rejected</span>
+                    ) : hasRequestedChanges ? (
+                      <span className="text-amber-600 dark:text-amber-400">Changes requested</span>
+                    ) : isApproved ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">Approved for merge</span>
+                    ) : (
+                      <span className="text-muted-foreground">Pending decisions</span>
+                    )}
                   </div>
                 </div>
                 <div className="p-6">
@@ -280,11 +383,13 @@ export default function PullDetailPage() {
                         <PullReviewItem
                           key={review.id}
                           review={review}
-                          disabled={mutating || isClosed}
-                          canDelete={
+                          isDeleting={mutating}
+                          onDeleteReview={
                             review.reviewer_username === username || isCollaborator
+                              ? handleDeleteReview
+                              : undefined
                           }
-                          onDelete={handleDeleteReview}
+                          currentUsername={username ?? ""}
                         />
                       ))}
                     </div>
@@ -292,6 +397,7 @@ export default function PullDetailPage() {
                 </div>
               </section>
 
+              {/* Changes section */}
               <section aria-label="Pull request diff" className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 px-1">
                   <h2 className="font-semibold">Changes</h2>

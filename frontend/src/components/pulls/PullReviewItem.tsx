@@ -1,50 +1,68 @@
-import { Trash2 } from "lucide-react"
-
 import type { PullReview } from "@/lib/interfaces"
-import { formatRelativeDate } from "@/lib/format-date"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
-type Props = {
+interface PullReviewItemProps {
   review: PullReview
-  disabled: boolean
-  canDelete: boolean
-  onDelete: (id: number) => Promise<void>
+  currentUsername: string
+  onDeleteReview?: (reviewId: number) => Promise<void>
+  isDeleting?: boolean
 }
 
-export default function PullReviewItem({ review, disabled, canDelete, onDelete }: Props) {
+export default function PullReviewItem({
+  review,
+  currentUsername,
+  onDeleteReview,
+  isDeleting = false,
+}: PullReviewItemProps) {
+  const isAuthor = review.reviewer_username === currentUsername
+  console.log(isAuthor, currentUsername, review.reviewer_username)
+
+  const getDecisionBadge = (decision: PullReview["decision"]) => {
+    switch (decision) {
+      case "APPROVE":
+        return <Badge className="bg-emerald-600 hover:bg-emerald-700">Approved</Badge>
+      case "REQUEST_CHANGES":
+        return <Badge className="text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800">Changes Requested</Badge>
+      case "REJECT":
+        return <Badge variant="destructive">Rejected</Badge>
+      case "COMMENT":
+      default:
+        return <Badge variant="secondary">Commented</Badge>
+    }
+  }
+
   return (
-    <article className="group rounded-xl border border-foreground/10 bg-background p-4 transition-colors hover:bg-muted/30">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            {(review.reviewer_username ?? "?").charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold">{review.reviewer_username ?? "unknown"}</span>
-              <span className="text-xs text-muted-foreground">reviewed</span>
-            </div>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              {formatRelativeDate(review.reviewed_at)}
-            </p>
-          </div>
+    <div className="rounded-lg border p-4 space-y-2 bg-card text-card-foreground shadow-sm">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="font-semibold text-sm truncate max-w-[180px]"
+            title={review.reviewer_username ?? "Unregistered"}
+          >
+            {review.reviewer_username ?? "Unregistered"}
+          </span>
+          <div className="shrink-0">{getDecisionBadge(review.decision)}</div>
         </div>
 
-        {canDelete && (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onDelete(review.id)}
-            className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
-            title="Delete review"
+        {isAuthor && onDeleteReview && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDeleteReview(review.id)}
+            disabled={isDeleting}
+            className="h-8 rounded-lg px-2 text-xs text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-600"
           >
-            <Trash2 className="size-4" />
-          </button>
+            {isDeleting ? "Deleting..." : "Delete"}
+          </Button>
         )}
       </div>
 
-      <div className="mt-4 rounded-xl border border-foreground/10 bg-muted/30 px-4 py-3">
-        <p className="whitespace-pre-wrap text-sm">{review.body}</p>
-      </div>
-    </article>
+      {review.body && (
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap pt-1">
+          {review.body}
+        </p>
+      )}
+    </div>
   )
 }

@@ -3,6 +3,7 @@ import type {
   FileChange,
   PullRequest,
   PullReview,
+  PullMergeable,
 } from "../interfaces";
 import { api } from "./api";
 
@@ -29,7 +30,7 @@ export async function getPullFiles(owner: string, repo_name: string, pull_id: nu
 export async function createPullReview(owner: string, repo_name: string, pull_id: number, data: PullReviewInput): Promise<PullReview> {
   return api<PullReview>(`/pulls/${owner}/${repo_name}/${pull_id}/reviews`, {
     method: "POST",
-    body: { ...data, decision: "comment" },
+    body: data,
   });
 }
 
@@ -39,4 +40,25 @@ export async function listPullReviews(owner: string, repo_name: string, pull_id:
 
 export async function deletePullReview(owner: string, repo_name: string, pull_id: number, review_id: number): Promise<void> {
   return api<void>(`/pulls/${owner}/${repo_name}/${pull_id}/reviews/${review_id}`, { method: "DELETE" });
+}
+
+{/* update this two, first one checks if the pull request is mergeable, second one merges the pull request */}
+export async function getPullMergeable(
+  owner: string,
+  repo_name: string,
+  pull_id: number
+): Promise<PullMergeable> {
+  return api<PullMergeable>(`/pulls/${owner}/${repo_name}/${pull_id}/mergeable`, {
+    method: "GET",
+  });
+}
+
+export async function mergePull(
+  owner: string,
+  repo_name: string,
+  pull_id: number
+): Promise<PullRequest> {
+  return api<PullRequest>(`/pulls/${owner}/${repo_name}/${pull_id}/merge`, {
+    method: "POST",
+  });
 }

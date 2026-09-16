@@ -181,6 +181,12 @@ export interface PullReview {
   reviewed_at: string
 }
 
+export interface PullMergeable {
+  mergeable: boolean
+  reason?: string
+  conflicts: string[]
+}
+
 export type IssueStatus = "open" | "closed"
 
 export interface IssueLabel {

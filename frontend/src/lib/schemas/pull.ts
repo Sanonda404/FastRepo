@@ -26,7 +26,10 @@ export const pullCreateSchema = z.object({
 export type PullCreateInput = z.infer<typeof pullCreateSchema>;
 
 export const pullReviewSchema = z.object({
-  body: z.string().min(1, "Comment cannot be empty"),
+  body: z.string().min(1, { message: "Review comment cannot be empty" }),
+  decision: z.enum(["COMMENT", "APPROVE", "REQUEST_CHANGES", "REJECT"], {
+    message: "Please select a decision type",
+  }),
 });
 
 export type PullReviewInput = z.infer<typeof pullReviewSchema>;
