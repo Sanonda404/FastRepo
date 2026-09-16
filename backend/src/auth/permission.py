@@ -90,6 +90,49 @@ async def can_push_to_folder(
                 detail="Internal database error while verifying folder permissions."
             )
 
+async def is_privileged_on_repo(
+    pool: asyncpg.Pool,
+    repo_id: int,
+    owner_id: int,
+    user_id: int,
+) -> bool:
+    if owner_id == user_id:
+        return True
+    collaborator = await get_collaborator_details(pool, repo_id, user_id)
+    if not collaborator:
+        return False
+    return collaborator.role in ('Admin', 'Maintainer')
+
+
+async def can_push_to_branch_by_id(
+    pool: asyncpg.Pool,
+    repo_id: int,
+    owner_id: int,
+    branch_name: str,
+    user_id: int,
+) -> bool:
+    if owner_id == user_id:
+        return True
+    collaborator = await get_collaborator_details(pool, repo_id, user_id)
+    if not collaborator or collaborator.role == 'Viewer':
+        return False
+    if collaborator.role in ('Maintainer', 'Admin'):
+        return True
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(
+                CHECK_BRANCH_PERMISSION, repo_id, user_id, branch_name
+            )
+            if row is None:
+                return False
+            return row["allow_write"]
+        except asyncpg.PostgresError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal database error while verifying permissions."
+            )
+
+
 async def can_manage_team(
     pool: asyncpg.Pool, 
     owner_name: str, 

@@ -1,4 +1,6 @@
 import asyncpg
+from auth.permission import is_privileged_on_repo, can_push_to_branch_by_id
+from services.repository_collaborator import get_collaborator_details
 
 from schemas.pull_request import (
     PullRequestCreateRequest,
@@ -38,16 +40,36 @@ async def create_pull_request(
     target_r: dict,
     payload: PullRequestCreateRequest,
 ) -> PullRequestResponse:
-    if payload.source_repository_id is not None:
+
+    async with pool.acquire() as conn:
+        target = await conn.fetchrow(GET_REPO_BY_ID, target_r["id"])
+    if target is None:
+        raise ValueError("Target repository not found")
+    is_cross = payload.source_repository_id is not None and payload.source_repository_id != target["id"]
+    if is_cross:
         async with pool.acquire() as conn:
             src = await conn.fetchrow(GET_REPO_BY_ID, payload.source_repository_id)
         if src is None:
             raise ValueError("Source repository not found")
-        if src["id"] != target_r["id"] and src["parent_repository_id"] != target_r["id"]:
+        if src["is_private"]:
+            raise ValueError("Private repositories cannot be used as source for another repository")
+        if src["id"] != target["id"] and src["parent_repository_id"] != target["id"]:
             raise ValueError("Source repository is not a fork of the target repository")
+        if not await is_privileged_on_repo(pool, src["id"], src["owner_id"], author_id):
+            raise PermissionError("Only owner, admin, or maintainer of the source repository can open this pull request")
     else:
         if payload.source_branch == payload.target_branch:
             raise ValueError("Source and target branch must be different")
+        if target["owner_id"] != author_id:
+            collaborator = await get_collaborator_details(pool, target["id"], author_id)
+            if collaborator is None or collaborator.role == 'Viewer':
+                raise PermissionError("Only collaborators can open pull requests on this repository")
+            if collaborator.role not in ('Admin', 'Maintainer'):
+                allowed = await can_push_to_branch_by_id(
+                    pool, target["id"], target["owner_id"], payload.source_branch, author_id
+                )
+                if not allowed:
+                    raise PermissionError("You do not have permission to open a pull request from this branch")
 
     source_repo_id = payload.source_repository_id or target_r["id"]
     if not await _branch_exists(pool, source_repo_id, payload.source_branch):
