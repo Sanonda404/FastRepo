@@ -46,3 +46,8 @@ class ReviewResponse(BaseModel):
 
 class MergeResponse(PullRequestResponse):
     merge_commit_sha: str | None = None
+
+class MergeableResponse(BaseModel):
+    mergeable: bool
+    reason: str | None = None
+    conflicts: list[str] = []

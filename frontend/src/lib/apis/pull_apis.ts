@@ -1,6 +1,8 @@
 import type { PullCreateInput, PullReviewInput } from "../schemas/pull";
 import type {
   FileChange,
+  MergePullResult,
+  PullMergeable,
   PullRequest,
   PullReview,
 } from "../interfaces";
@@ -24,6 +26,14 @@ export async function closeOrReopenPull(owner: string, repo_name: string, pull_i
 
 export async function getPullFiles(owner: string, repo_name: string, pull_id: number): Promise<FileChange[]> {
   return api<FileChange[]>(`/pulls/${owner}/${repo_name}/${pull_id}/files`, { method: "GET" });
+}
+
+export async function getPullMergeable(owner: string, repo_name: string, pull_id: number): Promise<PullMergeable> {
+  return api<PullMergeable>(`/pulls/${owner}/${repo_name}/${pull_id}/mergeable`, { method: "GET" });
+}
+
+export async function mergePull(owner: string, repo_name: string, pull_id: number): Promise<MergePullResult> {
+  return api<MergePullResult>(`/pulls/${owner}/${repo_name}/${pull_id}/merge`, { method: "POST" });
 }
 
 export async function createPullReview(owner: string, repo_name: string, pull_id: number, data: PullReviewInput): Promise<PullReview> {

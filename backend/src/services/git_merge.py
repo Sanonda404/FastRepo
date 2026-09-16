@@ -135,6 +135,7 @@ async def _three_way_map(
     base: dict[str, tuple[int, str]],
     ours: dict[str, tuple[int, str]],
     theirs: dict[str, tuple[int, str]],
+    blob_repo_ids: tuple[int, ...] | None = None,
 ):
     merged: dict[str, tuple[int, str]] = {}
     contents: dict[str, bytes] = {}
@@ -170,8 +171,12 @@ async def _three_way_map(
 
         for sha in (b[1] if b else None, o[1], t[1]):
             if sha is not None and sha not in contents:
-                row = await conn.fetchrow(GET_BLOB_CONTENT, repo_id, sha)
-                contents[sha] = row["content"] if row else b""
+                contents[sha] = b""
+                for rid in (blob_repo_ids or (repo_id,)):
+                    row = await conn.fetchrow(GET_BLOB_CONTENT, rid, sha)
+                    if row is not None:
+                        contents[sha] = row["content"]
+                        break
 
         content, conflict = merge_blobs(
             _load(b[1]) if b else None,
@@ -219,6 +224,125 @@ def _build_trees(entries: dict[str, tuple[int, str]]) -> tuple[list[Tree], bytes
 
     root_sha = build(nested)
     return trees, root_sha
+
+
+async def check_mergeable(
+    pool: asyncpg.Pool,
+    state: str,
+    target_repo_id: int,
+    source_branch: str,
+    target_branch: str,
+    source_repository_id: int | None,
+) -> dict:
+    if state != "open":
+        return {"mergeable": False, "reason": "Pull request is closed", "conflicts": []}
+    source_repo_id = source_repository_id or target_repo_id
+
+    async with pool.acquire() as conn:
+        target_head = await conn.fetchval(
+            GET_BRANCH_REF, target_repo_id, f"refs/heads/{target_branch}"
+        )
+        source_head = await conn.fetchval(
+            GET_BRANCH_REF, source_repo_id, f"refs/heads/{source_branch}"
+        )
+        if not source_head:
+            return {
+                "mergeable": False,
+                "reason": f"Source branch '{source_branch}' has no commits",
+                "conflicts": [],
+            }
+        if not target_head:
+            return {
+                "mergeable": False,
+                "reason": f"Target branch '{target_branch}' has no commits",
+                "conflicts": [],
+            }
+        if source_head == target_head:
+            return {
+                "mergeable": False,
+                "reason": "Source and target branches point to the same commit",
+                "conflicts": [],
+            }
+
+        if source_repo_id != target_repo_id:
+            source_ancestors: set[str] = set()
+            stack = [source_head]
+            while stack:
+                batch = [s for s in stack if s not in source_ancestors]
+                if not batch:
+                    break
+                source_ancestors.update(batch)
+                rows = await conn.fetch(GET_PARENTS, source_repo_id, batch)
+                stack = [r["parent_sha"] for r in rows if r["parent_sha"] not in source_ancestors]
+            base_commit = None
+            seen: set[str] = set()
+            stack = [target_head]
+            while stack and base_commit is None:
+                batch = [s for s in stack if s not in seen]
+                if not batch:
+                    break
+                seen.update(batch)
+                for s in batch:
+                    if s in source_ancestors:
+                        base_commit = s
+                        break
+                rows = await conn.fetch(GET_PARENTS, target_repo_id, batch)
+                stack = [r["parent_sha"] for r in rows if r["parent_sha"] not in seen]
+        else:
+            base_commit = await _merge_base(conn, target_repo_id, source_head, target_head)
+
+        base_tree = None
+        base_tree_repo = target_repo_id
+        if base_commit is not None:
+            base_row = await conn.fetchrow(GET_COMMIT_FOR_COPY, target_repo_id, base_commit)
+            if base_row is None:
+                base_row = await conn.fetchrow(GET_COMMIT_FOR_COPY, source_repo_id, base_commit)
+                base_tree_repo = source_repo_id
+            base_tree = base_row["root_tree_sha"] if base_row else None
+            if base_tree is not None and not await conn.fetchval(
+                CHECK_OBJECT_EXISTS, base_tree_repo, base_tree
+            ):
+                base_tree_repo = (
+                    source_repo_id if base_tree_repo == target_repo_id else target_repo_id
+                )
+        base_map: dict[str, tuple[int, str]] = (
+            await _tree_map(conn, base_tree_repo, base_tree) if base_tree is not None else {}
+        )
+
+        src_row = await conn.fetchrow(GET_COMMIT_FOR_COPY, source_repo_id, source_head)
+        if src_row is None:
+            return {
+                "mergeable": False,
+                "reason": "Source head commit not found",
+                "conflicts": [],
+            }
+        tgt_row = await conn.fetchrow(GET_COMMIT_FOR_COPY, target_repo_id, target_head)
+        if tgt_row is None:
+            return {
+                "mergeable": False,
+                "reason": "Target head commit not found",
+                "conflicts": [],
+            }
+        theirs_map = await _tree_map(conn, source_repo_id, src_row["root_tree_sha"])
+        ours_map = await _tree_map(conn, target_repo_id, tgt_row["root_tree_sha"])
+
+        try:
+            await _three_way_map(
+                conn,
+                target_repo_id,
+                base_map,
+                ours_map,
+                theirs_map,
+                blob_repo_ids=(target_repo_id, source_repo_id),
+            )
+        except MergeConflictError as e:
+            reason = (
+                "Merge conflicts in many paths"
+                if len(e.paths) > 5
+                else "Merge conflicts in: " + ", ".join(e.paths)
+            )
+            return {"mergeable": False, "reason": reason, "conflicts": e.paths}
+        return {"mergeable": True, "reason": None, "conflicts": []}
 
 
 async def merge_pull_request(
