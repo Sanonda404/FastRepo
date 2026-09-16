@@ -18,6 +18,7 @@ from services.pull_request import (
     get_pull_files,
     update_pull_request,
     delete_pull_request,
+    check_pr_for_merge
 )
 from services.git_merge import check_mergeable, merge_pull_request, MergeConflictError
 from auth.auth import get_current_user
@@ -181,6 +182,11 @@ async def merge_pull(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pull request not found")
     if pr.state != "open":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pull request is not open")
+    
+    check_reviews = await check_pr_for_merge(pool, pr.id)
+    if check_reviews == False:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pull request is blocked from merging")
+    
     try:
         merge_sha = await merge_pull_request(
             pool,

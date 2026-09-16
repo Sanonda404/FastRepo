@@ -123,3 +123,19 @@ GET_COMMIT_FOR_COPY = """
 GET_BLOB_CONTENT = """
     SELECT content FROM blobs WHERE repo_id = $1 AND sha = $2
 """
+
+CHECK_REVIEWS_FOR_MERGE = """
+    WITH latest_reviews AS (
+        SELECT DISTINCT ON (reviewer_id) decision
+        FROM pr_reviews
+        WHERE pull_request_id = $1
+        AND reviewer_id IS NOT NULL
+        ORDER BY reviewer_id, reviewed_at DESC, id DESC
+    )
+    SELECT 
+        EXISTS (
+            SELECT 1 
+            FROM latest_reviews 
+            WHERE decision IN ('REJECTED', 'CHANGES_REQUESTED')
+        ) AS is_blocked;
+"""

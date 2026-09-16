@@ -29,6 +29,7 @@ from sqls.pull_request_sqls import (
     GET_PR_REVIEW,
     UPDATE_PR_REVIEW,
     DELETE_PR_REVIEW,
+    CHECK_REVIEWS_FOR_MERGE
 )
 
 async def _branch_exists(pool: asyncpg.Pool, repo_id: int, branch: str) -> bool:
@@ -241,3 +242,11 @@ async def delete_pr_review(pool: asyncpg.Pool, pull_request_id: int, review_id: 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(DELETE_PR_REVIEW, review_id, pull_request_id)
         return row is not None
+
+async def check_pr_for_merge(
+    pool: asyncpg.Pool,
+    pull_request_id: int,
+) -> bool:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(CHECK_REVIEWS_FOR_MERGE, pull_request_id)
+        return row["is_blocked"] if row else False

@@ -344,7 +344,6 @@ async def check_mergeable(
             return {"mergeable": False, "reason": reason, "conflicts": e.paths}
         return {"mergeable": True, "reason": None, "conflicts": []}
 
-
 async def merge_pull_request(
     pool: asyncpg.Pool,
     pull_id: int,
