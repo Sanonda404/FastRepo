@@ -1,10 +1,12 @@
 import asyncpg
+from fastapi import HTTPException
 from auth.permission import is_privileged_on_repo, can_push_to_branch_by_id
 from services.repository_collaborator import get_collaborator_details
 from models.git import EMPTY_TREE_SHA_HEX
 from services.git_read import get_diff
 from sqls.git_sqls import GET_PARENTS
 from sqls.pull_request_sqls import GET_BRANCH_REF as _BR, GET_COMMIT_FOR_COPY as _GC
+from typing import List
 
 from schemas.pull_request import (
     PullRequestCreateRequest,
@@ -13,11 +15,15 @@ from schemas.pull_request import (
     ReviewCreateRequest,
     ReviewResponse,
     ReviewUpdateRequest,
+    IssuePullRequestCreateRequest,
+    IssueRef,
 )
 from sqls.pull_request_sqls import (
     CREATE_PULL_REQUEST,
+    CREATE_ISSUE_PR,
     GET_ALL_PULL_REQUESTS,
     GET_PULL_REQUEST_BY_ID,
+    GET_PULL_ISSUES,
     UPDATE_PULL_REQUEST,
     DELETE_PULL_REQUEST,
     GET_BRANCH_REF,
@@ -109,6 +115,85 @@ async def create_pull_request(
     data["author_username"] = author_username
     return PullRequestResponse(**data)
 
+async def create_issue_pull_request(
+    pool: asyncpg.Pool,
+    author_id: int,
+    author_username: str,
+    target_r: dict,
+    payload: IssuePullRequestCreateRequest,
+) -> PullRequestResponse:
+
+    async with pool.acquire() as conn:
+        target = await conn.fetchrow(GET_REPO_BY_ID, target_r["id"])
+    if target is None:
+        raise ValueError("Target repository not found")
+    is_cross = payload.source_repository_id is not None and payload.source_repository_id != target["id"]
+    if is_cross:
+        async with pool.acquire() as conn:
+            src = await conn.fetchrow(GET_REPO_BY_ID, payload.source_repository_id)
+        if src is None:
+            raise ValueError("Source repository not found")
+        if src["is_private"]:
+            raise ValueError("Private repositories cannot be used as source for another repository")
+        if src["id"] != target["id"] and src["parent_repository_id"] != target["id"]:
+            raise ValueError("Source repository is not a fork of the target repository")
+        if not await is_privileged_on_repo(pool, src["id"], src["owner_id"], author_id):
+            raise PermissionError("Only owner, admin, or maintainer of the source repository can open this pull request")
+    else:
+        if payload.source_branch == payload.target_branch:
+            raise ValueError("Source and target branch must be different")
+        if target["owner_id"] != author_id:
+            collaborator = await get_collaborator_details(pool, target["id"], author_id)
+            if collaborator is None or collaborator.role == 'Viewer':
+                raise PermissionError("Only collaborators can open pull requests on this repository")
+            if collaborator.role not in ('Admin', 'Maintainer'):
+                allowed = await can_push_to_branch_by_id(
+                    pool, target["id"], target["owner_id"], payload.source_branch, author_id
+                )
+                if not allowed:
+                    raise PermissionError("You do not have permission to open a pull request from this branch")
+
+    source_repo_id = payload.source_repository_id or target_r["id"]
+    if not await _source_head(pool, source_repo_id, payload.source_branch):
+        raise ValueError(f"Source branch '{payload.source_branch}' has no commits")
+    if not await _branch_exists(pool, target_r["id"], payload.target_branch):
+        raise ValueError(f"Target branch '{payload.target_branch}' does not exist")
+
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                CREATE_PULL_REQUEST,
+                target_r["id"],
+                author_id,
+                payload.title or "",
+                payload.body,
+                payload.source_branch,
+                payload.target_branch,
+                payload.source_repository_id,
+            )
+            
+            for i in payload.issue_ids:
+                issue_pr = await conn.fetchrow(
+                    CREATE_ISSUE_PR,
+                    i, row["id"]
+                )
+                if issue_pr is None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Issue {i} not found"
+                    )
+    except asyncpg.ForeignKeyViolationError:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Issue {i} does not exist"
+            )
+    except asyncpg.PostgresError as e:
+        raise ValueError(f"Database error: {str(e)}")
+
+    data = dict(row)
+    data["author_username"] = author_username
+    return PullRequestResponse(**data)
+
 async def get_pull_files(pool: asyncpg.Pool, pr: PullRequestResponse) -> list[dict]:
     source_repo_id = pr.source_repository_id or pr.repository_id
 
@@ -170,10 +255,15 @@ async def get_pull_files(pool: asyncpg.Pool, pr: PullRequestResponse) -> list[di
     return await get_diff(pool, source_repo_id, base_tree or EMPTY_TREE_SHA_HEX, source_tree)
 
 
-async def get_all_pull_requests(pool: asyncpg.Pool, repository_id: int) -> list[PullRequestResponse]:
+async def get_all_pull_requests(pool: asyncpg.Pool, repository_id: int) -> List[PullRequestResponse]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_ALL_PULL_REQUESTS, repository_id)
         return [PullRequestResponse(**dict(r)) for r in rows]
+
+async def get_pull_issues(pool: asyncpg.Pool, pr_id : int) -> List[IssueRef]:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(GET_PULL_ISSUES, pr_id)
+        return [IssueRef(**dict(r)) for r in rows]
 
 async def get_pull_request(
     pool: asyncpg.Pool, repository_id: int, pull_request_id: int
@@ -249,4 +339,4 @@ async def check_pr_for_merge(
 ) -> bool:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(CHECK_REVIEWS_FOR_MERGE, pull_request_id)
-        return row["is_blocked"] if row else False
+        return not row["is_blocked"] if row else False

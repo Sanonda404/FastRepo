@@ -5,6 +5,12 @@ CREATE_PULL_REQUEST = """
               source_repository_id, created_at, closed_at
 """
 
+CREATE_ISSUE_PR = """
+    INSERT INTO issue_pull_requests(issue_id, pull_request_id)
+    VALUES ($1, $2)
+    RETURNING issue_id, pull_request_id;
+"""
+
 PULL_REQUEST_SELECT = """
     SELECT pr.id, pr.repository_id, pr.author_id, pr.title, pr.body, pr.state,
            pr.source_branch, pr.target_branch, pr.source_repository_id,
@@ -20,6 +26,15 @@ GET_ALL_PULL_REQUESTS = PULL_REQUEST_SELECT + """
 
 GET_PULL_REQUEST_BY_ID = PULL_REQUEST_SELECT + """
     WHERE pr.repository_id = $1 AND pr.id = $2
+"""
+
+GET_PULL_ISSUES = """
+    SELECT i.id, i.number, i.title, i.state, i.created_at
+    FROM issues i
+    INNER JOIN issue_pull_requests ipr
+    ON ipr.issue_id = i.id
+    WHERE ipr.pull_request_id = $1
+    ORDER BY i.created_at DESC;
 """
 
 UPDATE_PULL_REQUEST = """
@@ -136,6 +151,6 @@ CHECK_REVIEWS_FOR_MERGE = """
         EXISTS (
             SELECT 1 
             FROM latest_reviews 
-            WHERE decision IN ('REJECTED', 'CHANGES_REQUESTED')
+            WHERE decision IN ('REJECTED', 'REQUEST_CHANGES')
         ) AS is_blocked;
 """

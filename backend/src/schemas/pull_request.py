@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import List
 
 class PullRequestCreateRequest(BaseModel):
     title: str | None = None
@@ -51,3 +52,19 @@ class MergeableResponse(BaseModel):
     mergeable: bool
     reason: str | None = None
     conflicts: list[str] = []
+
+class IssuePullRequestCreateRequest(BaseModel):
+    title: str | None = None
+    body: str = ""
+    source_branch: str = Field(..., min_length=1, max_length=255)
+    target_branch: str = Field(..., min_length=1, max_length=255)
+    source_repository_id: int | None = None
+    issue_ids : List[int]
+
+
+class IssueRef(BaseModel):
+    id: int
+    number : int
+    title: str
+    state: str
+    created_at: datetime

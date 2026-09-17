@@ -8,14 +8,18 @@ from schemas.pull_request import (
     PullRequestUpdateRequest,
     MergeResponse,
     MergeableResponse,
+    IssuePullRequestCreateRequest,
+    IssueRef,
 )
 from schemas.repository import FileChange
 from services.repository_crud import get_repository, can_access_repository
 from services.pull_request import (
     create_pull_request,
+    create_issue_pull_request,
     get_all_pull_requests,
     get_pull_request,
     get_pull_files,
+    get_pull_issues,
     update_pull_request,
     delete_pull_request,
     check_pr_for_merge
@@ -59,6 +63,28 @@ async def create_pull(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+@router.post("/issues/{owner_name}/{repo_name}", response_model=PullRequestResponse, status_code=status.HTTP_201_CREATED)
+async def create_issue_pull(
+    owner_name: str,
+    repo_name: str,
+    payload: IssuePullRequestCreateRequest,
+    current_user=Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    try:
+        repo = await get_repository(pool, owner_name, repo_name)
+        if repo.is_private and not await can_access_repository(pool, repo.id, current_user["id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Private repository"
+            )
+        return await create_issue_pull_request(
+            pool, current_user["id"], current_user["username"], {"id": repo.id}, payload
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
 
 @router.get("/{owner_name}/{repo_name}", response_model=list[PullRequestResponse])
 async def list_pulls(
@@ -85,6 +111,18 @@ async def get_pull(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pull request not found")
     return pr
 
+
+@router.get("/{owner_name}/{repo_name}/{pull_request_id}/issues", response_model=list[IssueRef])
+async def get_issue_pull(
+    owner_name: str,
+    repo_name: str,
+    pull_request_id: int,
+    current_user=Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    issues = await get_pull_issues(pool, pull_request_id)
+    return issues
 
 @router.patch("/{owner_name}/{repo_name}/{pull_request_id}", response_model=PullRequestResponse)
 async def modify_pull(
