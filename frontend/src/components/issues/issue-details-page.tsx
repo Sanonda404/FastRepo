@@ -452,7 +452,7 @@ export default function IssueDetailsPage({
 
       {issue && (
         <>
-          <IssueHeader issue={issue} />
+          <IssueHeader issue={issue} owner={owner} repository={repository} />
 
           {issue.state === "closed" && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">                                                                                                             This issue is closed: labels, assignees and comments are locked. Reopen to make changes.

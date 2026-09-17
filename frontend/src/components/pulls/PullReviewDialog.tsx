@@ -43,7 +43,7 @@ export default function PullReviewDialog({
   const form = useForm<PullReviewInput>({
     resolver: zodResolver(pullReviewSchema),
     defaultValues: {
-      decision: "APPROVE",
+      decision: "APPROVED",
       body: "",
     },
   })
@@ -88,10 +88,10 @@ export default function PullReviewDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="APPROVE">Approve</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
                       <SelectItem value="REQUEST_CHANGES">Request Changes</SelectItem>
                       <SelectItem value="COMMENT">Comment</SelectItem>
-                      <SelectItem value="REJECT">Reject</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -191,6 +191,14 @@ export interface MergePullResult extends PullRequest {
   merge_commit_sha: string | null
 }
 
+export interface IssueRef {
+  id: number
+  number : number
+  title: string
+  state: "open" | "closed"
+  created_at: string
+}
+
 export type IssueStatus = "open" | "closed"
 
 export interface IssueLabel {
@@ -237,6 +245,14 @@ export interface IssueCommentResponse{
   created_at : string
 }
 
+export interface IssuePrCreateRequest {
+  title: string
+  body: string
+  source_branch: string
+  target_branch: string
+  source_repository_id: number | null
+  issue_ids: number[]
+}
 export interface IssueAssigneeRequest {
   username: string;
 }

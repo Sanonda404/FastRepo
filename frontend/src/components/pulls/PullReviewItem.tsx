@@ -20,11 +20,11 @@ export default function PullReviewItem({
 
   const getDecisionBadge = (decision: PullReview["decision"]) => {
     switch (decision) {
-      case "APPROVE":
+      case "APPROVED":
         return <Badge className="bg-emerald-600 hover:bg-emerald-700">Approved</Badge>
       case "REQUEST_CHANGES":
         return <Badge className="text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800">Changes Requested</Badge>
-      case "REJECT":
+      case "REJECTED":
         return <Badge variant="destructive">Rejected</Badge>
       case "COMMENT":
       default:

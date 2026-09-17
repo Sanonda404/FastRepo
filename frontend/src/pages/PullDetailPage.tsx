@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { GitPullRequest, MessageCircle } from "lucide-react"
+import { GitPullRequest, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
 
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 import { RepoPermissionProvider } from "@/components/context/RepoPermissionContext"
@@ -16,6 +16,7 @@ import {
   deletePullReview,
   getPull,
   getPullFiles,
+  getPullIssues,
   getPullMergeable,
   listPullReviews,
   mergePull,
@@ -27,6 +28,7 @@ import { formatRelativeDate } from "@/lib/format-date"
 import type {
   CollaboratorResponse,
   FileChange,
+  IssueRef,
   PullMergeable,
   PullRequest,
   PullReview,
@@ -44,12 +46,15 @@ export default function PullDetailPage() {
   const [pr, setPr] = useState<PullRequest | null>(null)
   const [reviews, setReviews] = useState<PullReview[]>([])
   const [files, setFiles] = useState<FileChange[]>([])
+  const [issues, setIssues] = useState<IssueRef[]>([])
   const [loading, setLoading] = useState(true)
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [filesLoading, setFilesLoading] = useState(true)
+  const [issuesLoading, setIssuesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reviewsError, setReviewsError] = useState<string | null>(null)
   const [filesError, setFilesError] = useState<string | null>(null)
+  const [issuesError, setIssuesError] = useState<string | null>(null)
   const [mergeStatus, setMergeStatus] = useState<PullMergeable | null>(null)
   const [mergeStatusLoading, setMergeStatusLoading] = useState(false)
   const [mergeError, setMergeError] = useState<string | null>(null)
@@ -67,7 +72,6 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     let active = true
-    // Removed synchronous setLoading(true)
     getPull(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -88,7 +92,6 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     let active = true
-    // Removed synchronous setReviewsLoading(true)
     listPullReviews(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -109,7 +112,6 @@ export default function PullDetailPage() {
 
   useEffect(() => {
     let active = true
-    // Removed synchronous setFilesLoading(true)
     getPullFiles(owner, repository, pullId)
       .then((data) => {
         if (active) {
@@ -127,6 +129,27 @@ export default function PullDetailPage() {
       active = false
     }
   }, [owner, repository, pullId, filesNonce])
+
+  // Fetch Linked Issues
+  useEffect(() => {
+    let active = true
+    getPullIssues(owner, repository, pullId)
+      .then((data) => {
+        if (active) {
+          setIssues(data)
+          setIssuesError(null)
+        }
+      })
+      .catch((err) => {
+        if (active) setIssuesError(getErrorMessage(err))
+      })
+      .finally(() => {
+        if (active) setIssuesLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [owner, repository, pullId])
 
   useEffect(() => {
     if (pr?.state !== "open") {
@@ -156,10 +179,9 @@ export default function PullDetailPage() {
   const isCollaborator =
     role === "Owner" || collaborators.some((c) => c.username === username)
 
-  // Direct decisions from the reviews array
-  const hasRejected = reviews.some((r) => r.decision === "REJECT")
+  const hasRejected = reviews.some((r) => r.decision === "REJECTED")
   const hasRequestedChanges = reviews.some((r) => r.decision === "REQUEST_CHANGES")
-  const isApproved = reviews.some((r) => r.decision === "APPROVE")
+  const isApproved = reviews.some((r) => r.decision === "APPROVED")
 
   const handleCreateReview = async (data: PullReviewInput) => {
     setMutating(true)
@@ -343,6 +365,54 @@ export default function PullDetailPage() {
                 )}
               </section>
 
+              {/* Linked Issues Section */}
+              {!issuesLoading && !issuesError && issues.length > 0 && (
+                <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+                  <div className="flex items-center gap-2 border-b border-foreground/10 bg-muted/20 px-6 py-4">
+                    <AlertCircle className="size-4 text-primary" />
+                    <h2 className="font-semibold">Linked Issues</h2>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {issues.length}
+                    </span>
+                  </div>
+                  <div className="p-6">
+                    <div className="space-y-2">
+                      {issues.map((issue) => (
+                        <Link
+                          key={issue.number}
+                          to={`/${owner}/${repository}/issues/${issue.number}`}
+                          className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                        >
+                          <div className="flex items-center gap-3">
+                            {issue.state === "open" ? (
+                              <AlertCircle className="size-4 text-green-600 dark:text-green-400 shrink-0" />
+                            ) : (
+                              <CheckCircle2 className="size-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                            )}
+                            <div>
+                              <p className="text-sm font-medium">{issue.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                #{issue.id} opened {formatRelativeDate(issue.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              issue.state === "open"
+                                ? "bg-green-600/10 text-green-700 dark:text-green-400"
+                                : "bg-purple-600/10 text-purple-700 dark:text-purple-400"
+                            }`}
+                          >
+                            {issue.state}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+
               {/* Reviews section */}
               <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-foreground/10 bg-muted/20 px-6 py-4">
@@ -350,7 +420,6 @@ export default function PullDetailPage() {
                     <MessageCircle className="size-4 text-primary" />
                     <h2 className="font-semibold">Reviews</h2>
                   </div>
-                  {/* Cleaned Review Status Indicator */}
                   <div className="text-xs font-medium">
                     {hasRejected ? (
                       <span className="font-semibold text-destructive">Rejected</span>
