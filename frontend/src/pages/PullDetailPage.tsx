@@ -35,6 +35,7 @@ import type {
 } from "@/lib/interfaces"
 import type { PullReviewInput } from "@/lib/schemas/pull"
 import type { RepositoryRole } from "@/lib/auth/permissions"
+import { REVIEW_DECISION_LABELS } from "@/lib/reviewDecision"
 
 export default function PullDetailPage() {
   const { owner = "", repository = "", pullNumber = "" } = useParams()
@@ -249,6 +250,7 @@ export default function PullDetailPage() {
   const canModify = pr != null && (pr.author_username === username || isCollaborator)
   const isClosed = pr?.state === "closed"
   const canMerge = role === "Owner" || role === "Admin" || role === "Maintainer"
+  const canReviewWithDecision = role === "Owner" || role === "Admin" || role === "Maintainer"
 
   return (
     <RepositoryLayout
@@ -423,11 +425,11 @@ export default function PullDetailPage() {
                   </div>
                   <div className="text-xs font-medium">
                     {hasRejected ? (
-                      <span className="font-semibold text-destructive">Rejected</span>
+                      <span className="font-semibold text-destructive">{REVIEW_DECISION_LABELS.REJECTED}</span>
                     ) : hasRequestedChanges ? (
-                      <span className="text-amber-600 dark:text-amber-400">Changes requested</span>
+                      <span className="text-amber-600 dark:text-amber-400">{REVIEW_DECISION_LABELS.REQUEST_CHANGES}</span>
                     ) : isApproved ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">Approved for merge</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">{REVIEW_DECISION_LABELS.APPROVED} for merge</span>
                     ) : (
                       <span className="text-muted-foreground">Pending decisions</span>
                     )}
@@ -445,7 +447,7 @@ export default function PullDetailPage() {
                         Closed pull request — reviews are locked.
                       </span>
                     ) : (
-                      <PullReviewDialog loading={mutating} onSubmit={handleCreateReview} />
+                      <PullReviewDialog loading={mutating} onSubmit={handleCreateReview} canUseDecisions={canReviewWithDecision} />
                     )}
                   </div>
 

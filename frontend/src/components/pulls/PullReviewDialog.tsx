@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
@@ -28,30 +28,40 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { pullReviewSchema, type PullReviewInput } from "@/lib/schemas/pull"
+import { REVIEW_DECISION_LABELS } from "@/lib/reviewDecision"
 
 interface PullReviewDialogProps {
   onSubmit: (data: PullReviewInput) => Promise<void>
   loading?: boolean
+  canUseDecisions?: boolean
 }
 
 export default function PullReviewDialog({
   onSubmit,
   loading = false,
+  canUseDecisions = true,
 }: PullReviewDialogProps) {
   const [open, setOpen] = useState(false)
 
   const form = useForm<PullReviewInput>({
     resolver: zodResolver(pullReviewSchema),
     defaultValues: {
-      decision: "APPROVED",
+      decision: canUseDecisions ? "APPROVED" : "COMMENTED",
       body: "",
     },
   })
 
+  useEffect(() => {
+    form.setValue("decision", canUseDecisions ? "APPROVED" : "COMMENTED")
+  }, [canUseDecisions, form])
+
   const handleSubmit = async (values: PullReviewInput) => {
+    const payload: PullReviewInput = canUseDecisions
+      ? values
+      : { ...values, decision: "COMMENTED" as const }
     try {
-      await onSubmit(values)
-      form.reset()
+      await onSubmit(payload)
+      form.reset({ decision: canUseDecisions ? "APPROVED" : "COMMENTED", body: "" })
       setOpen(false)
     } catch (error) {
       console.error("Failed to submit review:", error)
@@ -75,29 +85,31 @@ export default function PullReviewDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="decision"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Decision</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select review decision" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="APPROVED">Approved</SelectItem>
-                      <SelectItem value="REQUEST_CHANGES">Request Changes</SelectItem>
-                      <SelectItem value="COMMENT">Comment</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {canUseDecisions && (
+              <FormField
+                control={form.control}
+                name="decision"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Decision</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select review decision" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="APPROVED">{REVIEW_DECISION_LABELS.APPROVED}</SelectItem>
+                        <SelectItem value="REQUEST_CHANGES">{REVIEW_DECISION_LABELS.REQUEST_CHANGES}</SelectItem>
+                        <SelectItem value="COMMENTED">{REVIEW_DECISION_LABELS.COMMENTED}</SelectItem>
+                        <SelectItem value="REJECTED">{REVIEW_DECISION_LABELS.REJECTED}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

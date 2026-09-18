@@ -1,6 +1,7 @@
 import type { PullReview } from "@/lib/interfaces"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { REVIEW_DECISION_LABELS } from "@/lib/reviewDecision"
 
 interface PullReviewItemProps {
   review: PullReview
@@ -19,16 +20,17 @@ export default function PullReviewItem({
   console.log(isAuthor, currentUsername, review.reviewer_username)
 
   const getDecisionBadge = (decision: PullReview["decision"]) => {
+    const label = REVIEW_DECISION_LABELS[decision as keyof typeof REVIEW_DECISION_LABELS] ?? decision
     switch (decision) {
       case "APPROVED":
-        return <Badge className="bg-emerald-600 hover:bg-emerald-700">Approved</Badge>
+        return <Badge className="bg-emerald-600 hover:bg-emerald-700">{label}</Badge>
       case "REQUEST_CHANGES":
-        return <Badge className="text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800">Changes Requested</Badge>
+        return <Badge className="text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800">{label}</Badge>
       case "REJECTED":
-        return <Badge variant="destructive">Rejected</Badge>
-      case "COMMENT":
+        return <Badge variant="destructive">{label}</Badge>
+      case "COMMENTED":
       default:
-        return <Badge variant="secondary">Commented</Badge>
+        return <Badge variant="secondary">{label}</Badge>
     }
   }
 

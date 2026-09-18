@@ -290,13 +290,49 @@ async def delete_pull_request(pool: asyncpg.Pool, repository_id: int, pull_reque
         row = await conn.fetchrow(DELETE_PULL_REQUEST, pull_request_id, repository_id)
         return row is not None
 
+async def _enforce_review_privilege(
+    pool: asyncpg.Pool, pull_request_id: int, reviewer_id: int, decision: str
+) -> str:
+    # strict: no normalization, decision must be exact
+    # COMMENTED is allowed for everyone; privileged decisions require Owner/Admin/Maintainer
+    if decision in ("APPROVED", "REQUEST_CHANGES", "REJECTED"):
+        # resolve repo for privilege check
+        async with pool.acquire() as conn:
+            pr_row = await conn.fetchrow("SELECT repository_id FROM pull_requests WHERE id=$1", pull_request_id)
+            if pr_row is None:
+                raise ValueError("Pull request not found")
+            repo_id = pr_row["repository_id"]
+            repo = await conn.fetchrow("SELECT owner_id FROM repositories WHERE id=$1", repo_id)
+            if repo is None:
+                raise ValueError("Repository not found")
+            owner_id = repo["owner_id"]
+        if not await is_privileged_on_repo(pool, repo_id, owner_id, reviewer_id):
+            raise PermissionError(f"Only owner, admin, or maintainer can use decision {decision}")
+    return decision
+
+
 async def create_pr_review(
     pool: asyncpg.Pool, pull_request_id: int, reviewer_id: int, payload: ReviewCreateRequest
 ) -> ReviewResponse:
+    decision = await _enforce_review_privilege(pool, pull_request_id, reviewer_id, payload.decision)
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            CREATE_PR_REVIEW, pull_request_id, reviewer_id, payload.decision, payload.body
-        )
+        try:
+            row = await conn.fetchrow(
+                CREATE_PR_REVIEW, pull_request_id, reviewer_id, decision, payload.body
+            )
+        except asyncpg.exceptions.InsufficientPrivilegeError as e:
+            raise PermissionError(str(e))
+        except asyncpg.exceptions.RaiseError as e:
+            # DB trigger raised insufficient privilege / check violation
+            msg = str(e)
+            if "Only owner" in msg:
+                raise PermissionError(msg)
+            raise ValueError(msg)
+        except asyncpg.PostgresError as e:
+            msg = str(e)
+            if "Only owner" in msg:
+                raise PermissionError(msg)
+            raise
         data = dict(row)
     async with pool.acquire() as conn:
         r = await conn.fetchrow(GET_USERNAME_SQL, reviewer_id)
@@ -320,10 +356,30 @@ async def get_pr_review(
 async def update_pr_review(
     pool: asyncpg.Pool, pull_request_id: int, review_id: int, payload: ReviewUpdateRequest
 ) -> ReviewResponse | None:
+    decision = payload.decision
+    if decision is not None:
+        # need reviewer_id to check privilege
+        async with pool.acquire() as conn:
+            rev = await conn.fetchrow("SELECT reviewer_id FROM pr_reviews WHERE id=$1 AND pull_request_id=$2", review_id, pull_request_id)
+            if rev is None:
+                return None
+            reviewer_id = rev["reviewer_id"]
+        decision = await _enforce_review_privilege(pool, pull_request_id, reviewer_id, decision)  # type: ignore[arg-type]
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            UPDATE_PR_REVIEW, review_id, pull_request_id, payload.decision, payload.body
-        )
+        try:
+            row = await conn.fetchrow(
+                UPDATE_PR_REVIEW, review_id, pull_request_id, decision, payload.body
+            )
+        except asyncpg.exceptions.RaiseError as e:
+            msg = str(e)
+            if "Only owner" in msg:
+                raise PermissionError(msg)
+            raise ValueError(msg)
+        except asyncpg.PostgresError as e:
+            msg = str(e)
+            if "Only owner" in msg:
+                raise PermissionError(msg)
+            raise
         if row is None:
             return None
         return ReviewResponse(**dict(row))

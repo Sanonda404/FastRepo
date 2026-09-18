@@ -45,7 +45,12 @@ async def add_review(
 ):
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
     pr = await _get_pr(pool, repo, pull_request_id)
-    return await create_pr_review(pool, pr.id, current_user["id"], payload)
+    try:
+        return await create_pr_review(pool, pr.id, current_user["id"], payload)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/{owner_name}/{repo_name}/{pull_request_id}/reviews", response_model=list[ReviewResponse])
@@ -97,7 +102,12 @@ async def modify_review(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Only the reviewer can modify a review"
         )
-    return await update_pr_review(pool, pr.id, review_id, payload)
+    try:
+        return await update_pr_review(pool, pr.id, review_id, payload)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.delete("/{owner_name}/{repo_name}/{pull_request_id}/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
