@@ -41,17 +41,17 @@ export default function TeamNode({
       {children.length > 0 && (
         <>
           {/* Vertical connection */}
-          <div className="h-8 w-px bg-foreground/10" />
+          <div className="h-8 w-px bg-foreground/40" />
 
           {/* Horizontal connection */}
-          <div className="relative flex gap-8 border-t border-foreground/10 pt-8">
+          <div className="relative flex gap-8 border-t border-foreground/40 pt-8">
             {children.map((child) => (
               <div
                 key={child.id}
                 className="relative"
               >
                 {/* Connection to child */}
-                <div className="absolute -top-8 left-1/2 h-8 w-px bg-foreground/10" />
+                <div className="absolute -top-8 left-1/2 h-8 w-px bg-foreground/40" />
 
                 <TeamNode
                   role={role}

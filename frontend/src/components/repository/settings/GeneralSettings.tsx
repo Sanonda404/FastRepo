@@ -115,6 +115,9 @@ export default function GeneralSettings({
           <Button
             onClick={() => setConfirmNameOpen(true)}
             disabled={!nameChanged || nameSaving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-800 px-3 py-1.5 
+            text-sm font-medium text-white shadow-sm hover:bg-blue-600 
+            focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             {nameSaving ? "Saving..." : "Rename"}
           </Button>
@@ -143,6 +146,10 @@ export default function GeneralSettings({
           onClick={handleSaveDescription}
           disabled={!descChanged || descSaving}
           variant="outline"
+          className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 
+            text-sm font-medium text-white shadow-sm hover:bg-green-900 hover:text-white
+            focus:outline-none focus:ring-2 focus:ring-green-400"
+
         >
           {descSaving ? "Saving..." : "Save description"}
         </Button>

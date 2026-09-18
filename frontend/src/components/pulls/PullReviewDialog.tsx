@@ -61,11 +61,11 @@ export default function PullReviewDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <Button disabled={loading} size="sm">
+        <Button disabled={loading} className = "bg-blue-700 sm hover:bg-blue-800 text-white">
           {loading ? "Submitting..." : "Submit Review"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>Review Pull Request</DialogTitle>
           <DialogDescription>

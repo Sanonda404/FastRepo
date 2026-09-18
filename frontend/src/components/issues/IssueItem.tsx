@@ -169,7 +169,7 @@ export default function IssueItem({
                     variant="outline"
                     size="sm"
                     onClick={handleToggleIssue}
-                    className="gap-1.5 rounded-full text-xs"
+                    className="gap-1.5 rounded-full text-xs bg-green-100 hover:bg-green-200 hover:text-green-800"
                     aria-label={isOpen ? "Close issue" : "Reopen issue"}
                   >
                     {isOpen ? (
@@ -190,7 +190,7 @@ export default function IssueItem({
                     variant="ghost"
                     size="sm"
                     onClick={handleDeleteClick}
-                    className="gap-1.5 rounded-full text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="gap-1.5 rounded-full text-xs bg-red-100 text-black hover:bg-destructive/10 hover:text-destructive"
                     aria-label="Delete issue"
                   >
                     <Trash2 className="size-3.5" />

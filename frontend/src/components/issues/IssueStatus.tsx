@@ -11,7 +11,7 @@ export default function IssueStatus({
 }: IssueStatusProps) {
   if (reopened) {
     return (
-      <div className="flex items-center gap-1.5 text-blue-500">
+      <div className="flex items-center gap-1.5 text-blue-500 w-20">
         <RotateCcw className="size-4" />
         <span className="text-sm font-medium">Reopened</span>
       </div>
@@ -20,7 +20,7 @@ export default function IssueStatus({
 
   if (status === "closed") {
     return (
-      <div className="flex items-center gap-1.5 text-purple-500">
+      <div className="flex items-center gap-1.5 text-purple-500 w-20">
         <CircleCheck className="size-4" />
         <span className="text-sm font-medium">Closed</span>
       </div>
@@ -28,7 +28,7 @@ export default function IssueStatus({
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-green-500">
+    <div className="flex items-center gap-1.5 text-green-500 w-20">
       <CircleDot className="size-4" />
       <span className="text-sm font-medium">Open</span>
     </div>

@@ -95,7 +95,9 @@ export default function DefaultBranchSettings({
                 </option>
               ))}
             </select>
-            <Button onClick={handleSave} disabled={!changed || saving}>
+            <Button onClick={handleSave} disabled={!changed || saving}
+            className="bg-green-600"
+              >
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>

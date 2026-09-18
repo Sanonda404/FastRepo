@@ -322,6 +322,7 @@ export default function PullDetailPage() {
                           hasRejected ||
                           hasRequestedChanges
                         }
+                        className = "bg-green-600 hover:bg-green-800"
                         onClick={handleMerge}
                       >
                         {mutating
