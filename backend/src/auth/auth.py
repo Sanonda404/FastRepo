@@ -25,7 +25,7 @@ SECRET_KEY: str = SECRET_KEY_ENV
 ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 RESET_PASSWORD_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("RESET_PASSWORD_TOKEN_EXPIRE_MINUTES", "5"))
-FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+HOST_URL: str = os.getenv("HOST_URL", "http://localhost:8000")
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
@@ -107,7 +107,7 @@ def create_reset_password_link(reset_token: str) -> str:
     """
     Generates a password reset link for the given email.
     """
-    reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
+    reset_link = f"{HOST_URL}/reset-password?token={reset_token}"
     return reset_link
 
 

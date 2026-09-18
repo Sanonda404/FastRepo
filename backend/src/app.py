@@ -10,6 +10,7 @@ from routers.issue_comments import router as issue_comments_router
 from routers.teams import router as teams_router
 from routers.team_members import router as team_members_router
 from routers.permission import router as permission_router
+from routers.frontend import router as frontend_router
 from services.database import lifespan
 
 api_routers = APIRouter(
@@ -26,11 +27,14 @@ api_routers.include_router(teams_router)
 api_routers.include_router(team_members_router)
 api_routers.include_router(permission_router)
 
-app = FastAPI(title="FastRepo", lifespan=lifespan)
+app = FastAPI(
+    title="FastRepo",
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 
 app.include_router(git_cli_router)
 app.include_router(api_routers)
-
-@app.get("/")
-async def root():
-    return {"message" : "Hello world"}
+app.include_router(frontend_router)
