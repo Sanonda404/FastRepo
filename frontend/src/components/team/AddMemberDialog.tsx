@@ -284,7 +284,9 @@ export default function AddTeamMemberDialog({
             {error && (
               <div
                 className="
-                  rounded-md
+                  rounded-xl
+                  border
+                  border-destructive/30
                   bg-destructive/10
                   p-3 text-sm
                   text-destructive
@@ -385,8 +387,9 @@ export default function AddTeamMemberDialog({
 
             <div
               className="
-                rounded-lg
+                rounded-xl
                 border
+                border-foreground/10
                 bg-muted/30
                 p-3
                 text-xs
@@ -403,7 +406,9 @@ export default function AddTeamMemberDialog({
             {error && (
               <div
                 className="
-                  rounded-md
+                  rounded-xl
+                  border
+                  border-destructive/30
                   bg-destructive/10
                   p-3 text-sm
                   text-destructive

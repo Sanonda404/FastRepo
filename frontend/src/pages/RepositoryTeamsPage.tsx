@@ -166,16 +166,19 @@ export default function RepositoryTeamsPage() {
 
   const openCreateTeam = () => {
     setSelectedParentTeam(null)
+    setError(null)
     setCreateDialogOpen(true)
   }
 
   const openCreateSubTeam = (team: Team) => {
     setSelectedParentTeam(team)
+    setError(null)
     setCreateDialogOpen(true)
   }
 
   const openAddMember = (team?: Team) => {
     setSelectedTeam(team ?? null)
+    setError(null)
     setAddMemberDialogOpen(true)
   }
 
@@ -216,6 +219,7 @@ export default function RepositoryTeamsPage() {
         ),
       )
 
+      setError(null)
       setEditDialogOpen(false)
       setSelectedEditTeam(null)
     } catch (err) {
@@ -231,6 +235,7 @@ export default function RepositoryTeamsPage() {
     if (!owner || !repository) return
 
     setActionLoading(true)
+    setError(null)
 
     try {
       const newTeam = await createTeam(owner, repository, data)
@@ -240,6 +245,7 @@ export default function RepositoryTeamsPage() {
         newTeam,
       ])
 
+      setError(null)
       setCreateDialogOpen(false)
     } catch (err) {
       setError(getErrorMessage(err))
@@ -268,6 +274,7 @@ export default function RepositoryTeamsPage() {
 
       setDeleteDialogOpen(false)
       setSelectedDeleteTeam(null)
+      setError(null)
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -297,6 +304,7 @@ export default function RepositoryTeamsPage() {
       .then((data) => {
 
         setTeams(data)
+        setError(null)
         setLoading(false)
       })
       .catch((err) => {
@@ -338,6 +346,7 @@ export default function RepositoryTeamsPage() {
       .then((data) => {
 
         setTeams(data)
+        setError(null)
         setLoading(false)
       })
       .catch((err) => {

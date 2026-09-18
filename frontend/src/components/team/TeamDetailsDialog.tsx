@@ -102,11 +102,11 @@ export function TeamDetailsDialog({
             </div>
 
             {team.members.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-foreground/10 p-6 text-center text-sm text-muted-foreground">
                 No members have been added to this team yet.
               </div>
             ) : (
-              <div className="divide-y rounded-lg border">
+              <div className="divide-y divide-foreground/10 rounded-xl border border-foreground/10">
                 {team.members.map((member) => (
                   <div
                     key={member.id}
@@ -158,7 +158,7 @@ export function TeamDetailsDialog({
                   ))}
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-foreground/10 p-5 text-center text-sm text-muted-foreground">
                   This team has no specific permissions configured.
                 </div>
               )}
@@ -184,7 +184,7 @@ function InfoCard({
   value,
 }: InfoCardProps) {
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div className="rounded-xl bg-card p-3 ring-1 ring-foreground/10">
       <div className="mb-2 flex items-center gap-2 text-muted-foreground">
         {icon}
         <span className="text-xs">
@@ -209,7 +209,7 @@ function PermissionRow({
   const isBranch = permission.target_type === "branch"
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-foreground/10 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
           {isBranch ? (
