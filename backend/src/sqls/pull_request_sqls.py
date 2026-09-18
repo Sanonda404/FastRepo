@@ -145,6 +145,7 @@ CHECK_REVIEWS_FOR_MERGE = """
         FROM pr_reviews
         WHERE pull_request_id = $1
         AND reviewer_id IS NOT NULL
+        AND decision <> 'COMMENTED'
         ORDER BY reviewer_id, reviewed_at DESC, id DESC
     )
     SELECT 

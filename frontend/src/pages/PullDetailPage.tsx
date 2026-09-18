@@ -59,6 +59,7 @@ export default function PullDetailPage() {
   const [mergeStatus, setMergeStatus] = useState<PullMergeable | null>(null)
   const [mergeStatusLoading, setMergeStatusLoading] = useState(false)
   const [mergeError, setMergeError] = useState<string | null>(null)
+  void mergeError
   const [filesNonce, setFilesNonce] = useState(0)
   const [mutating, setMutating] = useState(false)
 
@@ -180,9 +181,24 @@ export default function PullDetailPage() {
   const isCollaborator =
     role === "Owner" || collaborators.some((c) => c.username === username)
 
-  const hasRejected = reviews.some((r) => r.decision === "REJECTED")
-  const hasRequestedChanges = reviews.some((r) => r.decision === "REQUEST_CHANGES")
-  const isApproved = reviews.some((r) => r.decision === "APPROVED")
+  const latestByReviewer = (() => {
+    const map = new Map<number | string, string>()
+    const sorted = [...reviews].sort(
+      (a, b) =>
+        new Date(a.reviewed_at).getTime() - new Date(b.reviewed_at).getTime() ||
+        a.id - b.id,
+    )
+    for (const r of sorted) {
+      if (r.decision === "COMMENTED") continue
+      const key = r.reviewer_id ?? `anon-${r.id}`
+      map.set(key, r.decision)
+    }
+    return map
+  })()
+  const latestDecisions = [...latestByReviewer.values()]
+  const hasRejected = latestDecisions.includes("REJECTED")
+  const hasRequestedChanges = latestDecisions.includes("REQUEST_CHANGES")
+  const isApproved = latestDecisions.includes("APPROVED")
 
   const handleCreateReview = async (data: PullReviewInput) => {
     setMutating(true)
@@ -333,36 +349,6 @@ export default function PullDetailPage() {
                             ? "Checking..."
                             : "Merge pull request"}
                       </Button>
-                    )}
-                  </div>
-                )}
-                {canMerge && pr.state === "open" && (
-                  <div className="mt-2 text-xs">
-                    {hasRejected ? (
-                      <span className="font-semibold text-destructive">
-                        Merging blocked — pull request has been rejected by a reviewer.
-                      </span>
-                    ) : hasRequestedChanges ? (
-                      <span className="text-amber-600 dark:text-amber-400">
-                        Merging blocked — changes have been requested.
-                      </span>
-                    ) : mergeStatusLoading ? (
-                      <span className="text-muted-foreground">Checking mergeability...</span>
-                    ) : mergeStatus?.mergeable ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">
-                        Ready to merge — no conflicts.
-                      </span>
-                    ) : (
-                      <span className="text-destructive">
-                        {mergeStatus?.reason ?? mergeError ?? "Not mergeable."}
-                      </span>
-                    )}
-                    {!hasRejected && !hasRequestedChanges && mergeStatus && mergeStatus.conflicts.length > 0 && (
-                      <ul className="mt-1 space-y-0.5 font-mono">
-                        {mergeStatus.conflicts.map((path) => (
-                          <li key={path} className="text-destructive">conflict: {path}</li>
-                        ))}
-                      </ul>
                     )}
                   </div>
                 )}
