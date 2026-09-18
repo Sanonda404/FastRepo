@@ -193,7 +193,8 @@ CREATE TABLE IF NOT EXISTS pull_requests (
     target_branch VARCHAR(255) NOT NULL,
     source_repository_id INT REFERENCES repositories(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    closed_at TIMESTAMP
+    closed_at TIMESTAMP,
+    merged BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_pull_requests_repo ON pull_requests(repository_id);
@@ -233,7 +234,8 @@ CREATE TABLE IF NOT EXISTS issue_labels (
 CREATE TABLE IF NOT EXISTS issue_pull_requests (
     issue_id INT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
     pull_request_id INT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
-    CONSTRAINT issue_pull_requests_pkey PRIMARY KEY (issue_id, pull_request_id)
+
+    PRIMARY KEY (issue_id, pull_request_id)
 );
 
 CREATE OR REPLACE FUNCTION validate_team_collaborator_from_same_repo()

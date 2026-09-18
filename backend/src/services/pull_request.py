@@ -159,6 +159,25 @@ async def create_issue_pull_request(
     if not await _branch_exists(pool, target_r["id"], payload.target_branch):
         raise ValueError(f"Target branch '{payload.target_branch}' does not exist")
 
+    # Fast fail before creating the PR: linked issues must exist and belong
+    # to the target repo. DB trigger validate_issue_pull_request_same_repo()
+    # enforces the same rule on write as backstop.
+    async with pool.acquire() as conn:
+        for i in payload.issue_ids:
+            issue_row = await conn.fetchrow(
+                "SELECT repository_id FROM issues WHERE id=$1", i
+            )
+            if issue_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Issue {i} does not exist"
+                )
+            if issue_row["repository_id"] != target_r["id"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Issue and pull request must belong to same repository"
+                )
+
     try:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -188,7 +207,13 @@ async def create_issue_pull_request(
                 detail=f"Issue {i} does not exist"
             )
     except asyncpg.PostgresError as e:
-        raise ValueError(f"Database error: {str(e)}")
+        msg = str(e)
+        if "same repository" in msg:
+            raise HTTPException(
+                status_code=400,
+                detail="Issue and pull request must belong to same repository"
+            )
+        raise ValueError(f"Database error: {msg}")
 
     data = dict(row)
     data["author_username"] = author_username
