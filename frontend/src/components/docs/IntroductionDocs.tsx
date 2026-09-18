@@ -56,7 +56,7 @@ function Feature({
   text: string
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border border-foreground/10 bg-card p-4">
       <Icon className="size-5 text-green-600" />
 
       <h3 className="mt-3 text-sm font-semibold text-foreground">

@@ -44,7 +44,7 @@ export default function CollaboratorDocs() {
         {roles.map((role) => (
           <div
             key={role.name}
-            className="rounded-xl border bg-card p-5"
+            className="rounded-xl border border-foreground/10 bg-card p-5"
           >
             <div className="flex items-center gap-3">
               <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${role.color}`}>

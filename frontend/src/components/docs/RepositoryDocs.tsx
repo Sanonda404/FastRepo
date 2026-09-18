@@ -13,25 +13,16 @@ export default function RepositoryDocs() {
           title="Create a repository"
         >
           Go to the repository creation page and enter your repository
-          name, description, visibility, and default branch.
+          name, description, visibility, and default branch. If you want to push
+          your existing repository you may not want to create a default branch(as you already
+          have one and it will also create an empty commit)
         </Step>
 
         <Step
           number="2"
-          title="Open your project in VS Code"
+          title="Open your project"
         >
-          Open the project folder you want to connect to your repository.
-        </Step>
-
-        <Step
-          number="3"
-          title="Initialize Git"
-        >
-          <CodeBlock>
-{`git init
-git add .
-git commit -m "Initial commit"`}
-          </CodeBlock>
+          Open the project folder you want to push.
         </Step>
 
         <Step
@@ -40,14 +31,13 @@ git commit -m "Initial commit"`}
         >
           <CodeBlock>
 {`git remote add origin <repository-url>
-git branch -M main
-git push -u origin main`}
+git push origin main`}
           </CodeBlock>
         </Step>
 
-        <div className="rounded-lg bg-green-600/5 p-4 text-sm text-muted-foreground">
-          You can replace these commands later with the exact FastRepo
-          repository connection instructions.
+        <div className="rounded-xl bg-green-600/5 p-4 text-sm text-muted-foreground">
+          You can also clone a created empty repository and start working from there.
+          The clone url is also shown under the about section.
         </div>
       </div>
     </DocsSection>
@@ -88,7 +78,7 @@ function CodeBlock({
   children: string
 }) {
   return (
-    <pre className="mt-3 overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">
+    <pre className="mt-3 overflow-x-auto rounded-xl bg-muted p-4 text-xs text-foreground">
       <code>{children}</code>
     </pre>
   )

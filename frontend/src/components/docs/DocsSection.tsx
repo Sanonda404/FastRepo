@@ -15,7 +15,7 @@ export default function DocsSection({
 }: DocsSectionProps) {
   return (
     <section id={id} className="scroll-mt-8">
-      <div className="border-b pb-5">
+      <div className="border-b border-foreground/10 pb-5">
         <h2 className="text-2xl font-bold tracking-tight">
           {title}
         </h2>

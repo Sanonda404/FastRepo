@@ -17,7 +17,6 @@ import { getRepository } from "@/lib/apis/repository_apis"
 
 import SettingsSidebar from "@/components/repository/settings/SettingsSidebar"
 import GeneralSettings from "@/components/repository/settings/GeneralSettings"
-import DefaultBranchSettings from "@/components/repository/settings/DefaultBranchSettings"
 import CollaboratorSettings from "@/components/repository/settings/CollaboratorSettings"
 import BranchPermissions from "@/components/repository/settings/BranchPermissions"
 import FolderPermissions from "@/components/repository/settings/FolderPermissions"
@@ -288,15 +287,9 @@ export default function RepositorySettingsPage() {
                 owner={owner}
                 repository={displayRepository}
                 initialDescription={repositoryData?.description ?? null}
+                currentDefaultBranch={repositoryData?.default_branch ?? null}
+                onRepositoryUpdated={(updated) => setRepositoryData(updated)}
               />
-              <div className="mt-8 max-w-2xl">
-                <DefaultBranchSettings
-                  owner={owner}
-                  repository={displayRepository}
-                  currentDefaultBranch={repositoryData?.default_branch ?? null}
-                  onUpdated={(updated) => setRepositoryData(updated)}
-                />
-              </div>
               </RepoPermissionProvider>
             )}
 

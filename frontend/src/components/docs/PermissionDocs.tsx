@@ -29,7 +29,7 @@ export default function PermissionDocs() {
           />
         </div>
 
-        <div className="rounded-xl border bg-card p-5">
+        <div className="rounded-xl border border-foreground/10 bg-card p-5">
           <h3 className="font-semibold text-foreground">
             Permission inheritance
           </h3>
@@ -84,7 +84,7 @@ function PermissionCard({
   text: string
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border border-foreground/10 bg-card p-4">
       <Icon className="size-5 text-green-600" />
 
       <h3 className="mt-3 text-sm font-semibold text-foreground">

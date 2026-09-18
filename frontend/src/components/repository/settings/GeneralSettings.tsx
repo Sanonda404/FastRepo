@@ -16,17 +16,23 @@ import {
 import { deleteRepository, updateRepository } from "@/lib/apis/repository_apis"
 import { getErrorMessage } from "@/lib/apis/api"
 import { HasCapability } from "@/components/guards/HasCapability"
+import DefaultBranchSettings from "@/components/repository/settings/DefaultBranchSettings"
+import type { RepositoryResponse } from "@/lib/interfaces"
 
 interface GeneralSettingsProps {
   owner: string
   repository: string
   initialDescription?: string | null
+  currentDefaultBranch?: string | null
+  onRepositoryUpdated?: (repo: RepositoryResponse) => void
 }
 
 export default function GeneralSettings({
   owner,
   repository,
   initialDescription,
+  currentDefaultBranch,
+  onRepositoryUpdated,
 }: GeneralSettingsProps) {
   const navigate = useNavigate()
 
@@ -154,6 +160,13 @@ export default function GeneralSettings({
           {descSaving ? "Saving..." : "Save description"}
         </Button>
       </section>
+
+      <DefaultBranchSettings
+        owner={owner}
+        repository={repository}
+        currentDefaultBranch={currentDefaultBranch ?? null}
+        onUpdated={(updated) => onRepositoryUpdated?.(updated)}
+      />
 
       <HasCapability capability = "canDeleteRepo">
         <section className="rounded-xl border border-destructive/30 p-5">

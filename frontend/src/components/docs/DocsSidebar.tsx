@@ -11,7 +11,7 @@ const items = [
 
 export default function DocsSidebar() {
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r bg-muted/20 lg:block">
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-foreground/10 bg-muted/20 lg:block">
       <div className="px-6 py-8">
         <p className="text-lg font-bold tracking-tight">
           FastRepo Docs

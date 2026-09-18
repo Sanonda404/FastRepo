@@ -1,4 +1,5 @@
 import { GitBranch } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export default function Footer() {
   return (
@@ -8,9 +9,17 @@ export default function Footer() {
           <GitBranch className="size-4" />
           <span>FastRepo — code hosting for teams.</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} FastRepo. All rights reserved.
-        </p>
+        <div className="flex items-center gap-4">
+          <Link
+            to="/docs"
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Docs
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} FastRepo. All rights reserved.
+          </p>
+        </div>
       </div>
     </footer>
   )

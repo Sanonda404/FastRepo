@@ -1,5 +1,5 @@
 import DocsSection from "./DocsSection"
-import { CircleDot, Tag, UserPlus, MessageSquare, GitPullRequest } from "lucide-react"
+import { CircleDot, Tag, UserPlus, MessageSquare, GitPullRequest, GitBranch, Link2, Eye, GitMerge } from "lucide-react"
 
 export default function IssueDocs() {
   return (
@@ -35,7 +35,7 @@ export default function IssueDocs() {
           />
         </div>
 
-        <div className="rounded-xl border bg-card p-5">
+        <div className="rounded-xl border border-foreground/10 bg-card p-5">
           <h3 className="font-semibold">
             Issue permissions
           </h3>
@@ -66,7 +66,7 @@ export default function IssueDocs() {
           </ul>
         </div>
 
-        <div className="rounded-xl border border-dashed bg-muted/20 p-6">
+        <div>
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-green-600/10 text-green-600">
               <GitPullRequest className="size-5" />
@@ -78,9 +78,68 @@ export default function IssueDocs() {
               </h3>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Coming soon.
+                Propose, review, and merge branch changes.
               </p>
             </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Feature
+              icon={GitBranch}
+              title="Create"
+              text="Open a pull request between branches, from a fork, or directly from an issue."
+            />
+
+            <Feature
+              icon={Link2}
+              title="Linked issues"
+              text="Link existing issues to a pull request to track what it resolves."
+            />
+
+            <Feature
+              icon={Eye}
+              title="Reviews"
+              text="Reviewers can approve or request changes before anything merges."
+            />
+
+            <Feature
+              icon={GitMerge}
+              title="Merge"
+              text="Merge when ready. Merged pull requests cannot be reopened."
+            />
+          </div>
+
+          <div className="mt-4 rounded-xl border border-foreground/10 bg-card p-5">
+            <h3 className="font-semibold">
+              Pull request permissions
+            </h3>
+
+            <ul className="mt-4 space-y-2 text-sm leading-6 text-muted-foreground">
+              <li>
+                • Pull requests can be opened by the repository owner,
+                admins, maintainers, and members with push access to
+                the source branch.
+              </li>
+
+              <li>
+                • Viewers and non-collaborators cannot open pull
+                requests.
+              </li>
+
+              <li>
+                • Issues can be linked to a pull request by its author,
+                the repository owner, an admin, or a maintainer.
+              </li>
+
+              <li>
+                • Pull requests can be created directly from an issue,
+                pre-filling the source branch.
+              </li>
+
+              <li>
+                • Merged pull requests cannot be reopened.
+              </li>
+            </ul>
           </div>
         </div>
       </div>
@@ -98,7 +157,7 @@ function Feature({
   text: string
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border border-foreground/10 bg-card p-4">
       <Icon className="size-5 text-green-600" />
 
       <h3 className="mt-3 text-sm font-semibold">

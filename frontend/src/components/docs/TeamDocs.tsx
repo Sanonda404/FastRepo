@@ -39,7 +39,7 @@ export default function TeamDocs() {
             team includes the permissions inherited from its child teams.
           </p>
 
-          <div className="mt-4 rounded-xl border bg-muted/30 p-5 font-mono text-sm text-foreground">
+          <div className="mt-4 rounded-xl bg-muted/30 p-5 font-mono text-sm text-foreground ring-1 ring-foreground/10">
             Development
             <br />
             ├── Frontend
@@ -80,7 +80,7 @@ function Info({
   text: string
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <Icon className="size-5 text-green-600" />
 
       <h3 className="mt-3 text-sm font-semibold text-foreground">
