@@ -379,7 +379,7 @@ export default function PullDetailPage() {
                         <Link
                           key={issue.number}
                           to={`/${owner}/${repository}/issues/${issue.number}`}
-                          className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                          className="flex items-center justify-between rounded-xl bg-background p-3 ring-1 ring-foreground/10 transition-colors hover:bg-muted/50"
                         >
                           <div className="flex items-center gap-3">
                             {issue.state === "open" ? (

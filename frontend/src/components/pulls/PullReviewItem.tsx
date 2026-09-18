@@ -35,7 +35,7 @@ export default function PullReviewItem({
   }
 
   return (
-    <div className="rounded-lg p-4 space-y-2 bg-card text-card-foreground shadow-sm ring-1 ring-foreground/10">
+    <div className="rounded-xl p-4 space-y-2 bg-card text-card-foreground shadow-sm ring-1 ring-foreground/10">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <span

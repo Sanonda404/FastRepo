@@ -280,7 +280,7 @@ export default function IssuePullCreatePage() {
               ) : issues.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No open issues found.</p>
               ) : (
-                <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-1">
+                <div className="max-h-48 overflow-y-auto rounded-md p-2 space-y-1 ring-1 ring-foreground/10">
                   {issues.map((issue) => {
                     const isSelected = selectedIssueIds.includes(issue.id)
                     return (

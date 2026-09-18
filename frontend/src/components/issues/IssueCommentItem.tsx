@@ -24,9 +24,9 @@ export default function IssueCommentItem({
     <article className="
       group
       rounded-xl
-      border border-foreground/10
       bg-background
       p-4
+      ring-1 ring-foreground/10
       transition-colors
       hover:bg-muted/30
     ">
@@ -129,9 +129,9 @@ export default function IssueCommentItem({
       <div className="
         mt-4
         rounded-xl
-        border border-foreground/10
         bg-muted/30
         px-4 py-3
+        ring-1 ring-foreground/10
         text-sm
         leading-6
         whitespace-pre-wrap
