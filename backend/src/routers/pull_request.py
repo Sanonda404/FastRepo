@@ -141,6 +141,8 @@ async def modify_pull(
         await _can_write(pool, repo.id, current_user)
     if payload.state is not None and payload.state not in ("open", "closed"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid state")
+    if payload.state == "open" and pr.state == "closed" and getattr(pr, "merged", False):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot reopen a merged pull request")
     return await update_pull_request(pool, repo.id, pull_request_id, payload)
 
 

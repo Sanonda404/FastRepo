@@ -20,7 +20,7 @@ from sqls.pull_request_sqls import (
     GET_COMMIT_FOR_COPY,
     GET_BLOB_CONTENT,
     GET_BRANCH_REF,
-    CLOSE_PULL_REQUEST,
+    MERGE_CLOSE_PULL_REQUEST,
     ADD_COLLABORATOR_IF_MISSING,
 )
 
@@ -449,7 +449,7 @@ async def merge_pull_request(
             if updated is None:
                 raise ValueError("Target branch changed during merge")
 
-            await conn.execute(CLOSE_PULL_REQUEST, pull_id)
+            await conn.execute(MERGE_CLOSE_PULL_REQUEST, pull_id)
             if author_id and author_id != target_repo["owner_id"]:
                 await conn.execute(ADD_COLLABORATOR_IF_MISSING, target_repo_id, author_id)
 

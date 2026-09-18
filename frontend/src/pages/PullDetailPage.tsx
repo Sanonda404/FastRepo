@@ -314,7 +314,7 @@ export default function PullDetailPage() {
                 {pr.body && (
                   <p className="mt-3 whitespace-pre-wrap text-sm">{pr.body}</p>
                 )}
-                {canModify && (
+                {canModify && pr.state === "open" && (
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
@@ -323,13 +323,9 @@ export default function PullDetailPage() {
                       disabled={mutating}
                       onClick={handleToggleState}
                     >
-                      {mutating
-                        ? "Working..."
-                        : pr.state === "open"
-                          ? "Close pull request"
-                          : "Reopen pull request"}
+                      {mutating ? "Working..." : "Close pull request"}
                     </Button>
-                    {canMerge && pr.state === "open" && (
+                    {canMerge && (
                       <Button
                         type="button"
                         size="sm"
@@ -340,7 +336,7 @@ export default function PullDetailPage() {
                           hasRejected ||
                           hasRequestedChanges
                         }
-                        className = "bg-green-600 hover:bg-green-800"
+                        className="bg-green-600 hover:bg-green-800"
                         onClick={handleMerge}
                       >
                         {mutating
@@ -350,6 +346,19 @@ export default function PullDetailPage() {
                             : "Merge pull request"}
                       </Button>
                     )}
+                  </div>
+                )}
+                {canModify && pr.state === "closed" && !pr.merged && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={mutating}
+                      onClick={handleToggleState}
+                    >
+                      {mutating ? "Working..." : "Reopen pull request"}
+                    </Button>
                   </div>
                 )}
               </section>

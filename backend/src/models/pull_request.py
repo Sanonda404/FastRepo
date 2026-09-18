@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS pull_requests (
     target_branch VARCHAR(255) NOT NULL,
     source_repository_id INT REFERENCES repositories(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    closed_at TIMESTAMP
+    closed_at TIMESTAMP,
+    merged BOOLEAN NOT NULL DEFAULT FALSE
 )
 """
 

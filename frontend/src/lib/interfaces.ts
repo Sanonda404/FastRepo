@@ -169,6 +169,7 @@ export interface PullRequest {
   source_repository_id: number | null
   created_at: string
   closed_at: string | null
+  merged: boolean
 }
 
 export interface PullReview {

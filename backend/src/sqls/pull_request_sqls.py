@@ -2,7 +2,7 @@ CREATE_PULL_REQUEST = """
     INSERT INTO pull_requests (repository_id, author_id, title, body, source_branch, target_branch, source_repository_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id, repository_id, author_id, title, body, state, source_branch, target_branch,
-              source_repository_id, created_at, closed_at
+              source_repository_id, created_at, closed_at, merged
 """
 
 CREATE_ISSUE_PR = """
@@ -14,7 +14,7 @@ CREATE_ISSUE_PR = """
 PULL_REQUEST_SELECT = """
     SELECT pr.id, pr.repository_id, pr.author_id, pr.title, pr.body, pr.state,
            pr.source_branch, pr.target_branch, pr.source_repository_id,
-           pr.created_at, pr.closed_at, u.username AS author_username
+           pr.created_at, pr.closed_at, pr.merged, u.username AS author_username
     FROM pull_requests pr
     LEFT JOIN users u ON pr.author_id = u.id
 """
@@ -49,7 +49,7 @@ UPDATE_PULL_REQUEST = """
         END
     WHERE id = $1 AND repository_id = $2
     RETURNING id, repository_id, author_id, title, body, state, source_branch, target_branch,
-              source_repository_id, created_at, closed_at,
+              source_repository_id, created_at, closed_at, merged,
               (SELECT username FROM users u WHERE u.id = pull_requests.author_id) AS author_username
 """
 
@@ -64,7 +64,16 @@ CLOSE_PULL_REQUEST = """
     SET state = 'closed', closed_at = NOW()
     WHERE id = $1
     RETURNING id, repository_id, author_id, title, body, state, source_branch, target_branch,
-              source_repository_id, created_at, closed_at,
+              source_repository_id, created_at, closed_at, merged,
+              (SELECT username FROM users u WHERE u.id = pull_requests.author_id) AS author_username
+"""
+
+MERGE_CLOSE_PULL_REQUEST = """
+    UPDATE pull_requests
+    SET state = 'closed', closed_at = NOW(), merged = TRUE
+    WHERE id = $1
+    RETURNING id, repository_id, author_id, title, body, state, source_branch, target_branch,
+              source_repository_id, created_at, closed_at, merged,
               (SELECT username FROM users u WHERE u.id = pull_requests.author_id) AS author_username
 """
 

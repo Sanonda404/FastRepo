@@ -27,6 +27,7 @@ class PullRequestResponse(BaseModel):
     source_repository_id: int | None
     created_at: datetime
     closed_at: datetime | None
+    merged: bool = False
 
 from typing import Literal
 
