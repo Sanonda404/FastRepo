@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS pr_reviews (
     id SERIAL PRIMARY KEY,
     pull_request_id INT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
     reviewer_id INT REFERENCES users(id) ON DELETE SET NULL,
-    decision TEXT NOT NULL,
+    decision VARCHAR(10) NOT NULL CHECK (decision IN ('APPROVED', 'REQUEST_CHANGES', 'COMMENTED', 'REJECTED')),
     body TEXT,
     reviewed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

@@ -28,12 +28,14 @@ class PullRequestResponse(BaseModel):
     created_at: datetime
     closed_at: datetime | None
 
+from typing import Literal
+
 class ReviewCreateRequest(BaseModel):
-    decision: str = Field(..., min_length=1)
+    decision: Literal["APPROVED", "REQUEST_CHANGES", "COMMENTED", "REJECTED"]
     body: str = ""
 
 class ReviewUpdateRequest(BaseModel):
-    decision: str | None = None
+    decision: Literal["APPROVED", "REQUEST_CHANGES", "COMMENTED", "REJECTED"] | None = None
     body: str | None = None
 
 class ReviewResponse(BaseModel):
