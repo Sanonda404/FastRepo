@@ -231,6 +231,25 @@ CREATE TABLE IF NOT EXISTS issue_labels (
     CONSTRAINT issue_labels_pkey PRIMARY KEY (issue_id, label_id)
 );
 
+CREATE OR REPLACE FUNCTION delete_orphan_label()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        DELETE FROM labels
+        WHERE id = OLD.label_id
+            AND NOT EXISTS (
+                SELECT 1 FROM issue_labels WHERE label_id = OLD.label_id
+            );
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
+
+    CREATE TRIGGER delete_orphan_label
+    AFTER DELETE ON issue_labels
+    FOR EACH ROW
+    EXECUTE FUNCTION delete_orphan_label();
+
 CREATE TABLE IF NOT EXISTS issue_pull_requests (
     issue_id INT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
     pull_request_id INT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,

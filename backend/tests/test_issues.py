@@ -708,6 +708,59 @@ class TestIssueLabels:
         finally:
             cleanup_repo(owner, repo_name)
 
+    def test_detaching_last_issue_deletes_orphan_label(self, client, server_url):
+        owner = unique("orp")
+        repo_name = unique("orp")
+        try:
+            _, token = seed_private_repo(owner, repo_name)
+            issue = create_issue(client, f"{owner}/{repo_name}", token)
+            issue2 = create_issue(client, f"{owner}/{repo_name}", token)
+            name = unique("orphan")
+
+            # attach same label to both issues
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            first_id = r.json()["id"]
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            assert r.json()["id"] == first_id
+
+            # detach from first issue: label survives, re-attach reuses id
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels/{first_id}",
+                headers=auth(token),
+            )
+            assert r.status_code == 200, r.text
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            assert r.json()["id"] == first_id
+
+            # detach from both issues: orphan label row deleted,
+            # so re-attaching mints a new id
+            for number in (issue["number"], issue2["number"]):
+                r = client.delete(
+                    f"/issues/{owner}/{repo_name}/{number}/labels/{first_id}",
+                    headers=auth(token),
+                )
+                assert r.status_code == 200, r.text
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            assert r.json()["id"] != first_id
+        finally:
+            cleanup_repo(owner, repo_name)
+
 
 class TestIssueCloseByAssignee:
     def test_assignee_without_repo_access_can_close(self, client, server_url):
