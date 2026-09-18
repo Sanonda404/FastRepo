@@ -5,6 +5,7 @@ import type {
   IssueLabel,
   IssueCommentResponse,
   AssignedIssueResponse,
+  PullRef,
 } from "../interfaces";
 import { api } from "./api";
 
@@ -69,4 +70,8 @@ export async function getAllIssueLabels(owner:string, repo_name: string, issue_i
 
 export async function getAssignedIssues(username: string): Promise<AssignedIssueResponse[]> {
   return api<AssignedIssueResponse[]>(`/issues/assigned/${username}`, { method: "GET"});
+}
+
+export async function getIssuePulls(owner: string, repo_name: string, issue_number: number): Promise<PullRef[]> {
+  return api<PullRef[]>(`/issues/${owner}/${repo_name}/${issue_number}/pulls`, { method: "GET" });
 }

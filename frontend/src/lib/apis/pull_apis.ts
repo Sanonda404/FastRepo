@@ -59,3 +59,10 @@ export async function createIssuePr(owner: string, repo_name: string, data: Issu
 export async function getPullIssues(owner: string, repo_name: string, pull_id: number): Promise<IssueRef[]> {
   return api<IssueRef[]>(`/pulls/${owner}/${repo_name}/${pull_id}/issues`, { method: "GET" });
 }
+
+export async function linkIssueToPull(owner: string, repo_name: string, pull_id: number, issue_id: number): Promise<IssueRef> {
+  return api<IssueRef>(`/pulls/${owner}/${repo_name}/${pull_id}/issues`, {
+    method: "POST",
+    body: { issue_id },
+  });
+}

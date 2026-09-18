@@ -1,4 +1,6 @@
 from schemas.issues import IssueCreateRequest, IssueResponse, LabelResponse, IssueSummary, IssueLabel, AssigneeResponse, AssignedIssueResponse
+from schemas.pull_request import PullRef
+from sqls.pull_request_sqls import GET_ISSUE_PRS
 from sqls.issue_sqls import (
     CREATE_ISSUE,
     GET_ALL_ISSUES,
@@ -164,6 +166,17 @@ async def delete_issue_by_number(pool: asyncpg.Pool, repo_id: int, repo_name: st
 async def get_issue_repository(pool: asyncpg.Pool, issue_id: int):
     async with pool.acquire() as conn:
         return await conn.fetchrow(GET_ISSUE_REPOSITORY, issue_id)
+
+async def get_pulls_for_issue(pool: asyncpg.Pool, repo_id: int, issue_no: int) -> List[PullRef]:
+    async with pool.acquire() as conn:
+        issue_row = await conn.fetchrow(
+            "SELECT id FROM issues WHERE repository_id=$1 AND number=$2",
+            repo_id, issue_no,
+        )
+        if issue_row is None:
+            raise HTTPException(status_code=404, detail="Issue not found")
+        rows = await conn.fetch(GET_ISSUE_PRS, issue_row["id"])
+        return [PullRef(**dict(r)) for r in rows]
 
 async def close_or_reopen_issue_by_no(pool: asyncpg.Pool, closed_by_id : int, repo_id: int, issue_no: int, closed_by_username : str, repo_name : str) -> IssueSummary:
     async with pool.acquire() as conn:

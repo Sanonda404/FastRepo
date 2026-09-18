@@ -37,6 +37,24 @@ GET_PULL_ISSUES = """
     ORDER BY i.created_at DESC;
 """
 
+GET_ISSUE_PRS = """
+    SELECT pr.id, pr.title, pr.state, pr.source_branch, pr.target_branch,
+           pr.merged, pr.created_at,
+           u.username AS author_username
+    FROM pull_requests pr
+    INNER JOIN issue_pull_requests ipr
+    ON ipr.pull_request_id = pr.id
+    LEFT JOIN users u ON pr.author_id = u.id
+    WHERE ipr.issue_id = $1
+    ORDER BY pr.id;
+"""
+
+LINK_ISSUE_PR = """
+    INSERT INTO issue_pull_requests(issue_id, pull_request_id)
+    VALUES ($1, $2)
+    RETURNING issue_id, pull_request_id;
+"""
+
 UPDATE_PULL_REQUEST = """
     UPDATE pull_requests
     SET title = COALESCE($3, title),

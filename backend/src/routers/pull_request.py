@@ -10,6 +10,7 @@ from schemas.pull_request import (
     MergeableResponse,
     IssuePullRequestCreateRequest,
     IssueRef,
+    LinkIssueRequest,
 )
 from schemas.repository import FileChange
 from services.repository_crud import get_repository, can_access_repository
@@ -20,6 +21,7 @@ from services.pull_request import (
     get_pull_request,
     get_pull_files,
     get_pull_issues,
+    link_issue_to_pull,
     update_pull_request,
     delete_pull_request,
     check_pr_for_merge
@@ -123,6 +125,28 @@ async def get_issue_pull(
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
     issues = await get_pull_issues(pool, pull_request_id)
     return issues
+
+@router.post("/{owner_name}/{repo_name}/{pull_request_id}/issues", response_model=IssueRef, status_code=status.HTTP_201_CREATED)
+async def link_issue_pull(
+    owner_name: str,
+    repo_name: str,
+    pull_request_id: int,
+    payload: LinkIssueRequest,
+    current_user=Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    pr = await get_pull_request(pool, repo.id, pull_request_id)
+    if pr is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pull request not found")
+    if pr.author_id != current_user["id"] and not await is_privileged_on_repo(
+        pool, repo.id, repo.owner_id, current_user["id"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the pull request author, owner, admin, or maintainer can link issues",
+        )
+    return await link_issue_to_pull(pool, repo.id, pull_request_id, payload.issue_id)
 
 @router.patch("/{owner_name}/{repo_name}/{pull_request_id}", response_model=PullRequestResponse)
 async def modify_pull(

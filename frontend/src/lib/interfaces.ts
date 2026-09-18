@@ -200,6 +200,17 @@ export interface IssueRef {
   created_at: string
 }
 
+export interface PullRef {
+  id: number
+  title: string | null
+  state: "open" | "closed"
+  source_branch: string
+  target_branch: string
+  author_username: string | null
+  merged: boolean
+  created_at: string
+}
+
 export type IssueStatus = "open" | "closed"
 
 export interface IssueLabel {

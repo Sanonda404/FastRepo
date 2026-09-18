@@ -15,6 +15,7 @@ from schemas.issues import (
     IssueSummary,
     AssignedIssueResponse,
 )
+from schemas.pull_request import PullRef
 from schemas.repository import RepositoryResponse
 from services.user import get_user_by_username_or_email
 from services.repository_crud import can_access_repository
@@ -31,7 +32,8 @@ from services.issues import (
     detach_label,
     list_issue_labels,
     is_issue_assignee,
-    get_assigned_issues
+    get_assigned_issues,
+    get_pulls_for_issue
 )
 from auth.auth import get_current_user, get_optional_current_user
 from auth.permission import get_role
@@ -297,4 +299,16 @@ async def detach_label_from_issue(
         return await detach_label(pool, repo.id, issue_number, label_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/{owner_name}/{repo_name}/{issue_number}/pulls", response_model=List[PullRef], status_code=status.HTTP_200_OK)
+async def get_issue_pulls(
+    owner_name: str,
+    repo_name: str,
+    issue_number: int,
+    current_user = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    return await get_pulls_for_issue(pool, repo.id, issue_number)
 

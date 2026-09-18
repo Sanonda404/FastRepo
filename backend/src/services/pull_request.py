@@ -17,13 +17,16 @@ from schemas.pull_request import (
     ReviewUpdateRequest,
     IssuePullRequestCreateRequest,
     IssueRef,
+    PullRef,
 )
 from sqls.pull_request_sqls import (
     CREATE_PULL_REQUEST,
     CREATE_ISSUE_PR,
+    LINK_ISSUE_PR,
     GET_ALL_PULL_REQUESTS,
     GET_PULL_REQUEST_BY_ID,
     GET_PULL_ISSUES,
+    GET_ISSUE_PRS,
     UPDATE_PULL_REQUEST,
     DELETE_PULL_REQUEST,
     GET_BRANCH_REF,
@@ -289,6 +292,53 @@ async def get_pull_issues(pool: asyncpg.Pool, pr_id : int) -> List[IssueRef]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_PULL_ISSUES, pr_id)
         return [IssueRef(**dict(r)) for r in rows]
+
+async def get_issue_pulls(pool: asyncpg.Pool, issue_id: int) -> List[PullRef]:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(GET_ISSUE_PRS, issue_id)
+        return [PullRef(**dict(r)) for r in rows]
+
+async def link_issue_to_pull(
+    pool: asyncpg.Pool, repository_id: int, pull_request_id: int, issue_id: int
+) -> IssueRef:
+    async with pool.acquire() as conn:
+        pr_repo = await conn.fetchval(
+            "SELECT repository_id FROM pull_requests WHERE id=$1", pull_request_id
+        )
+        if pr_repo is None:
+            raise HTTPException(status_code=404, detail="Pull request not found")
+        if pr_repo != repository_id:
+            raise HTTPException(status_code=404, detail="Pull request not found")
+        issue_row = await conn.fetchrow(
+            "SELECT id, number, title, state, created_at, repository_id FROM issues WHERE id=$1",
+            issue_id,
+        )
+        if issue_row is None:
+            raise HTTPException(status_code=404, detail=f"Issue {issue_id} does not exist")
+        if issue_row["repository_id"] != repository_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Issue and pull request must belong to same repository",
+            )
+        try:
+            await conn.execute(LINK_ISSUE_PR, issue_id, pull_request_id)
+        except asyncpg.UniqueViolationError:
+            raise HTTPException(status_code=409, detail="Issue already linked to this pull request")
+        except asyncpg.PostgresError as e:
+            msg = str(e)
+            if "same repository" in msg:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Issue and pull request must belong to same repository",
+                )
+            raise ValueError(f"Database error: {msg}")
+        return IssueRef(
+            id=issue_row["id"],
+            number=issue_row["number"],
+            title=issue_row["title"],
+            state=issue_row["state"],
+            created_at=issue_row["created_at"],
+        )
 
 async def get_pull_request(
     pool: asyncpg.Pool, repository_id: int, pull_request_id: int

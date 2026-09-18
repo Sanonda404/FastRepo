@@ -8,6 +8,7 @@ import ChangedFilesSidebar from "@/components/commit-report/ChangedFilesSidebar"
 import FileDiff from "@/components/commit-report/FileDiff"
 import PullReviewDialog from "@/components/pulls/PullReviewDialog"
 import PullReviewItem from "@/components/pulls/PullReviewItem"
+import PullLinkIssueDialog from "@/components/pulls/PullLinkIssueDialog"
 import { Button } from "@/components/ui/button"
 import { getErrorMessage } from "@/lib/apis/api"
 import {
@@ -18,9 +19,11 @@ import {
   getPullFiles,
   getPullIssues,
   getPullMergeable,
+  linkIssueToPull,
   listPullReviews,
   mergePull,
 } from "@/lib/apis/pull_apis"
+import { getIssues } from "@/lib/apis/issue_apis"
 import { getRole } from "@/lib/apis/repository_apis"
 import { getCollaborators } from "@/lib/apis/repository_collaborator_apis"
 import { useAuth } from "@/lib/auth/use-auth"
@@ -28,6 +31,7 @@ import { formatRelativeDate } from "@/lib/format-date"
 import type {
   CollaboratorResponse,
   FileChange,
+  Issue,
   IssueRef,
   PullMergeable,
   PullRequest,
@@ -48,6 +52,7 @@ export default function PullDetailPage() {
   const [reviews, setReviews] = useState<PullReview[]>([])
   const [files, setFiles] = useState<FileChange[]>([])
   const [issues, setIssues] = useState<IssueRef[]>([])
+  const [repoIssues, setRepoIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [filesLoading, setFilesLoading] = useState(true)
@@ -180,6 +185,52 @@ export default function PullDetailPage() {
 
   const isCollaborator =
     role === "Owner" || collaborators.some((c) => c.username === username)
+
+  const canLinkIssue =
+    pr != null &&
+    (pr.author_username === username ||
+      role === "Owner" ||
+      role === "Admin" ||
+      role === "Maintainer")
+
+  // Fetch all repo issues for the link-issue dialog (only for linkers)
+  useEffect(() => {
+    if (!canLinkIssue) {
+      setRepoIssues([])
+      return
+    }
+    let active = true
+    getIssues(owner, repository)
+      .then((data) => {
+        if (active) setRepoIssues(data)
+      })
+      .catch(() => {
+        if (active) setRepoIssues([])
+      })
+    return () => {
+      active = false
+    }
+  }, [owner, repository, canLinkIssue])
+
+  const availableIssues = repoIssues.filter(
+    (ri) => !issues.some((li) => li.id === ri.id),
+  )
+
+  const handleLinkIssue = async (issueId: number) => {
+    setMutating(true)
+    try {
+      const linked = await linkIssueToPull(owner, repository, pullId, issueId)
+      setIssues((current) =>
+        current.some((i) => i.id === linked.id) ? current : [...current, linked],
+      )
+      setIssuesError(null)
+    } catch (err) {
+      setIssuesError(getErrorMessage(err))
+      throw err
+    } finally {
+      setMutating(false)
+    }
+  }
 
   const latestByReviewer = (() => {
     const map = new Map<number | string, string>()
@@ -364,16 +415,35 @@ export default function PullDetailPage() {
               </section>
 
               {/* Linked Issues Section */}
-              {!issuesLoading && !issuesError && issues.length > 0 && (
+              {!issuesLoading && !issuesError && (issues.length > 0 || canLinkIssue) && (
                 <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-                  <div className="flex items-center gap-2 border-b border-foreground/10 bg-muted/20 px-6 py-4">
-                    <AlertCircle className="size-4 text-primary" />
-                    <h2 className="font-semibold">Linked Issues</h2>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {issues.length}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-foreground/10 bg-muted/20 px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="size-4 text-primary" />
+                      <h2 className="font-semibold">Linked Issues</h2>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        {issues.length}
+                      </span>
+                    </div>
+                    {canLinkIssue && (
+                      <PullLinkIssueDialog
+                        availableIssues={availableIssues}
+                        onSubmit={handleLinkIssue}
+                        loading={mutating}
+                      />
+                    )}
                   </div>
                   <div className="p-6">
+                    {issuesError && (
+                      <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                        {issuesError}
+                      </div>
+                    )}
+                    {issues.length === 0 ? (
+                      <p className="rounded-xl bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground ring-1 ring-foreground/10">
+                        No linked issues yet.
+                      </p>
+                    ) : (
                     <div className="space-y-2">
                       {issues.map((issue) => (
                         <Link
@@ -406,8 +476,15 @@ export default function PullDetailPage() {
                         </Link>
                       ))}
                     </div>
+                    )}
                   </div>
                 </section>
+              )}
+
+              {issuesError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {issuesError}
+                </div>
               )}
 
 

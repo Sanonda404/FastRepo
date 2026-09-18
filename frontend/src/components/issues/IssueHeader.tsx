@@ -10,6 +10,7 @@ import type { Issue } from "@/lib/interfaces"
 
 import IssueMetadata from "@/components/issues/IssueMetadata"
 import IssueStatus from "@/components/issues/IssueStatus"
+import { HasCapability } from "@/components/guards/HasCapability"
 
 import IssueStatCard from "./IssueStatCard"
 
@@ -51,13 +52,15 @@ export default function IssueHeader({
             </div>
           </div>
 
-          <Link
-            to={`/${owner}/${repository}/pulls/new/issue?issue_id=${issue.id}`}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-green-600 px-3 text-sm font-medium text-white transition-colors hover:bg-green-700"
-          >
-            <GitPullRequest className="size-4" />
-            Create Pull Request
-          </Link>
+          <HasCapability capability="canOpenPullRequest">
+            <Link
+              to={`/${owner}/${repository}/pulls/new/issue?issue_id=${issue.id}`}
+              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-green-600 px-3 text-sm font-medium text-white transition-colors hover:bg-green-700"
+            >
+              <GitPullRequest className="size-4" />
+              Create Pull Request
+            </Link>
+          </HasCapability>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

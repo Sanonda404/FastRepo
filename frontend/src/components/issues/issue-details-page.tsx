@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowLeft, X } from "lucide-react"
+import { ArrowLeft, GitPullRequest, X } from "lucide-react"
 
 import { getErrorMessage } from "@/lib/apis/api"
+import { formatRelativeDate } from "@/lib/format-date"
 
 import {
   getIssueByNumber,
@@ -13,12 +14,14 @@ import {
   createIssueComment,
   getAllIssueComments,
   deleteIssueComment,
+  getIssuePulls,
 } from "@/lib/apis/issue_apis"
 
 import type {
   Issue,
   IssueCommentResponse,
   CollaboratorResponse,
+  PullRef,
 } from "@/lib/interfaces"
 
 import type {
@@ -50,6 +53,8 @@ export default function IssueDetailsPage({
   const [comments, setComments] = useState<
     IssueCommentResponse[]
   >([])
+  const [pulls, setPulls] = useState<PullRef[]>([])
+  const [pullsLoading, setPullsLoading] = useState(true)
 
   const [error, setError] = useState<string | null>(null)
   const [commentsError, setCommentsError] =
@@ -132,6 +137,43 @@ export default function IssueDetailsPage({
       .finally(() => {
         if (active) {
           setCommentsLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [owner, repository, issueNumber])
+
+  /*
+   * ============================================================
+   * LOAD LINKED PULL REQUESTS
+   * ============================================================
+   */
+
+  useEffect(() => {
+    let active = true
+
+    setPullsLoading(true)
+
+    getIssuePulls(
+      owner,
+      repository,
+      issueNumber
+    )
+      .then((data) => {
+        if (!active) return
+
+        setPulls(data)
+      })
+      .catch(() => {
+        if (!active) return
+
+        setPulls([])
+      })
+      .finally(() => {
+        if (active) {
+          setPullsLoading(false)
         }
       })
 
@@ -471,6 +513,71 @@ export default function IssueDetailsPage({
               <IssueDescription
                 body={issue.body}
               />
+
+              {!pullsLoading && pulls.length > 0 && (
+                <section className="
+                  overflow-hidden
+                  rounded-xl
+                  bg-card
+                  ring-1 ring-foreground/10
+                ">
+                  <div className="
+                    flex
+                    items-center
+                    gap-2
+                    border-b border-foreground/10
+                    bg-muted/20
+                    px-6 py-4
+                  ">
+                    <GitPullRequest className="size-4 text-primary" />
+
+                    <h2 className="font-semibold">
+                      Related Pull Requests
+                    </h2>
+
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {pulls.length}
+                    </span>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="space-y-2">
+                      {pulls.map((pr) => (
+                        <Link
+                          key={pr.id}
+                          to={`/${owner}/${repository}/pulls/${pr.id}`}
+                          className="flex items-center justify-between rounded-xl bg-background p-3 ring-1 ring-foreground/10 transition-colors hover:bg-muted/50"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <GitPullRequest className="size-4 shrink-0 text-green-600 dark:text-green-400" />
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {pr.title || "(no title)"}
+                              </p>
+
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                #{pr.id} · {pr.source_branch} → {pr.target_branch} · opened {formatRelativeDate(pr.created_at)}
+                                {pr.merged ? " · merged" : ""}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              pr.state === "open"
+                                ? "bg-green-600/10 text-green-700 dark:text-green-400"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {pr.merged ? "merged" : pr.state}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
 
               <IssueActivitySection
                 comments={comments}

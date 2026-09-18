@@ -71,3 +71,18 @@ class IssueRef(BaseModel):
     title: str
     state: str
     created_at: datetime
+
+
+class PullRef(BaseModel):
+    id: int
+    title: str | None = None
+    state: str
+    source_branch: str
+    target_branch: str
+    author_username: str | None = None
+    merged: bool = False
+    created_at: datetime
+
+
+class LinkIssueRequest(BaseModel):
+    issue_id: int
