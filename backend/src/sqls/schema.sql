@@ -231,25 +231,6 @@ CREATE TABLE IF NOT EXISTS issue_labels (
     CONSTRAINT issue_labels_pkey PRIMARY KEY (issue_id, label_id)
 );
 
-CREATE OR REPLACE FUNCTION delete_orphan_label()
-    RETURNS TRIGGER AS $$
-    BEGIN
-        DELETE FROM labels
-        WHERE id = OLD.label_id
-            AND NOT EXISTS (
-                SELECT 1 FROM issue_labels WHERE label_id = OLD.label_id
-            );
-        RETURN OLD;
-    END;
-    $$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
-
-    CREATE TRIGGER delete_orphan_label
-    AFTER DELETE ON issue_labels
-    FOR EACH ROW
-    EXECUTE FUNCTION delete_orphan_label();
-
 CREATE TABLE IF NOT EXISTS issue_pull_requests (
     issue_id INT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
     pull_request_id INT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
@@ -337,6 +318,76 @@ CREATE OR REPLACE FUNCTION validate_team_is_from_same_repo()
     END;
     $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION delete_orphan_label()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM labels
+    WHERE id = OLD.label_id
+        AND NOT EXISTS (
+            SELECT 1 FROM issue_labels WHERE label_id = OLD.label_id
+        );
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_issue_pull_request_same_repo()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_issue_repo_id INT;
+    v_pr_repo_id INT;
+BEGIN
+    SELECT repository_id INTO v_issue_repo_id
+    FROM issues
+    WHERE id = NEW.issue_id;
+
+    SELECT repository_id INTO v_pr_repo_id
+    FROM pull_requests
+    WHERE id = NEW.pull_request_id;
+
+    IF v_issue_repo_id IS NULL OR v_pr_repo_id IS NULL THEN
+        RAISE EXCEPTION 'Constraint Violation: Issue % or pull request % not found', NEW.issue_id, NEW.pull_request_id;
+    END IF;
+
+    IF v_issue_repo_id IS DISTINCT FROM v_pr_repo_id THEN
+        RAISE EXCEPTION 'Constraint Violation: Issue and pull request must belong to same repository';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_pr_review_privilege()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_repo_id INT;
+    v_owner_id INT;
+    v_is_privileged BOOLEAN;
+BEGIN
+    SELECT repository_id INTO v_repo_id FROM pull_requests WHERE id = NEW.pull_request_id;
+    IF v_repo_id IS NULL THEN
+        RAISE EXCEPTION 'Pull request % not found', NEW.pull_request_id;
+    END IF;
+    SELECT owner_id INTO v_owner_id FROM repositories WHERE id = v_repo_id;
+
+    IF NEW.reviewer_id IS NULL THEN
+        v_is_privileged := FALSE;
+    ELSIF NEW.reviewer_id = v_owner_id THEN
+        v_is_privileged := TRUE;
+    ELSE
+        SELECT EXISTS (
+            SELECT 1 FROM repository_collaborators
+            WHERE repository_id = v_repo_id AND user_id = NEW.reviewer_id AND role IN ('Admin', 'Maintainer')
+        ) INTO v_is_privileged;
+    END IF;
+
+    IF NOT v_is_privileged AND NEW.decision IN ('APPROVED', 'REQUEST_CHANGES', 'REJECTED') THEN
+        RAISE EXCEPTION 'Only owner, admin, or maintainer can use decision %', NEW.decision USING ERRCODE = '42501';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 DROP TRIGGER IF EXISTS validate_team_collaborator_from_same_repo ON team_members;
 
     CREATE TRIGGER validate_team_collaborator_from_same_repo
@@ -366,3 +417,21 @@ DROP TRIGGER IF EXISTS validate_team_is_from_same_repo ON permissions;
     ON permissions
     FOR EACH ROW
     EXECUTE FUNCTION validate_team_is_from_same_repo();
+
+DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
+CREATE TRIGGER delete_orphan_label
+AFTER DELETE ON issue_labels
+FOR EACH ROW
+EXECUTE FUNCTION delete_orphan_label();
+
+DROP TRIGGER IF EXISTS validate_issue_pull_request_same_repo ON issue_pull_requests;
+CREATE TRIGGER validate_issue_pull_request_same_repo
+BEFORE INSERT OR UPDATE OF issue_id, pull_request_id
+ON issue_pull_requests
+FOR EACH ROW
+EXECUTE FUNCTION validate_issue_pull_request_same_repo();
+
+DROP TRIGGER IF EXISTS check_pr_review_privilege ON pr_reviews;
+CREATE TRIGGER check_pr_review_privilege
+BEFORE INSERT OR UPDATE OF decision, reviewer_id, pull_request_id ON pr_reviews
+FOR EACH ROW EXECUTE FUNCTION validate_pr_review_privilege();
