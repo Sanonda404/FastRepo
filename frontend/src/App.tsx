@@ -62,13 +62,10 @@ export default function App() {
       <Navbar />
       <Toaster />
       <Routes>
-        {/* Auth Route */}
-        <Route path="/login" element={<AuthPage />} />
+        <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <AuthPage />} />
 
-        {/* Repository Create Route - before dynamic username */}
         <Route path="/create/repository" element={<RepositoryCreatePage />} />
 
-        {/* Root Route: dashboard for logged-in users, homepage otherwise */}
         <Route path="/" element={isLoggedIn ? <Dashboard /> : <HomePage />} />
 
         <Route path="/:username" element={<UserProfilePage />} />
