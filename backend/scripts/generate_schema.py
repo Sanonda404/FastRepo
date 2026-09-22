@@ -36,11 +36,31 @@ from models.issues import ISSUES_TABLE_DDL, ISSUES_INDEX_DDL
 from models.labels import LABELS_TABLE_DDL
 from models.issue_comments import ISSUE_COMMENTS_TABLE_DDL, ISSUE_COMMENTS_INDEX_DDL
 from models.pull_request import PULL_REQUESTS_TABLE_DDL, PULL_REQUESTS_INDEX_DDL
-from models.pr_reviews import PR_REVIEWS_TABLE_DDL, PR_REVIEWS_INDEX_DDL
+from models.pr_reviews import (
+    PR_REVIEWS_TABLE_DDL,
+    PR_REVIEWS_INDEX_DDL,
+    PR_REVIEW_PRIVILEGE_FUNC,
+    PR_REVIEW_PRIVILEGE_TRIGGER,
+)
 from models.stars import STARS_TABLE_DDL, STARS_INDEX_DDL
 from models.issue_assignees import ISSUE_ASSIGNEES_TABLE_DDL
-from models.issue_labels import ISSUE_LABELS_TABLE_DDL
-from models.issue_pull_requests import ISSUE_PULL_REQUESTS_TABLE_DDL
+from models.issue_labels import (
+    ISSUE_LABELS_TABLE_DDL,
+    DELETE_ORPHAN_LABEL_FUNC,
+    DELETE_ORPHAN_LABEL_TRIGGER,
+)
+from models.issue_pull_requests import (
+    ISSUE_PULL_REQUESTS_TABLE_DDL,
+    ISSUE_PR_SAME_REPO_FUNC,
+    ISSUE_PR_SAME_REPO_TRIGGER,
+)
+from models.pr_reviews import (
+    PR_REVIEWS_TABLE_DDL,
+    PR_REVIEWS_INDEX_DDL,
+    PR_REVIEW_PRIVILEGE_FUNC,
+    PR_REVIEW_PRIVILEGE_TRIGGER,
+)
+from models.stars import STARS_TABLE_DDL, STARS_INDEX_DDL
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
@@ -87,10 +107,16 @@ TRIGGER_DDLS = [
     CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION,
     CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER_FUNCTION,
     CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION,
+    DELETE_ORPHAN_LABEL_FUNC,
+    ISSUE_PR_SAME_REPO_FUNC,
+    PR_REVIEW_PRIVILEGE_FUNC,
     CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER,
     CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER,
     CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER,
     CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER,
+    DELETE_ORPHAN_LABEL_TRIGGER,
+    ISSUE_PR_SAME_REPO_TRIGGER,
+    PR_REVIEW_PRIVILEGE_TRIGGER,
 ]
 
 DDLS = TABLE_DDLS + TRIGGER_DDLS
@@ -104,11 +130,14 @@ def _normalize(ddl: str) -> str:
 
 
 def main() -> None:
-    out = ROOT / "src" / "sqls" / "schema.sql"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    content = "\n".join(_normalize(d) for d in DDLS)
-    out.write_text(content)
-    print(f"wrote {out} ({len(DDLS)} tables)")
+    schema_out = ROOT / "src" / "sqls" / "schema.sql"
+    schema_out.parent.mkdir(parents=True, exist_ok=True)
+    schema_out.write_text("\n".join(_normalize(d) for d in DDLS))
+    print(f"wrote {schema_out} ({len(DDLS)} statements)")
+
+    triggers_out = ROOT / "src" / "sqls" / "triggers.sql"
+    triggers_out.write_text("\n".join(_normalize(d) for d in TRIGGER_DDLS))
+    print(f"wrote {triggers_out} ({len(TRIGGER_DDLS)} statements)")
 
 
 if __name__ == "__main__":
