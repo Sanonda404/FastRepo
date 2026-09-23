@@ -209,7 +209,7 @@ export default function IssuePullCreatePage() {
     setErrorMessage(null)
     try {
       const pr = await createIssuePr(owner, repository, values)
-      navigate(`/${owner}/${repository}/pulls/${pr.id}`)
+      navigate(`/${owner}/${repository}/pulls/${pr}`)
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     } finally {
