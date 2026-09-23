@@ -47,6 +47,13 @@ UPDATE_TEAM_BY_ID = """
     ) AS members;
 """
 
+CALL_ADD_NEW_TEAM_MEMBER = """
+    CALL add_new_team_member(
+        $1, $2, $3, NULL
+    );
+"""
+
+
 ADD_NEW_MEMBER_TO_TEAM = """
     INSERT INTO team_members(team_id, member_id)
     VALUES ($1,$2)

@@ -73,7 +73,38 @@ CREATE_ISSUE_PR_PROCEDURE = """
     $$;
 """
 
+ADD_NEW_TEAM_MEMBER_PROCEDURE = """
+    CREATE OR REPLACE PROCEDURE add_new_team_member(
+        p_repository_id INT,
+        p_user_id INT,
+        p_team_id INT,
+        INOUT p_collaborator_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        v_role VARCHAR(50);
+    BEGIN
+        v_role := 'Member';
+
+        -- 1. Insert or update collaborator
+        INSERT INTO repository_collaborators (repository_id, user_id, role)
+        VALUES (p_repository_id, p_user_id, v_role)
+        ON CONFLICT ON CONSTRAINT unique_repo_collaborator
+        DO UPDATE SET role = EXCLUDED.role
+        RETURNING id INTO p_collaborator_id;
+
+        -- 2. Add collaborator to team (ON CONFLICT prevents duplicate key errors)
+        INSERT INTO team_members (team_id, member_id)
+        VALUES (p_team_id, p_collaborator_id)
+        ON CONFLICT (team_id, member_id) DO NOTHING;
+    END;
+    $$;
+"""
+
+
 async def ensure_procedures(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(CREATE_ISSUE_PR_PROCEDURE)
+            await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)

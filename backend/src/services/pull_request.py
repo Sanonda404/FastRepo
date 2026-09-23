@@ -179,6 +179,8 @@ async def create_issue_pull_request(
                     payload.source_repository_id,
                     payload.issue_ids or [],
                 )
+                data = dict(row)
+                return data["p_pr_id"]
             except asyncpg.PostgresError as e:
                 msg = str(e)
                 if "ISSUE_NOT_FOUND" in msg:
@@ -194,9 +196,6 @@ async def create_issue_pull_request(
                         detail=f"Issue {issue_id} and pull request must belong to same repository"
                     )
                 raise HTTPException(status_code=400, detail=f"Database error: {msg}")
-
-    data = dict(row)
-    return data["p_pr_id"]
 
 async def get_pull_files(pool: asyncpg.Pool, pr: PullRequestResponse) -> list[dict]:
     source_repo_id = pr.source_repository_id or pr.repository_id
