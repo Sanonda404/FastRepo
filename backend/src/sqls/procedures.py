@@ -113,8 +113,7 @@ ADD_NEW_TEAM_MEMBER_PROCEDURE = """    CREATE OR REPLACE PROCEDURE add_new_team_
 """
 
 
-FORK_REPOSITORY_PROCEDURE = """
-    CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
+FORK_REPOSITORY_PROCEDURE = """    CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
         p_owner_id INT,
         p_name VARCHAR(255),
         p_description TEXT,
@@ -152,9 +151,35 @@ FORK_REPOSITORY_PROCEDURE = """
 """
 
 
+UPDATE_DEFAULT_BRANCH_PROCEDURE = """
+    CREATE OR REPLACE PROCEDURE update_default_branch(
+        p_repo_id INT,
+        p_branch VARCHAR(255)
+    )
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM refs WHERE repo_id = p_repo_id AND name = 'refs/heads/' || p_branch
+        ) THEN
+            RAISE EXCEPTION 'BRANCH_NOT_FOUND:%', p_branch;
+        END IF;
+
+        UPDATE repositories SET default_branch = p_branch WHERE id = p_repo_id;
+
+        INSERT INTO refs (repo_id, name, symref)
+        VALUES (p_repo_id, 'HEAD', 'refs/heads/' || p_branch)
+        ON CONFLICT (repo_id, name)
+        DO UPDATE SET symref = EXCLUDED.symref, commit_sha = NULL, tag_sha = NULL;
+    END;
+    $$;
+"""
+
+
 async def ensure_procedures(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(CREATE_ISSUE_PR_PROCEDURE)
             await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)
             await conn.execute(FORK_REPOSITORY_PROCEDURE)
+            await conn.execute(UPDATE_DEFAULT_BRANCH_PROCEDURE)

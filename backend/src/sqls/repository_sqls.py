@@ -196,6 +196,10 @@ CALL_FORK_REPOSITORY = """
     )
 """
 
+CALL_UPDATE_DEFAULT_BRANCH = """
+    CALL update_default_branch($1, $2)
+"""
+
 GET_STAR = """
     SELECT 1 FROM stars
     WHERE user_id = $1 AND repository_id = $2
