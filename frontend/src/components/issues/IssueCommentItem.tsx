@@ -4,12 +4,24 @@ import type {
   IssueCommentResponse,
 } from "@/lib/interfaces"
 
-import { HasRole } from "@/components/guards/HasRole"
 import { formatRelativeDate } from "@/lib/format-date"
+
+export function canDeleteIssueComment(
+  role: string | null,
+  username: string | null,
+  commentAuthor: string,
+  assigneeUsernames: string[],
+): boolean {
+  if (!username) return false
+  if (username === commentAuthor) return true
+  if (["Owner", "Admin", "Maintainer"].includes(role ?? "")) return true
+  return assigneeUsernames.includes(username)
+}
 
 type Props = {
   comment: IssueCommentResponse
   disabled: boolean
+  canDelete: boolean
   onDelete: (
     id: number
   ) => Promise<void>
@@ -18,6 +30,7 @@ type Props = {
 export default function IssueCommentItem({
   comment,
   disabled,
+  canDelete,
   onDelete,
 }: Props) {
   return (
@@ -93,13 +106,7 @@ export default function IssueCommentItem({
           </div>
         </div>
 
-        <HasRole
-          roles={[
-            "Owner",
-            "Admin",
-            "Maintainer",
-          ]}
-        >
+        {canDelete && (
           <button
             type="button"
             disabled={disabled}
@@ -123,7 +130,7 @@ export default function IssueCommentItem({
           >
             <Trash2 className="size-4" />
           </button>
-        </HasRole>
+        )}
       </div>
 
       <div className="

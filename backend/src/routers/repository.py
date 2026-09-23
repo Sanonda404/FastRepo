@@ -139,9 +139,10 @@ async def modify_repository(
     current_user = Depends(get_current_user),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
-    """Update a repository. Owner only."""
+    """Update a repository. Owner or Admin."""
     repo = await get_repository(pool, owner_name, repo_name)
-    if repo.owner_id != current_user["id"]:
+    role = await get_role(pool, owner_name, repo_name, current_user)
+    if role not in ('Owner', 'Admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to update this repository.",

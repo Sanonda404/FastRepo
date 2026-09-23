@@ -16,6 +16,7 @@ from services.issues import get_issue_by_number
 from services.repository_crud import can_access_repository
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _viewable_repo, _get_viewable_repo
+from routers.issues import _can_moderate_issue
 from typing import List
 
 router = APIRouter(
@@ -81,9 +82,12 @@ async def delete_issue(
         comment = await get_issue_comment_by_id(pool, issue_cmnt_id)
         await _viewable_repo(pool, owner, repo_name, current_user)
         repo_id = await get_repo_id_by_issue_comment_id(pool, issue_cmnt_id)
-        if(comment.author_username != current_user["username"] and not await can_access_repository(pool, repo_id, current_user["id"])):
-            raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
-                detail="You don't have permission to delete this comment")
+        async with pool.acquire() as conn:
+            issue_row = await conn.fetchrow("SELECT i.number, u.username AS author_username FROM issues i LEFT JOIN users u ON u.id = i.author_id WHERE i.id = $1", comment.issue_id)
+        if issue_row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+        if comment.author_username != current_user["username"]:
+            await _can_moderate_issue(pool, owner, repo_name, repo_id, issue_row["number"], current_user)
         async with pool.acquire() as conn:
             row = await conn.fetchrow("SELECT state FROM issues WHERE id = $1", comment.issue_id)
             if row and row["state"] == "closed":

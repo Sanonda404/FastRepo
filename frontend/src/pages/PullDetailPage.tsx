@@ -44,7 +44,7 @@ import { REVIEW_DECISION_LABELS } from "@/lib/reviewDecision"
 export default function PullDetailPage() {
   const { owner = "", repository = "", pullNumber = "" } = useParams()
   const pullId = Number(pullNumber)
-  const { username } = useAuth()
+  const { username, isLoggedIn } = useAuth()
 
   const [role, setRole] = useState<RepositoryRole>("Viewer")
   const [collaborators, setCollaborators] = useState<CollaboratorResponse[]>([])
@@ -518,6 +518,10 @@ export default function PullDetailPage() {
                       <span className="text-xs italic text-muted-foreground">
                         Closed pull request — reviews are locked.
                       </span>
+                    ) : !isLoggedIn ? (
+                      <span className="text-xs italic text-muted-foreground">
+                        Please sign in to write a review.
+                      </span>
                     ) : (
                       <PullReviewDialog loading={mutating} onSubmit={handleCreateReview} canUseDecisions={canReviewWithDecision} />
                     )}
@@ -545,7 +549,10 @@ export default function PullDetailPage() {
                           review={review}
                           isDeleting={mutating}
                           onDeleteReview={
-                            review.reviewer_username === username || isCollaborator
+                            review.reviewer_username === username ||
+                            role === "Owner" ||
+                            role === "Admin" ||
+                            role === "Maintainer"
                               ? handleDeleteReview
                               : undefined
                           }

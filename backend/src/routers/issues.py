@@ -141,6 +141,24 @@ async def delete_issue(
         )
 
 
+async def _can_manage_issue(pool, owner_name, repo_name, repo_id, issue_number, issue_author, current_user):
+    if issue_author == current_user["username"]:
+        return
+    await _can_moderate_issue(pool, owner_name, repo_name, repo_id, issue_number, current_user)
+
+
+async def _can_moderate_issue(pool, owner_name, repo_name, repo_id, issue_number, current_user):
+    role = await get_role(pool, owner_name, repo_name, current_user)
+    if role in ('Owner', 'Admin', 'Maintainer'):
+        return
+    if await is_issue_assignee(pool, repo_id, issue_number, current_user["username"]):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You don't have permission to modify this issue",
+    )
+
+
 @router.patch("/{owner_name}/{repo_name}/{issue_number}",response_model=IssueSummary,status_code=status.HTTP_200_OK,)
 async def close_or_reopen_issue(
     owner_name : str,
@@ -158,13 +176,7 @@ async def close_or_reopen_issue(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Issue not found"
             )
-        if (issue.author_username != current_user["username"]
-                and not await can_access_repository(pool, repo.id, current_user["id"])
-                and not await is_issue_assignee(pool, repo.id, issue_number, current_user["username"])):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to close or reopen this issue"
-            )
+        await _can_manage_issue(pool, owner_name, repo_name, repo.id, issue_number, issue.author_username, current_user)
 
         updated_issue = await close_or_reopen_issue_by_no(pool, current_user["id"], repo.id, issue_number,
                                 current_user["username"], repo.name)
@@ -180,12 +192,19 @@ async def close_or_reopen_issue(
 async def _issue_for_manage(pool, owner_name, repo_name, issue_number, current_user):
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
     issue = await get_issue_by_number(pool, repo.id, issue_number)
-    if (issue.author_username != current_user["username"]
-            and not await can_access_repository(pool, repo.id, current_user["id"])):
+    await _can_manage_issue(pool, owner_name, repo_name, repo.id, issue_number, issue.author_username, current_user)
+    if issue.state == "closed":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to modify this issue",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify a closed issue",
         )
+    return repo
+
+
+async def _issue_for_label_manage(pool, owner_name, repo_name, issue_number, current_user):
+    repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
+    issue = await get_issue_by_number(pool, repo.id, issue_number)
+    await _can_moderate_issue(pool, owner_name, repo_name, repo.id, issue_number, current_user)
     if issue.state == "closed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -279,7 +298,7 @@ async def attach_label_to_issue(
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     try:
-        repo = await _issue_for_manage(pool, owner_name, repo_name, issue_number, current_user)
+        repo = await _issue_for_label_manage(pool, owner_name, repo_name, issue_number, current_user)
         return await attach_label(pool, repo.id, issue_number, payload)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -295,7 +314,7 @@ async def detach_label_from_issue(
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     try:
-        repo = await _issue_for_manage(pool, owner_name, repo_name, issue_number, current_user)
+        repo = await _issue_for_label_manage(pool, owner_name, repo_name, issue_number, current_user)
         return await detach_label(pool, repo.id, issue_number, label_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
