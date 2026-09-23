@@ -190,6 +190,12 @@ COPY_FORK_REFS = """
     SELECT $1, name, commit_sha, tag_sha, symref FROM refs WHERE repo_id = $2
 """
 
+CALL_FORK_REPOSITORY = """
+    CALL fork_repository_with_copy(
+        $1, $2, $3, $4, $5, $6, NULL
+    )
+"""
+
 GET_STAR = """
     SELECT 1 FROM stars
     WHERE user_id = $1 AND repository_id = $2

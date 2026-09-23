@@ -12,13 +12,7 @@ from sqls.repository_sqls import (
     GET_ALL_PUBLIC_OF_OWNER_BY_OWNER_NAME,
     GET_ALL_ACCESIBLE_REPOS_OF_USER_BY_ID,
     GET_LIST_OF_ACCESSIBLE_FORKS,
-    FORK_REPOSITORY, 
-    COPY_FORK_COMMITS,
-    COPY_FORK_BLOBS,
-    COPY_FORK_TAGS,
-    COPY_FORK_TREE_ENTRIES,
-    COPY_FORK_COMMIT_PARENTS,
-    COPY_FORK_REFS,
+    CALL_FORK_REPOSITORY,
     UPDATE_REPOSITORY,
     DELETE_REPOSITORY,
     CHECK_REPO_ACCESS,
@@ -30,6 +24,7 @@ from sqls.repository_sqls import (
     GET_STARRED_REPOS_OF_USER
 )
 from sqls.git_sqls import SET_SYMREF
+from sqls.pull_request_sqls import GET_REPO_BY_ID
 from models.git import EMPTY_TREE_SHA
 
 from sqls.git_sqls import INSERT_HEAD_REF, INSERT_COMMIT, UPSERT_REF
@@ -190,27 +185,22 @@ async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, p
                 target_name = payload.name or source_repo.name
                 target_description = payload.description if payload.description is not None else source_repo.description
                 target_is_private = payload.is_private if payload.is_private is not None else source_repo.is_private
-                
-                #create new repository
+
                 row = await conn.fetchrow(
-                    FORK_REPOSITORY, current_user_id, target_name, target_description, target_is_private, source_repo.default_branch, source_repo.id
+                    CALL_FORK_REPOSITORY, current_user_id, target_name, target_description, target_is_private, source_repo.default_branch, source_repo.id
                 )
                 if row is None:
+                    raise HTTPException(status_code=500, detail="Fork failed unexpectedly")
+
+                repo_row = await conn.fetchrow(GET_REPO_BY_ID, row["p_new_repo_id"])
+                if repo_row is None:
                     raise HTTPException(status_code=404, detail="Repository not found")
 
-                new_repo = RepositoryResponse(**dict(row))
-                
-                #copy git objects, refs and parent links to the new repo id
-                await conn.execute(COPY_FORK_BLOBS, new_repo.id, source_repo.id)
-                await conn.execute(COPY_FORK_TAGS, new_repo.id, source_repo.id)
-                await conn.execute(COPY_FORK_TREE_ENTRIES, new_repo.id, source_repo.id)
-                await conn.execute(COPY_FORK_COMMITS, new_repo.id, source_repo.id)
-                await conn.execute(COPY_FORK_COMMIT_PARENTS, new_repo.id, source_repo.id)
-                await conn.execute(COPY_FORK_REFS, new_repo.id, source_repo.id)
-
-                return new_repo
+                return RepositoryResponse(**dict(repo_row))
             except asyncpg.UniqueViolationError:
                 raise ValueError("Repository with same name already exists")
+            except asyncpg.PostgresError as e:
+                raise HTTPException(status_code=400, detail=f"Database error: {e}")
 
 async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: int | None) -> List[RepositoryDetails]:
     async with pool.acquire() as conn:

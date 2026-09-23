@@ -73,8 +73,7 @@ CREATE_ISSUE_PR_PROCEDURE = """
     $$;
 """
 
-ADD_NEW_TEAM_MEMBER_PROCEDURE = """
-    CREATE OR REPLACE PROCEDURE add_new_team_member(
+ADD_NEW_TEAM_MEMBER_PROCEDURE = """    CREATE OR REPLACE PROCEDURE add_new_team_member(
         p_repository_id INT,
         p_user_id INT,
         p_team_id INT,
@@ -114,8 +113,48 @@ ADD_NEW_TEAM_MEMBER_PROCEDURE = """
 """
 
 
+FORK_REPOSITORY_PROCEDURE = """
+    CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
+        p_owner_id INT,
+        p_name VARCHAR(255),
+        p_description TEXT,
+        p_is_private BOOLEAN,
+        p_default_branch VARCHAR(255),
+        p_source_repo_id INT,
+        INOUT p_new_repo_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        INSERT INTO repositories (owner_id, name, description, is_private, default_branch, parent_repository_id)
+        VALUES (p_owner_id, p_name, p_description, p_is_private, p_default_branch, p_source_repo_id)
+        RETURNING id INTO p_new_repo_id;
+
+        INSERT INTO blobs (repo_id, sha, content, size)
+        SELECT p_new_repo_id, sha, content, size FROM blobs WHERE repo_id = p_source_repo_id;
+
+        INSERT INTO tags (repo_id, sha, content)
+        SELECT p_new_repo_id, sha, content FROM tags WHERE repo_id = p_source_repo_id;
+
+        INSERT INTO tree_entries (repo_id, tree_sha, name, mode, blob_sha, subtree_sha)
+        SELECT p_new_repo_id, tree_sha, name, mode, blob_sha, subtree_sha FROM tree_entries WHERE repo_id = p_source_repo_id;
+
+        INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
+        SELECT p_new_repo_id, sha, content, root_tree_sha, author_name, author_date, message FROM commits WHERE repo_id = p_source_repo_id;
+
+        INSERT INTO commit_parent (repo_id, commit_sha, parent_sha, parent_index)
+        SELECT p_new_repo_id, commit_sha, parent_sha, parent_index FROM commit_parent WHERE repo_id = p_source_repo_id;
+
+        INSERT INTO refs (repo_id, name, commit_sha, tag_sha, symref)
+        SELECT p_new_repo_id, name, commit_sha, tag_sha, symref FROM refs WHERE repo_id = p_source_repo_id;
+    END;
+    $$;
+"""
+
+
 async def ensure_procedures(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(CREATE_ISSUE_PR_PROCEDURE)
             await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)
+            await conn.execute(FORK_REPOSITORY_PROCEDURE)
