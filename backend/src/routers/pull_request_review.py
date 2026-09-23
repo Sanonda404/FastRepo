@@ -12,7 +12,7 @@ from services.pull_request import (
     delete_pr_review,
 )
 from auth.auth import get_current_user
-from auth.permission import get_role
+from auth.permission import is_privileged_on_repo
 from auth.repository_auth import _viewable_repo
 
 router = APIRouter(
@@ -118,8 +118,7 @@ async def remove_review(
     if review is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
     if review.reviewer_id != current_user["id"]:
-        role = await get_role(pool, owner_name, repo_name, current_user)
-        if role not in ("Owner", "Admin", "Maintainer"):
+        if not await is_privileged_on_repo(pool, repo.id, repo.owner_id, current_user["id"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the reviewer or an Owner/Admin/Maintainer can delete a review",

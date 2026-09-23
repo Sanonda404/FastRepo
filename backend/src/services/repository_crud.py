@@ -16,7 +16,6 @@ from sqls.repository_sqls import (
     CALL_UPDATE_DEFAULT_BRANCH,
     UPDATE_REPOSITORY,
     DELETE_REPOSITORY,
-    CHECK_REPO_ACCESS,
     GET_STAR,
     INSERT_STAR,
     REMOVE_STAR,
@@ -174,7 +173,7 @@ async def delete_repository(pool: asyncpg.Pool, owner_id: int, repo_name: str) -
 
 async def can_access_repository(pool: asyncpg.Pool, repo_id: int, user_id: int) -> bool:
     async with pool.acquire() as conn:
-        return bool(await conn.fetchval(CHECK_REPO_ACCESS, repo_id, user_id))
+        return bool(await conn.fetchval("SELECT can_access_repository($1, $2)", repo_id, user_id))
 
 async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, payload: ForkRepositoryRequest ,current_user_id: int) -> RepositoryResponse:
     async with pool.acquire() as conn:

@@ -125,16 +125,6 @@ DELETE_REPOSITORY = """
 """
 
 
-# check if a user can access a repository (owner or collaborator)
-CHECK_REPO_ACCESS = """
-    SELECT EXISTS (
-        SELECT 1 FROM repositories WHERE id = $1 AND owner_id = $2
-        UNION ALL
-        SELECT 1 FROM repository_collaborators WHERE repository_id = $1 AND user_id = $2
-    )
-"""
-
-
 FORK_REPOSITORY = """
     INSERT INTO repositories
     (owner_id, name, description, is_private, default_branch, parent_repository_id)

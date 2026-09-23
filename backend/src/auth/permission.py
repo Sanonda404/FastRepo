@@ -96,12 +96,18 @@ async def is_privileged_on_repo(
     owner_id: int,
     user_id: int,
 ) -> bool:
-    if owner_id == user_id:
-        return True
-    collaborator = await get_collaborator_details(pool, repo_id, user_id)
-    if not collaborator:
-        return False
-    return collaborator.role in ('Admin', 'Maintainer')
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval("SELECT is_privileged_on_repo($1, $2, $3)", repo_id, owner_id, user_id))
+
+
+async def can_manage_pr(
+    pool: asyncpg.Pool,
+    repo_id: int,
+    pull_request_id: int,
+    user_id: int,
+) -> bool:
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval("SELECT can_manage_pr($1, $2, $3)", repo_id, pull_request_id, user_id))
 
 
 async def can_push_to_branch_by_id(

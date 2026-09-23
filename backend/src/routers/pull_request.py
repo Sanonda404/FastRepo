@@ -28,7 +28,7 @@ from services.pull_request import (
 )
 from services.git_merge import check_mergeable, merge_pull_request, MergeConflictError
 from auth.auth import get_current_user
-from auth.permission import is_privileged_on_repo
+from auth.permission import is_privileged_on_repo, can_manage_pr
 from auth.repository_auth import _viewable_repo
 
 router = APIRouter(
@@ -139,9 +139,7 @@ async def link_issue_pull(
     pr = await get_pull_request(pool, repo.id, pull_request_id)
     if pr is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pull request not found")
-    if pr.author_id != current_user["id"] and not await is_privileged_on_repo(
-        pool, repo.id, repo.owner_id, current_user["id"]
-    ):
+    if not await can_manage_pr(pool, repo.id, pull_request_id, current_user["id"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the pull request author, owner, admin, or maintainer can link issues",
@@ -161,8 +159,11 @@ async def modify_pull(
     pr = await get_pull_request(pool, repo.id, pull_request_id)
     if pr is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pull request not found")
-    if pr.author_id != current_user["id"]:
-        await _can_write(pool, repo.id, current_user)
+    if not await can_manage_pr(pool, repo.id, pull_request_id, current_user["id"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the pull request author, owner, admin, or maintainer can close or reopen this pull request",
+        )
     if payload.state is not None and payload.state not in ("open", "closed"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid state")
     if payload.state == "open" and pr.state == "closed" and getattr(pr, "merged", False):

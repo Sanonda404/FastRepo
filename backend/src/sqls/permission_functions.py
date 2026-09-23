@@ -1,0 +1,94 @@
+CAN_ACCESS_REPOSITORY_FUNC = """
+    CREATE OR REPLACE FUNCTION can_access_repository(p_repo_id INT, p_user_id INT)
+    RETURNS BOOLEAN
+    LANGUAGE sql
+    STABLE
+    AS $$
+        SELECT EXISTS (
+            SELECT 1 FROM repositories WHERE id = p_repo_id AND owner_id = p_user_id
+            UNION ALL
+            SELECT 1 FROM repository_collaborators WHERE repository_id = p_repo_id AND user_id = p_user_id
+        );
+    $$;
+"""
+
+IS_PRIVILEGED_ON_REPO_FUNC = """
+    CREATE OR REPLACE FUNCTION is_privileged_on_repo(p_repo_id INT, p_owner_id INT, p_user_id INT)
+    RETURNS BOOLEAN
+    LANGUAGE sql
+    STABLE
+    AS $$
+        SELECT p_owner_id = p_user_id
+            OR EXISTS (
+                SELECT 1 FROM repository_collaborators
+                WHERE repository_id = p_repo_id AND user_id = p_user_id AND role IN ('Admin', 'Maintainer')
+            );
+    $$;
+"""
+
+CAN_MANAGE_ISSUE_FUNC = """
+    CREATE OR REPLACE FUNCTION can_manage_issue(p_repo_id INT, p_issue_number INT, p_user_id INT)
+    RETURNS BOOLEAN
+    LANGUAGE sql
+    STABLE
+    AS $$
+        SELECT EXISTS (
+                SELECT 1 FROM issues
+                WHERE repository_id = p_repo_id AND number = p_issue_number AND author_id = p_user_id
+            )
+            OR is_privileged_on_repo(
+                p_repo_id,
+                (SELECT owner_id FROM repositories WHERE id = p_repo_id),
+                p_user_id
+            )
+            OR EXISTS (
+                SELECT 1 FROM issue_assignees ia
+                INNER JOIN issues i ON i.id = ia.issue_id
+                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND ia.user_id = p_user_id
+            );
+    $$;
+"""
+
+CAN_MANAGE_PR_FUNC = """    CREATE OR REPLACE FUNCTION can_manage_pr(p_repo_id INT, p_pr_id INT, p_user_id INT)
+    RETURNS BOOLEAN
+    LANGUAGE sql
+    STABLE
+    AS $$
+        SELECT EXISTS (
+                SELECT 1 FROM pull_requests
+                WHERE id = p_pr_id AND repository_id = p_repo_id AND author_id = p_user_id
+            )
+            OR is_privileged_on_repo(
+                p_repo_id,
+                (SELECT owner_id FROM repositories WHERE id = p_repo_id),
+                p_user_id
+            );
+    $$;
+"""
+
+CAN_MODERATE_ISSUE_FUNC = """
+    CREATE OR REPLACE FUNCTION can_moderate_issue(p_repo_id INT, p_issue_number INT, p_user_id INT)
+    RETURNS BOOLEAN
+    LANGUAGE sql
+    STABLE
+    AS $$
+        SELECT is_privileged_on_repo(
+                p_repo_id,
+                (SELECT owner_id FROM repositories WHERE id = p_repo_id),
+                p_user_id
+            )
+            OR EXISTS (
+                SELECT 1 FROM issue_assignees ia
+                INNER JOIN issues i ON i.id = ia.issue_id
+                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND ia.user_id = p_user_id
+            );
+    $$;
+"""
+
+PERMISSION_FUNCTIONS = (
+    CAN_ACCESS_REPOSITORY_FUNC,
+    IS_PRIVILEGED_ON_REPO_FUNC,
+    CAN_MANAGE_ISSUE_FUNC,
+    CAN_MODERATE_ISSUE_FUNC,
+    CAN_MANAGE_PR_FUNC,
+)

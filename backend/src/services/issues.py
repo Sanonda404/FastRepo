@@ -241,6 +241,14 @@ async def is_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int,
     async with pool.acquire() as conn:
         return bool(await conn.fetchval(IS_ISSUE_ASSIGNEE, repo_id, issue_number, username))
 
+async def can_manage_issue(pool: asyncpg.Pool, repo_id: int, issue_number: int, user_id: int) -> bool:
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval("SELECT can_manage_issue($1, $2, $3)", repo_id, issue_number, user_id))
+
+async def can_moderate_issue(pool: asyncpg.Pool, repo_id: int, issue_number: int, user_id: int) -> bool:
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval("SELECT can_moderate_issue($1, $2, $3)", repo_id, issue_number, user_id))
+
 async def get_assigned_issues(pool: asyncpg.Pool, user_id: int) -> List[AssignedIssueResponse]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_ASSIGNED_ISSUES, user_id)

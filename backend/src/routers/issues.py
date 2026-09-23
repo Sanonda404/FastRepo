@@ -31,7 +31,7 @@ from services.issues import (
     attach_label,
     detach_label,
     list_issue_labels,
-    is_issue_assignee,
+    can_manage_issue,
     get_assigned_issues,
     get_pulls_for_issue
 )
@@ -144,14 +144,7 @@ async def delete_issue(
 async def _can_manage_issue(pool, owner_name, repo_name, repo_id, issue_number, issue_author, current_user):
     if issue_author == current_user["username"]:
         return
-    await _can_moderate_issue(pool, owner_name, repo_name, repo_id, issue_number, current_user)
-
-
-async def _can_moderate_issue(pool, owner_name, repo_name, repo_id, issue_number, current_user):
-    role = await get_role(pool, owner_name, repo_name, current_user)
-    if role in ('Owner', 'Admin', 'Maintainer'):
-        return
-    if await is_issue_assignee(pool, repo_id, issue_number, current_user["username"]):
+    if await can_manage_issue(pool, repo_id, issue_number, current_user["id"]):
         return
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -204,7 +197,7 @@ async def _issue_for_manage(pool, owner_name, repo_name, issue_number, current_u
 async def _issue_for_label_manage(pool, owner_name, repo_name, issue_number, current_user):
     repo = await _viewable_repo(pool, owner_name, repo_name, current_user)
     issue = await get_issue_by_number(pool, repo.id, issue_number)
-    await _can_moderate_issue(pool, owner_name, repo_name, repo.id, issue_number, current_user)
+    await _can_manage_issue(pool, owner_name, repo_name, repo.id, issue_number, issue.author_username, current_user)
     if issue.state == "closed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

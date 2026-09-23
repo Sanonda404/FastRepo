@@ -12,11 +12,10 @@ from services.issue_comments import (
     delete_issue_comment_by_id,
     get_repo_id_by_issue_comment_id
 )
-from services.issues import get_issue_by_number
+from services.issues import get_issue_by_number, can_moderate_issue
 from services.repository_crud import can_access_repository
 from auth.auth import get_current_user, get_optional_current_user
 from auth.repository_auth import _viewable_repo, _get_viewable_repo
-from routers.issues import _can_moderate_issue
 from typing import List
 
 router = APIRouter(
@@ -87,7 +86,11 @@ async def delete_issue(
         if issue_row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
         if comment.author_username != current_user["username"]:
-            await _can_moderate_issue(pool, owner, repo_name, repo_id, issue_row["number"], current_user)
+            if not await can_moderate_issue(pool, repo_id, issue_row["number"], current_user["id"]):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to modify this issue",
+                )
         async with pool.acquire() as conn:
             row = await conn.fetchrow("SELECT state FROM issues WHERE id = $1", comment.issue_id)
             if row and row["state"] == "closed":

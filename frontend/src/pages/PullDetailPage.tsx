@@ -25,11 +25,9 @@ import {
 } from "@/lib/apis/pull_apis"
 import { getIssues } from "@/lib/apis/issue_apis"
 import { getRole } from "@/lib/apis/repository_apis"
-import { getCollaborators } from "@/lib/apis/repository_collaborator_apis"
 import { useAuth } from "@/lib/auth/use-auth"
 import { formatRelativeDate } from "@/lib/format-date"
 import type {
-  CollaboratorResponse,
   FileChange,
   Issue,
   IssueRef,
@@ -47,7 +45,6 @@ export default function PullDetailPage() {
   const { username, isLoggedIn } = useAuth()
 
   const [role, setRole] = useState<RepositoryRole>("Viewer")
-  const [collaborators, setCollaborators] = useState<CollaboratorResponse[]>([])
   const [pr, setPr] = useState<PullRequest | null>(null)
   const [reviews, setReviews] = useState<PullReview[]>([])
   const [files, setFiles] = useState<FileChange[]>([])
@@ -72,9 +69,6 @@ export default function PullDetailPage() {
     getRole(owner, repository)
       .then((data) => setRole(data))
       .catch((err) => console.log(getErrorMessage(err)))
-    getCollaborators(owner, repository)
-      .then((data) => setCollaborators(data))
-      .catch(() => setCollaborators([]))
   }, [owner, repository])
 
   useEffect(() => {
@@ -182,9 +176,6 @@ export default function PullDetailPage() {
       active = false
     }
   }, [owner, repository, pullId, pr?.state])
-
-  const isCollaborator =
-    role === "Owner" || collaborators.some((c) => c.username === username)
 
   const canLinkIssue =
     pr != null &&
@@ -314,7 +305,12 @@ export default function PullDetailPage() {
 
   const additions = files.reduce((n, f) => n + f.additions, 0)
   const deletions = files.reduce((n, f) => n + f.deletions, 0)
-  const canModify = pr != null && (pr.author_username === username || isCollaborator)
+  const canModify =
+    pr != null &&
+    (pr.author_username === username ||
+      role === "Owner" ||
+      role === "Admin" ||
+      role === "Maintainer")
   const isClosed = pr?.state === "closed"
   const canMerge = role === "Owner" || role === "Admin" || role === "Maintainer"
   const canReviewWithDecision = role === "Owner" || role === "Admin" || role === "Maintainer"

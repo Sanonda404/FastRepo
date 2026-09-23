@@ -1,5 +1,7 @@
 import asyncpg
 
+from sqls.permission_functions import PERMISSION_FUNCTIONS
+
 CREATE_ISSUE_PR_PROCEDURE = """
     CREATE OR REPLACE PROCEDURE create_pr_with_issues(
         p_repository_id INT,
@@ -183,3 +185,5 @@ async def ensure_procedures(pool: asyncpg.Pool) -> None:
             await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)
             await conn.execute(FORK_REPOSITORY_PROCEDURE)
             await conn.execute(UPDATE_DEFAULT_BRANCH_PROCEDURE)
+            for func in PERMISSION_FUNCTIONS:
+                await conn.execute(func)
