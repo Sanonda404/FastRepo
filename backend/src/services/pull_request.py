@@ -21,7 +21,7 @@ from schemas.pull_request import (
 )
 from sqls.pull_request_sqls import (
     CREATE_PULL_REQUEST,
-    CREATE_ISSUE_PR,
+    CALL_CREATE_PR_WITH_ISSUES,
     LINK_ISSUE_PR,
     GET_ALL_PULL_REQUESTS,
     GET_PULL_REQUEST_BY_ID,
@@ -124,12 +124,14 @@ async def create_issue_pull_request(
     author_username: str,
     target_r: dict,
     payload: IssuePullRequestCreateRequest,
-) -> PullRequestResponse:
+) -> int:
 
     async with pool.acquire() as conn:
         target = await conn.fetchrow(GET_REPO_BY_ID, target_r["id"])
+        
     if target is None:
         raise ValueError("Target repository not found")
+
     is_cross = payload.source_repository_id is not None and payload.source_repository_id != target["id"]
     if is_cross:
         async with pool.acquire() as conn:
@@ -162,65 +164,39 @@ async def create_issue_pull_request(
     if not await _branch_exists(pool, target_r["id"], payload.target_branch):
         raise ValueError(f"Target branch '{payload.target_branch}' does not exist")
 
-    # Fast fail before creating the PR: linked issues must exist and belong
-    # to the target repo. DB trigger validate_issue_pull_request_same_repo()
-    # enforces the same rule on write as backstop.
+    # Delegate all validation and insertion directly to the SQL procedure
     async with pool.acquire() as conn:
-        for i in payload.issue_ids:
-            issue_row = await conn.fetchrow(
-                "SELECT repository_id FROM issues WHERE id=$1", i
-            )
-            if issue_row is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Issue {i} does not exist"
+        async with conn.transaction():
+            try:
+                row = await conn.fetchrow(
+                    CALL_CREATE_PR_WITH_ISSUES,
+                    target_r["id"],
+                    author_id,
+                    payload.title or "",
+                    payload.body,
+                    payload.source_branch,
+                    payload.target_branch,
+                    payload.source_repository_id,
+                    payload.issue_ids or [],
                 )
-            if issue_row["repository_id"] != target_r["id"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Issue and pull request must belong to same repository"
-                )
-
-    try:
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                CREATE_PULL_REQUEST,
-                target_r["id"],
-                author_id,
-                payload.title or "",
-                payload.body,
-                payload.source_branch,
-                payload.target_branch,
-                payload.source_repository_id,
-            )
-            
-            for i in payload.issue_ids:
-                issue_pr = await conn.fetchrow(
-                    CREATE_ISSUE_PR,
-                    i, row["id"]
-                )
-                if issue_pr is None:
+            except asyncpg.PostgresError as e:
+                msg = str(e)
+                if "ISSUE_NOT_FOUND" in msg:
+                    issue_id = msg.split(":")[1]
                     raise HTTPException(
                         status_code=404,
-                        detail=f"Issue {i} not found"
+                        detail=f"Issue {issue_id} does not exist"
                     )
-    except asyncpg.ForeignKeyViolationError:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Issue {i} does not exist"
-            )
-    except asyncpg.PostgresError as e:
-        msg = str(e)
-        if "same repository" in msg:
-            raise HTTPException(
-                status_code=400,
-                detail="Issue and pull request must belong to same repository"
-            )
-        raise ValueError(f"Database error: {msg}")
+                if "ISSUE_WRONG_REPO" in msg:
+                    issue_id = msg.split(":")[1]
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Issue {issue_id} and pull request must belong to same repository"
+                    )
+                raise HTTPException(status_code=400, detail=f"Database error: {msg}")
 
     data = dict(row)
-    data["author_username"] = author_username
-    return PullRequestResponse(**data)
+    return data["p_pr_id"]
 
 async def get_pull_files(pool: asyncpg.Pool, pr: PullRequestResponse) -> list[dict]:
     source_repo_id = pr.source_repository_id or pr.repository_id

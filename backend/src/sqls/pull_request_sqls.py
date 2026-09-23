@@ -5,10 +5,10 @@ CREATE_PULL_REQUEST = """
               source_repository_id, created_at, closed_at, merged
 """
 
-CREATE_ISSUE_PR = """
-    INSERT INTO issue_pull_requests(issue_id, pull_request_id)
-    VALUES ($1, $2)
-    RETURNING issue_id, pull_request_id;
+CALL_CREATE_PR_WITH_ISSUES = """
+    CALL create_pr_with_issues(
+        $1, $2, $3, $4, $5, $6, $7, $8, NULL
+    );
 """
 
 PULL_REQUEST_SELECT = """

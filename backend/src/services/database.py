@@ -22,6 +22,7 @@ from models.issue_pull_requests import ensure_issue_pull_requests_table
 from models.issue_labels import ensure_issue_labels_table
 from models.permission import ensure_permission_table
 from models.profile_pic import ensure_profile_picss_table
+from sqls.procedures import ensure_procedures
 
 from models.repository_collaborators import (
     CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION,
@@ -63,6 +64,7 @@ async def init_pool() -> None:
     await ensure_issue_pull_requests_table(_pool)
     await ensure_issue_labels_table(_pool)
     await ensure_permission_table(_pool)
+    await ensure_procedures(_pool)
 
     async with _pool.acquire() as conn:
         await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION)
