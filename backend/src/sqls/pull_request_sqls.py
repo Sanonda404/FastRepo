@@ -8,7 +8,7 @@ CREATE_PULL_REQUEST = """
 CALL_CREATE_PR_WITH_ISSUES = """
     CALL create_pr_with_issues(
         $1, $2, $3, $4, $5, $6, $7, $8, NULL
-    );
+    )
 """
 
 PULL_REQUEST_SELECT = """

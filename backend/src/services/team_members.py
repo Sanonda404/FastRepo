@@ -2,9 +2,8 @@ from fastapi import HTTPException, status
 from typing import List
 from schemas.teams import TeamMember, AddNewTeamMemberRequest
 from sqls.teams_sqls import ADD_NEW_MEMBER_TO_TEAM, REMOVE_MEMBER_FROM_TEAM, GET_ALL_TEAM_MEMBERS_IN_TEAM, CALL_ADD_NEW_TEAM_MEMBER
-from services.repository_collaborator import add_collaborator_to_repo, get_user_details
+from services.repository_collaborator import get_user_details
 from services.user import get_user_by_username_or_email
-from schemas.repository_collaborator import CollaboratorAddRequest
 
 import asyncpg
 
@@ -12,7 +11,6 @@ async def add_new_member_in_repo_team(pool: asyncpg.Pool, repo_id: int, team_id:
     async with pool.acquire() as conn:
         async with conn.transaction():
             try:
-                #find the user
                 user = await get_user_by_username_or_email(pool, payload.member_identifier)
                 if not user:
                     raise HTTPException(
@@ -20,13 +18,12 @@ async def add_new_member_in_repo_team(pool: asyncpg.Pool, repo_id: int, team_id:
                         detail="User not found"
                 )
 
-                # now add member to team
                 row = await conn.fetchrow(
                     CALL_ADD_NEW_TEAM_MEMBER, repo_id, user["id"], team_id
                 )
                 if row is None:
                     raise HTTPException(status_code=500, detail="Team member add failed unexpectedly")
-                
+
                 res = TeamMember(
                     id=user["id"],
                     collaborator_id=row["p_collaborator_id"],
@@ -34,8 +31,17 @@ async def add_new_member_in_repo_team(pool: asyncpg.Pool, repo_id: int, team_id:
                 )
                 return res
             except asyncpg.PostgresError as e:
+                msg = str(e)
+                if "TEAM_NOT_FOUND" in msg:
+                    raise HTTPException(
+                        status_code=404, detail=f"Team {team_id} does not exist"
+                    )
+                if "TEAM_WRONG_REPO" in msg:
+                    raise HTTPException(
+                        status_code=400, detail="Team does not belong to this repository"
+                    )
                 raise HTTPException(
-                    status_code=500, detail=f"Database error: {str(e)}"
+                    status_code=500, detail=f"Database error: {msg}"
                 )
 
 

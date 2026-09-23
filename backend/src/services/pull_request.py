@@ -164,7 +164,6 @@ async def create_issue_pull_request(
     if not await _branch_exists(pool, target_r["id"], payload.target_branch):
         raise ValueError(f"Target branch '{payload.target_branch}' does not exist")
 
-    # Delegate all validation and insertion directly to the SQL procedure
     async with pool.acquire() as conn:
         async with conn.transaction():
             try:
@@ -195,7 +194,7 @@ async def create_issue_pull_request(
                         status_code=400,
                         detail=f"Issue {issue_id} and pull request must belong to same repository"
                     )
-                raise HTTPException(status_code=400, detail=f"Database error: {msg}")
+                raise HTTPException(status_code=500, detail=f"Database error: {msg}")
 
 async def get_pull_files(pool: asyncpg.Pool, pr: PullRequestResponse) -> list[dict]:
     source_repo_id = pr.source_repository_id or pr.repository_id

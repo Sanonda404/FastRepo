@@ -50,7 +50,7 @@ UPDATE_TEAM_BY_ID = """
 CALL_ADD_NEW_TEAM_MEMBER = """
     CALL add_new_team_member(
         $1, $2, $3, NULL
-    );
+    )
 """
 
 

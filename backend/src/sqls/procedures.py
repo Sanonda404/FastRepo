@@ -83,18 +83,29 @@ ADD_NEW_TEAM_MEMBER_PROCEDURE = """
     LANGUAGE plpgsql
     AS $$
     DECLARE
-        v_role VARCHAR(50);
+        v_team_repo INT;
     BEGIN
-        v_role := 'Member';
+        SELECT repository_id INTO v_team_repo FROM teams WHERE id = p_team_id;
 
-        -- 1. Insert or update collaborator
+        IF v_team_repo IS NULL THEN
+            RAISE EXCEPTION 'TEAM_NOT_FOUND:%', p_team_id;
+        END IF;
+
+        IF v_team_repo <> p_repository_id THEN
+            RAISE EXCEPTION 'TEAM_WRONG_REPO:%', p_team_id;
+        END IF;
+
         INSERT INTO repository_collaborators (repository_id, user_id, role)
-        VALUES (p_repository_id, p_user_id, v_role)
+        VALUES (p_repository_id, p_user_id, 'Member')
         ON CONFLICT ON CONSTRAINT unique_repo_collaborator
-        DO UPDATE SET role = EXCLUDED.role
+        DO NOTHING
         RETURNING id INTO p_collaborator_id;
 
-        -- 2. Add collaborator to team (ON CONFLICT prevents duplicate key errors)
+        IF p_collaborator_id IS NULL THEN
+            SELECT id INTO p_collaborator_id FROM repository_collaborators
+            WHERE repository_id = p_repository_id AND user_id = p_user_id;
+        END IF;
+
         INSERT INTO team_members (team_id, member_id)
         VALUES (p_team_id, p_collaborator_id)
         ON CONFLICT (team_id, member_id) DO NOTHING;
