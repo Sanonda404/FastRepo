@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import DocsSidebar from "@/components/docs/DocsSidebar"
 import DocsHero from "@/components/docs/DocsHero"
 import IntroductionDocs from "@/components/docs/IntroductionDocs"
@@ -8,6 +9,10 @@ import PermissionDocs from "@/components/docs/PermissionDocs"
 import IssueDocs from "@/components/docs/IssueDocs"
 
 export default function DocsPage() {
+  useEffect(() => {
+    document.title = "Docs · FastRepo"
+  }, [])
+
   return (
     <div className="min-h-dvh bg-background">
       <div className="mx-auto flex w-full max-w-7xl">

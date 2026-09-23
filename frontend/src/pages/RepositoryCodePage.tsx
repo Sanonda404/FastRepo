@@ -24,6 +24,7 @@ import type {
 export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryResponse | null }) {
   const { owner = "jane", repository = "fastrepo" } = useParams()
   const [branchList, setBranchList] = useState<BranchResponse[]>([])
+  const [branchesLoaded, setBranchesLoaded] = useState(false)
   const [collaborators, setCollaborators] = useState<CollaboratorResponse[] | null>(null)
   const [branch, setBranch] = useState("")
   const [branchOpen, setBranchOpen] = useState(false)
@@ -39,10 +40,10 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
     let active = true
     listBranches(owner, repository)
       .then((branches) => {
-        if (active) setBranchList(branches)
+        if (active) { setBranchList(branches); setBranchesLoaded(true) }
       })
       .catch((err) => {
-        if (active) setTreeResult({ key: `${owner}/${repository}@:`, error: getErrorMessage(err) })
+        if (active) { setBranchesLoaded(true); setTreeResult({ key: `${owner}/${repository}@:`, error: getErrorMessage(err) }) }
       })
     return () => { active = false }
   }, [owner, repository])
@@ -106,6 +107,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
     [branchList, branchSearch],
   )
   const file = fileResult?.key === `${owner}/${repository}@${activeBranch}:${filePath}` ? fileResult : null
+  const isEmptyRepo = branchesLoaded && branchList.length === 0 && !repoMeta?.default_branch
   const isEmptyRoot = !selectedFile && tree !== null && !tree.error && tree.entries !== undefined && tree.entries.length === 0 && path.length === 0
   const isTrulyEmptyRepo = !selectedFile && path.length === 0 && !activeBranch && repoMeta !== null && !repoMeta.default_branch && branchList.length === 0 && tree === null
   const contributors = [
@@ -140,8 +142,8 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
           <div className="flex min-w-0 flex-col gap-4">
             <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
               <div className="relative flex items-center gap-2">
-                <button className={`${buttonVariants({ variant: "outline", size: "sm" })} min-w-32 justify-between`} onClick={() => setBranchOpen((open) => !open)} aria-expanded={branchOpen} aria-controls="branch-menu"><span className="flex items-center gap-2"><GitBranch className="size-3.5" />{activeBranch || "…"}</span><ChevronDown className="size-3.5" /></button>
-                <button className="text-sm text-muted-foreground hover:text-primary">{branchList.length} branches</button>
+                {!isEmptyRepo && <button className={`${buttonVariants({ variant: "outline", size: "sm" })} min-w-32 justify-between`} onClick={() => setBranchOpen((open) => !open)} aria-expanded={branchOpen} aria-controls="branch-menu"><span className="flex items-center gap-2"><GitBranch className="size-3.5" />{activeBranch || "…"}</span><ChevronDown className="size-3.5" /></button>}
+                {!isEmptyRepo && <button className="text-sm text-muted-foreground hover:text-primary">{branchList.length} branches</button>}
                 {branchOpen && <div id="branch-menu" className="absolute left-0 top-9 w-72 rounded-xl bg-popover p-3 ring-1 ring-foreground/10 shadow-xl" role="dialog" aria-label="Select branch">
                   <label className="sr-only" htmlFor="branch-search">Find a branch</label>
                   <div className="flex items-center gap-2 rounded-md border border-foreground/10 px-2"><Search className="size-4 text-muted-foreground" /><input id="branch-search" autoFocus value={branchSearch} onChange={(event) => setBranchSearch(event.target.value)} placeholder="Find a branch..." className="h-9 w-full bg-transparent text-sm outline-none" /></div>
@@ -158,7 +160,7 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
             <section aria-label="Repository contents" className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
               <div className="flex flex-wrap items-center gap-3 border-b border-foreground/10 px-4 py-3 text-sm">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{(latest?.author ?? owner).charAt(0).toUpperCase()}</div>
-                <span>                 {latest ? <><strong><Link to={`/${latest.author}`} className="hover:underline">{latest.author}</Link></strong> <span className="text-muted-foreground">committed</span> {latest.message}</> : <span className="text-muted-foreground">Loading history…</span>}</span>
+                <span>                 {latest ? <><strong><Link to={`/${latest.author}`} className="hover:underline">{latest.author}</Link></strong> <span className="text-muted-foreground">committed</span> {latest.message}</> : !isEmptyRepo ? <span className="text-muted-foreground">Loading history…</span> : null}</span>
                 {latest && <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><GitCommitHorizontal className="size-4" />{latest.sha.slice(0, 7)}<Link to={`/${owner}/${repository}/commits${activeBranch ? `?ref=${encodeURIComponent(activeBranch)}` : ""}`} className="ml-2 flex items-center gap-1 hover:text-primary"><History className="size-4" /> History</Link></span>}
               </div>
 

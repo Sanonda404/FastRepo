@@ -16,6 +16,7 @@ import {
 import { deleteRepository, updateRepository } from "@/lib/apis/repository_apis"
 import { getErrorMessage } from "@/lib/apis/api"
 import { HasCapability } from "@/components/guards/HasCapability"
+import { HasRole } from "@/components/guards/HasRole"
 import DefaultBranchSettings from "@/components/repository/settings/DefaultBranchSettings"
 import type { RepositoryResponse } from "@/lib/interfaces"
 
@@ -107,6 +108,7 @@ export default function GeneralSettings({
         </p>
       </div>
 
+      <HasRole roles={["Owner", "Admin"]}>
       <section className="space-y-2">
         <label htmlFor="repo-name" className="text-sm font-medium">
           Repository name
@@ -160,6 +162,10 @@ export default function GeneralSettings({
           {descSaving ? "Saving..." : "Save description"}
         </Button>
       </section>
+      </HasRole>
+      <HasRole roles={["Maintainer", "Member", "Viewer"]}>
+        <p className="text-xs text-muted-foreground">Only owners and admins can edit repository details.</p>
+      </HasRole>
 
       <DefaultBranchSettings
         owner={owner}

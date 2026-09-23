@@ -12,6 +12,7 @@ export default function RepositoryCommitsPage() {
   const { owner = "", repository = "" } = useParams()
   const [role, setRole] = useState<RepositoryRole>("Viewer")
   const [repoMeta, setRepoMeta] = useState<RepositoryResponse | null>(null)
+  const [metaFailed, setMetaFailed] = useState(false)
 
   useEffect(() => {
     getRole(owner, repository)
@@ -23,7 +24,7 @@ export default function RepositoryCommitsPage() {
     let active = true
     getRepository(owner, repository)
       .then((meta) => active && setRepoMeta(meta))
-      .catch(() => active && setRepoMeta(null))
+      .catch(() => { if (active) { setRepoMeta(null); setMetaFailed(true) } })
     return () => { active = false }
   }, [owner, repository])
 
@@ -35,7 +36,7 @@ export default function RepositoryCommitsPage() {
       activeTab="Commits"
       isPrivate={repoMeta?.is_private}
     >
-      <CommitHistory owner={owner} repository={repository} />
+      <CommitHistory owner={owner} repository={repository} isEmptyRepo={metaFailed ? false : repoMeta ? !repoMeta.default_branch : null} />
     </RepositoryLayout>
   )
 }

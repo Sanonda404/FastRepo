@@ -67,7 +67,7 @@ export default function DefaultBranchSettings({
   }
 
   return (
-    <HasRole roles={["Owner"]}>
+    <HasRole roles={["Owner", "Admin"]}>
       <section className="space-y-2" data-testid="default-branch-settings">
         <label htmlFor="default-branch" className="text-sm font-medium">
           Default branch

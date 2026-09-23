@@ -49,6 +49,10 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    document.title = mode === "register" ? "Sign up · FastRepo" : "Sign in · FastRepo"
+  }, [mode])
+
+  useEffect(() => {
     try {
       if (sessionStorage.getItem("fastrepo_session_expired")) {
         sessionStorage.removeItem("fastrepo_session_expired")

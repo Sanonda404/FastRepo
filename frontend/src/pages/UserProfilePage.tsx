@@ -75,6 +75,10 @@ export default function UserProfilePage() {
 
   const isOwnProfile = isLoggedIn && currentUsername !== null && username === currentUsername
 
+  useEffect(() => {
+    document.title = `${username} · FastRepo`
+  }, [username])
+
   const form = useForm<EditInput>({
     resolver: zodResolver(editSchema),
     defaultValues: {

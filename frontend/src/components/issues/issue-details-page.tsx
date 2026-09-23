@@ -620,6 +620,7 @@ export default function IssueDetailsPage({
                 labels={issue.labels}
                 mutating={mutating}
                 isClosed={issue.state === "closed"}
+                assigneeUsernames={issue.assignees.map((a) => a.username)}
                 onAdd={handleAddLabel}
                 onRemove={
                   handleRemoveLabel

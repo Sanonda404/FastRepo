@@ -34,6 +34,10 @@ export default function ResetPasswordPage() {
   const tokenRef = useRef<string | null>(searchParams.get("token"))
 
   useEffect(() => {
+    document.title = "Reset password · FastRepo"
+  }, [])
+
+  useEffect(() => {
     const t = searchParams.get("token")
     if (t) {
       tokenRef.current = t

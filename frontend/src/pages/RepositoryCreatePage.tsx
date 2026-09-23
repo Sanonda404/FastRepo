@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -18,6 +18,10 @@ export default function RepositoryCreatePage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    document.title = "New repository · FastRepo"
+  }, [])
 
   const form = useForm<RepositoryFormInput, unknown, RepositoryFormOutput>({
     resolver: zodResolver(newRepositorySchema),

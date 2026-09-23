@@ -30,6 +30,10 @@ export default function Dashboard() {
   const [assignedIssuesError, setAssignedIssuesError] = useState<string | null>(null)
 
   useEffect(() => {
+    document.title = "Dashboard · FastRepo"
+  }, [])
+
+  useEffect(() => {
     if (!username || reposByUsername[username] || errorsByUsername[username]) return
     let active = true
     getAllAccessibleRepositories()

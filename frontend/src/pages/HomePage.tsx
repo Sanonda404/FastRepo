@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ShieldCheck,
@@ -42,6 +43,10 @@ const features = [
 ];
 
 export default function HomePage() {
+  useEffect(() => {
+    document.title = "FastRepo"
+  }, [])
+
   return (
     <div className="flex min-h-dvh flex-col">
       <main className="flex-1">

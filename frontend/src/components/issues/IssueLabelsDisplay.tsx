@@ -8,7 +8,8 @@ import type {
   LabelInput,
 } from "@/lib/schemas/issue"
 
-import { HasRole } from "@/components/guards/HasRole"
+import { useRepoPermissions } from "@/lib/auth/RepoPermissionManager"
+import { useAuth } from "@/lib/auth/use-auth"
 
 import IssueLabelDialog from "./IssueLabelDialog"
 import IssueLabelItem from "./IssueLabelItem"
@@ -18,6 +19,7 @@ type Props = {
   labels: IssueLabel[]
   mutating: boolean
   isClosed?: boolean
+  assigneeUsernames: string[]
   onAdd: (
     data: LabelInput
   ) => Promise<void>
@@ -26,13 +28,27 @@ type Props = {
   ) => Promise<void>
 }
 
+export function canManageIssueLabels(
+  role: string | null,
+  username: string | null,
+  assigneeUsernames: string[],
+): boolean {
+  if (!username) return false
+  if (["Owner", "Admin", "Maintainer"].includes(role ?? "")) return true
+  return assigneeUsernames.includes(username)
+}
+
 export default function IssueLabelsDisplay({
   labels,
   mutating,
   isClosed = false,
+  assigneeUsernames,
   onAdd,
   onRemove,
 }: Props) {
+  const { username } = useAuth()
+  const { role } = useRepoPermissions()
+  const canManage = canManageIssueLabels(role, username, assigneeUsernames)
   return (
     <section className="
       overflow-hidden
@@ -79,19 +95,11 @@ export default function IssueLabelsDisplay({
           </p>
         </div>
 
-        {!isClosed && (
-          <HasRole
-            roles={[
-              "Owner",
-              "Admin",
-              "Maintainer",
-            ]}
-          >
-            <IssueLabelDialog
-              loading={mutating}
-              onSubmit={onAdd}
-            />
-          </HasRole>
+        {!isClosed && canManage && (
+          <IssueLabelDialog
+            loading={mutating}
+            onSubmit={onAdd}
+          />
         )}
       </div>
 
@@ -119,6 +127,7 @@ export default function IssueLabelsDisplay({
                 key={label.id}
                 label={label}
                 disabled={mutating || isClosed}
+                canRemove={canManage}
                 onRemove={onRemove}
               />
             ))}

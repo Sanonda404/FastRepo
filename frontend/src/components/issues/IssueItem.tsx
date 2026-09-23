@@ -49,7 +49,11 @@ export default function IssueItem({
   const isAssignee = !!currentUsername && issue.assignees.some((a) => a.username === currentUsername)
   const canClose =
     !!currentUsername &&
-    (isAssignee || currentRole === "Owner" || currentRole === "Admin" || currentRole === "Maintainer")
+    (isAssignee ||
+      issue.author_username === currentUsername ||
+      currentRole === "Owner" ||
+      currentRole === "Admin" ||
+      currentRole === "Maintainer")
   // Backend: author or can_access (owner or any collaborator). Mirror as author or Member+ (non-Viewer)
   const canDelete =
     !!currentUsername &&

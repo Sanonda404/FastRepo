@@ -10,6 +10,8 @@ import CommitPagination from "./CommitPagination"
 type Props = {
   owner: string
   repository: string
+  // true: repo has no default branch / commits yet; false: fetch normally; null: still unknown, wait
+  isEmptyRepo?: boolean | null
 }
 
 const PAGE_SIZES = [10, 20, 50, 100]
@@ -56,7 +58,7 @@ function SkeletonList() {
   )
 }
 
-export default function CommitHistory({ owner, repository }: Props) {
+export default function CommitHistory({ owner, repository, isEmptyRepo = false }: Props) {
   const [params, setParams] = useSearchParams()
 
   const page = Math.max(1, Number(params.get("page") ?? 1) || 1)
@@ -97,6 +99,7 @@ export default function CommitHistory({ owner, repository }: Props) {
   const since = useMemo(() => sinceForPreset(datePreset), [datePreset])
 
   useEffect(() => {
+    if (isEmptyRepo !== false) return
     let active = true
     setLoading(true)
     setError(null)
@@ -113,7 +116,7 @@ export default function CommitHistory({ owner, repository }: Props) {
       .catch((err) => { if (active) setError(getErrorMessage(err)) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [owner, repository, ref, page, pageSize, search, author, since, typeFilter, retry])
+  }, [owner, repository, ref, page, pageSize, search, author, since, typeFilter, retry, isEmptyRepo])
 
   const update = (patch: Record<string, string | undefined>, resetPage = true) => {
     setParams((prev) => {
@@ -147,13 +150,28 @@ export default function CommitHistory({ owner, repository }: Props) {
     <div className="flex flex-col">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-xl font-semibold tracking-tight">Commits</h1>
-        {data !== null && !loading && (
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            {data.total} commit{data.total === 1 ? "" : "s"}
-          </p>
+        {isEmptyRepo === true ? (
+          <p className="text-sm text-muted-foreground">No commits yet</p>
+        ) : (
+          data !== null && !loading && (
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              {data.total} commit{data.total === 1 ? "" : "s"}
+            </p>
+          )
         )}
       </div>
 
+      {isEmptyRepo === true ? (
+        <div className="mt-4 overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+            <p className="text-sm font-semibold">No commits yet</p>
+            <p className="text-sm text-muted-foreground">
+              This repository is empty. Push a commit to see it here.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="relative flex-1">
           <span className="sr-only">Search commits</span>
@@ -271,6 +289,8 @@ export default function CommitHistory({ owner, repository }: Props) {
           totalPages={totalPages}
           onPage={(p) => update({ page: p === 1 ? undefined : String(p) }, false)}
         />
+      )}
+        </>
       )}
     </div>
   )

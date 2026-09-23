@@ -19,6 +19,10 @@ export default function RepositoryCommitReportPage() {
   }, [])
 
   useEffect(() => {
+    document.title = `${owner}/${repository} · ${sha.slice(0, 7)} · FastRepo`
+  }, [owner, repository, sha])
+
+  useEffect(() => {
     getRole(owner, repository)
       .then(setRole)
       .catch((err) => console.log(getErrorMessage(err)))

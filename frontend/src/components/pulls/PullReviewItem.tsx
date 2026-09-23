@@ -12,13 +12,9 @@ interface PullReviewItemProps {
 
 export default function PullReviewItem({
   review,
-  currentUsername,
   onDeleteReview,
   isDeleting = false,
 }: PullReviewItemProps) {
-  const isAuthor = review.reviewer_username === currentUsername
-  console.log(isAuthor, currentUsername, review.reviewer_username)
-
   const getDecisionBadge = (decision: PullReview["decision"]) => {
     const label = REVIEW_DECISION_LABELS[decision as keyof typeof REVIEW_DECISION_LABELS] ?? decision
     switch (decision) {
@@ -47,7 +43,7 @@ export default function PullReviewItem({
           <div className="shrink-0">{getDecisionBadge(review.decision)}</div>
         </div>
 
-        {isAuthor && onDeleteReview && (
+        {onDeleteReview && (
           <Button
             variant="ghost"
             size="sm"

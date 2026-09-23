@@ -4,11 +4,10 @@ import type {
   IssueLabel,
 } from "@/lib/interfaces"
 
-import { HasRole } from "@/components/guards/HasRole"
-
 type Props = {
   label: IssueLabel
   disabled: boolean
+  canRemove: boolean
   onRemove: (
     id: number
   ) => Promise<void>
@@ -17,6 +16,7 @@ type Props = {
 export default function IssueLabelItem({
   label,
   disabled,
+  canRemove,
   onRemove,
 }: Props) {
   const color =
@@ -76,13 +76,7 @@ export default function IssueLabelItem({
         </span>
       </div>
 
-      <HasRole
-        roles={[
-          "Owner",
-          "Admin",
-          "Maintainer",
-        ]}
-      >
+      {canRemove && (
         <button
           type="button"
           disabled={disabled}
@@ -105,7 +99,7 @@ export default function IssueLabelItem({
         >
           <X className="size-4" />
         </button>
-      </HasRole>
+      )}
     </div>
   )
 }

@@ -9,9 +9,11 @@ import type {
 
 import IssueActivity from "@/components/issues/IssueActivity"
 
-import IssueCommentItem from "./IssueCommentItem"
+import IssueCommentItem, { canDeleteIssueComment } from "./IssueCommentItem"
 import IssueCommentDialog from "./IssueCommentDialog"
 import IssueEmptyState from "./IssueEmptyState"
+import { useRepoPermissions } from "@/lib/auth/RepoPermissionManager"
+import { useAuth } from "@/lib/auth/use-auth"
 
 type Props = {
   issue: Issue
@@ -40,6 +42,9 @@ export default function IssueActivitySection({
   onCreateComment,
   onDeleteComment,
 }: Props) {
+  const { username } = useAuth()
+  const { role } = useRepoPermissions()
+  const assigneeUsernames = issue.assignees.map((a) => a.username)
   return (
     <section className="
       overflow-hidden
@@ -115,6 +120,10 @@ export default function IssueActivitySection({
             <span className="text-xs italic text-muted-foreground">
               Closed issue — comments are locked.
             </span>
+          ) : !username ? (
+            <span className="text-xs text-muted-foreground">
+              Please sign in to join the discussion.
+            </span>
           ) : (
             <IssueCommentDialog
               loading={mutating}
@@ -170,6 +179,12 @@ export default function IssueActivitySection({
                 key={comment.id}
                 comment={comment}
                 disabled={mutating || isClosed}
+                canDelete={canDeleteIssueComment(
+                  role,
+                  username,
+                  comment.author_username,
+                  assigneeUsernames,
+                )}
                 onDelete={
                   onDeleteComment
                 }

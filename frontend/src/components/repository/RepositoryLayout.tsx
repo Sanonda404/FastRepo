@@ -36,9 +36,10 @@ export default function RepositoryLayout({
   children,
 }: RepositoryLayoutProps) {
   useEffect(() => {
-    // Code tab manages its own branch-aware title; other tabs show owner/repo
+    // Code tab manages its own branch-aware title; other tabs include the section
+    // so client-side tab navigation visibly changes the title
     if (activeTab !== "Code") {
-      document.title = `${owner}/${repository} · FastRepo`
+      document.title = `${owner}/${repository} · ${activeTab} · FastRepo`
     }
   }, [owner, repository, activeTab])
 
