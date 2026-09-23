@@ -304,9 +304,9 @@ def _blob_data(content: bytes) -> bytes:
 
 
 def changed_paths(
-    repo_id: int, old_commit: str | None, new_commit: str | None
+    repo_id: int, old_commit: str | None, new_commit: str | None, store=None
 ) -> set[str]:
-    store = ObjectStore(repo_id)
+    store = store or ObjectStore(repo_id)
 
     def _root_tree(sha: str | None) -> bytes | None:
         if sha is None:

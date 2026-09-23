@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
+from dulwich.errors import HookError
+
 from auth.auth import get_optional_user_basic
 from services.database import get_pool
 from services.repository import (
@@ -8,8 +10,8 @@ from services.repository import (
     ref_info_handler,
     pack_handler,
 )
-from services.git_backend import RefContainer
-from services.push_policy import PushPolicy, ZERO_SHA
+from services.git_backend import PushConflictError
+from services.push_policy import PushPolicy
 
 router = APIRouter(
     prefix="/{username}/{repository}",
@@ -53,15 +55,6 @@ async def ensure_read_access(repo: dict, user: dict | None) -> dict:
     if not await get_push_role(get_pool(), repo, user):
         raise HTTPException(status_code=403, detail="Forbidden")
     return user
-
-
-def _rollback_refs(repo_id: int, commands) -> None:
-    refs = RefContainer(repo_id)
-    for old_sha, new_sha, name in commands:
-        if old_sha == ZERO_SHA:
-            refs.remove_if_equals(name, new_sha, force=True)
-        else:
-            refs.set_if_equals(name, new_sha, old_sha)
 
 
 @router.get("/info/refs")
@@ -129,27 +122,17 @@ async def git_receive_pack(
 
     def _handle() -> bytes:
         try:
-            output = pack_handler(repo["id"], "git-receive-pack", input_data, policy=policy)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            if policy.violations:
-                _rollback_refs(repo["id"], policy.commands)
+            return pack_handler(repo["id"], "git-receive-pack", input_data, policy=policy)
+        except Exception:
             raise
-        if policy.violations:
-            _rollback_refs(repo["id"], policy.commands)
-        return output
 
     try:
         output: bytes = await run_in_threadpool(_handle)
+    except PushConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        from dulwich.errors import HookError
         if isinstance(e, HookError):
-            if policy.violations:
-                _rollback_refs(repo["id"], policy.commands)
             raise HTTPException(status_code=403, detail=str(e))
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
     return Response(

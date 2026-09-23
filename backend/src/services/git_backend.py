@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import stat
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from io import BytesIO
 from collections.abc import Callable, Iterator, Sequence
@@ -55,6 +56,9 @@ _OBJ_TREE = 2
 _OBJ_COMMIT = 1
 _OBJ_TAG = 4
 
+
+class PushConflictError(Exception):
+    pass
 
 def _db_sha(sha: ObjectID | str) -> str:
     """dulwich object id to characters"""
@@ -145,20 +149,29 @@ class _AsyncBridge:
 
 
 class ObjectStore(BaseObjectStore):
-    def __init__(self, repo_id: int, bridge: Optional[_AsyncBridge] = None, *, object_format: Optional[ObjectFormat] = None) -> None:
+    def __init__(self, repo_id: int, bridge: Optional[_AsyncBridge] = None, *, object_format: Optional[ObjectFormat] = None, _conn: Optional[asyncpg.Connection] = None) -> None:
         super().__init__(object_format=object_format)
         self._repo_id = repo_id
         self._bridge = bridge or _AsyncBridge.get_instance()
+        self._conn = _conn
 
     def _run(self, coro):
         return self._bridge.run(coro)
+
+    @asynccontextmanager
+    async def _connection(self):
+        if self._conn is not None:
+            yield self._conn
+        else:
+            async with self._bridge.pool.acquire() as conn:
+                yield conn
 
     def _async_contains(self, sha: ObjectID | str) -> bool:
         # Handle empty tree
         if sha == EMPTY_TREE_SHA or sha == EMPTY_TREE_SHA_HEX:
             return True
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 return await conn.fetchval(CHECK_OBJECT_EXISTS, self._repo_id, _db_sha(sha)) is not None
         return self._run(_inner())
 
@@ -175,7 +188,7 @@ class ObjectStore(BaseObjectStore):
             return _OBJ_TREE, b""
 
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 row = await conn.fetchrow(GET_RAW_BY_SHA, self._repo_id, _db_sha(sha))
                 if row is None:
                     raise KeyError(sha)
@@ -199,7 +212,7 @@ class ObjectStore(BaseObjectStore):
 
     def __iter__(self) -> Iterator[ObjectID]:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 rows = await conn.fetch(ITER_OBJECT_SHAS, self._repo_id)
                 return [r["sha"].encode("ascii") for r in rows]
         return iter(self._run(_inner()))
@@ -255,8 +268,11 @@ class ObjectStore(BaseObjectStore):
 
     def _async_add_object(self, obj: ShaFile) -> None:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
-                async with conn.transaction():
+            async with self._connection() as conn:
+                if self._conn is None:
+                    async with conn.transaction():
+                        await self._add_one(conn, obj)
+                else:
                     await self._add_one(conn, obj)
         self._run(_inner())
 
@@ -271,8 +287,14 @@ class ObjectStore(BaseObjectStore):
         items = list(objects)
 
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
-                async with conn.transaction():
+            async with self._connection() as conn:
+                if self._conn is None:
+                    async with conn.transaction():
+                        for obj, _path in items:
+                            await self._add_one(conn, obj)
+                            if progress:
+                                progress(obj.id.decode())
+                else:
                     for obj, _path in items:
                         await self._add_one(conn, obj)
                         if progress:
@@ -331,13 +353,22 @@ class ObjectStore(BaseObjectStore):
 
 
 class RefContainer(RefsContainer):
-    def __init__(self, repo_id: int, bridge: Optional[_AsyncBridge] = None) -> None:
+    def __init__(self, repo_id: int, bridge: Optional[_AsyncBridge] = None, _conn: Optional[asyncpg.Connection] = None) -> None:
         super().__init__(logger=None)
         self._repo_id = repo_id
         self._bridge = bridge or _AsyncBridge.get_instance()
+        self._conn = _conn
 
     def _run(self, coro):
         return self._bridge.run(coro)
+
+    @asynccontextmanager
+    async def _connection(self):
+        if self._conn is not None:
+            yield self._conn
+        else:
+            async with self._bridge.pool.acquire() as conn:
+                yield conn
 
     async def _classify_ref_target(self, conn: asyncpg.Connection, oid: ObjectID | str) -> tuple[str | None, str | None]:
         """(commit_sha, tag_sha) for an object id; unknown ids treated as commits"""
@@ -348,7 +379,7 @@ class RefContainer(RefsContainer):
 
     def read_loose_ref(self, name: Ref) -> bytes | None:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 row = await conn.fetchrow(READ_LOOSE_REF, self._repo_id, _db_sha(name))
                 return row["value"].encode() if row else None
 
@@ -359,7 +390,7 @@ class RefContainer(RefsContainer):
 
     def allkeys(self) -> set[Ref]:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 rows = await conn.fetch(ALL_REFS, self._repo_id)
                 return {r["name"].encode() for r in rows}
         return self._run(_inner())
@@ -375,7 +406,7 @@ class RefContainer(RefsContainer):
     ) -> None:
         value = SYMREF + other
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 await conn.execute(SET_SYMREF, self._repo_id, _db_sha(name), _db_sha(other))
 
         self._run(_inner())
@@ -390,7 +421,7 @@ class RefContainer(RefsContainer):
             return
 
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 head = await conn.fetchval(
                     "SELECT 1 FROM refs WHERE repo_id = $1 AND name = 'HEAD'",
                     self._repo_id,
@@ -415,6 +446,29 @@ class RefContainer(RefsContainer):
         except Exception:
             pass
 
+    async def _set_ref(self, conn: asyncpg.Connection, name: Ref, old_ref: ObjectID | None, new_ref: ObjectID) -> bool:
+        new_commit, new_tag = await self._classify_ref_target(conn, new_ref)
+        updated = await conn.execute(
+            SET_REF_IF_EQUALS,
+            self._repo_id,
+            _db_sha(name),
+            new_commit,
+            new_tag,
+            _db_sha(old_ref) if old_ref is not None else None,
+        )
+        if updated == "UPDATE 1":
+            return True
+        if old_ref is not None and old_ref != ZERO_SHA:
+            raise PushConflictError(
+                f"{_db_sha(name)} changed on server since fetch; fetch and retry"
+            )
+        inserted = await conn.fetchrow(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), new_commit, new_tag)
+        if inserted is None:
+            raise PushConflictError(
+                f"{_db_sha(name)} changed on server since fetch; fetch and retry"
+            )
+        return True
+
     def set_if_equals(
         self,
         name: Ref,
@@ -426,23 +480,11 @@ class RefContainer(RefsContainer):
         message: bytes | None = None,
     ) -> bool:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
-                async with conn.transaction():
-                    new_commit, new_tag = await self._classify_ref_target(conn, new_ref)
-                    updated = await conn.execute(
-                        SET_REF_IF_EQUALS,
-                        self._repo_id,
-                        _db_sha(name),
-                        new_commit,
-                        new_tag,
-                        _db_sha(old_ref) if old_ref is not None else None,
-                    )
-                    if updated == "UPDATE 1":
-                        return True
-                    if old_ref is not None and old_ref != ZERO_SHA:
-                        return False
-                    inserted = await conn.fetchrow(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), new_commit, new_tag)
-                    return inserted is not None
+            async with self._connection() as conn:
+                if self._conn is None:
+                    async with conn.transaction():
+                        return await self._set_ref(conn, name, old_ref, new_ref)
+                return await self._set_ref(conn, name, old_ref, new_ref)
         result = self._run(_inner())
         if result:
             self._log(name, old_ref, new_ref, committer, timestamp, timezone, message)
@@ -461,7 +503,7 @@ class RefContainer(RefsContainer):
         message: bytes | None = None,
     ) -> bool:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
+            async with self._connection() as conn:
                 row = await conn.fetchrow(ADD_REF_IF_NEW, self._repo_id, _db_sha(name), *(await self._classify_ref_target(conn, ref)))
                 return row is not None
 
@@ -472,6 +514,32 @@ class RefContainer(RefsContainer):
             self._auto_set_head(_db_sha(name))
 
         return result
+
+    async def _remove_ref(self, conn: asyncpg.Connection, name: Ref, old_ref: ObjectID | None, *, force: bool = False) -> bool:
+        row = await conn.fetchrow(READ_LOOSE_REF, self._repo_id, _db_sha(name))
+        if row is None:
+            if old_ref is None or old_ref == ZERO_SHA:
+                return True
+            raise PushConflictError(
+                f"{_db_sha(name)} changed on server since fetch; fetch and retry"
+            )
+        if old_ref is not None and row["value"] != _db_sha(old_ref):
+            raise PushConflictError(
+                f"{_db_sha(name)} changed on server since fetch; fetch and retry"
+            )
+        ref_name = _db_sha(name)
+        if not force and ref_name.startswith("refs/heads/"):
+            head = await conn.fetchrow(READ_LOOSE_REF, self._repo_id, "HEAD")
+            if head is not None and head["value"] == f"ref: {ref_name}":
+                branch = ref_name.removeprefix("refs/heads/")
+                raise HookError(f"cannot delete branch '{branch}': HEAD points to it")
+        await conn.execute(
+            REMOVE_REF_IF_EQUALS,
+            self._repo_id,
+            _db_sha(name),
+            _db_sha(old_ref) if old_ref is not None else None,
+        )
+        return True
 
     def remove_if_equals(
         self,
@@ -485,26 +553,11 @@ class RefContainer(RefsContainer):
         force: bool = False,
     ) -> bool:
         async def _inner():
-            async with self._bridge.pool.acquire() as conn:
-                async with conn.transaction():
-                    row = await conn.fetchrow(READ_LOOSE_REF, self._repo_id, _db_sha(name))
-                    if row is None:
-                        return old_ref is None or old_ref == ZERO_SHA
-                    if old_ref is not None and row["value"] != _db_sha(old_ref):
-                        return False
-                    ref_name = _db_sha(name)
-                    if not force and ref_name.startswith("refs/heads/"):
-                        head = await conn.fetchrow(READ_LOOSE_REF, self._repo_id, "HEAD")
-                        if head is not None and head["value"] == f"ref: {ref_name}":
-                            branch = ref_name.removeprefix("refs/heads/")
-                            raise HookError(f"cannot delete branch '{branch}': HEAD points to it")
-                    await conn.execute(
-                        REMOVE_REF_IF_EQUALS,
-                        self._repo_id,
-                        _db_sha(name),
-                        _db_sha(old_ref) if old_ref is not None else None,
-                    )
-                    return True
+            async with self._connection() as conn:
+                if self._conn is None:
+                    async with conn.transaction():
+                        return await self._remove_ref(conn, name, old_ref, force=force)
+                return await self._remove_ref(conn, name, old_ref, force=force)
         result = self._run(_inner())
         if result:
             self._log(name, old_ref, None, committer, timestamp, timezone, message)
@@ -512,11 +565,11 @@ class RefContainer(RefsContainer):
 
 
 class FastRepo(MemoryRepo):
-    def __init__(self, repo_id: int, bridge: Optional[_AsyncBridge] = None) -> None:
+    def __init__(self, repo_id: int, bridge: Optional[_AsyncBridge] = None, _conn: Optional[asyncpg.Connection] = None) -> None:
         self._repo_id = repo_id
         self._bridge = bridge or _AsyncBridge.get_instance()
-        store = ObjectStore(repo_id, bridge=self._bridge)
-        refs = RefContainer(repo_id, bridge=self._bridge)
+        store = ObjectStore(repo_id, bridge=self._bridge, _conn=_conn)
+        refs = RefContainer(repo_id, bridge=self._bridge, _conn=_conn)
         BaseRepo.__init__(self, store, refs)
         self._named_files: dict[str, bytes] = {}
         self.bare = True

@@ -5,7 +5,7 @@ from dulwich.server import Backend, ReceivePackHandler, UploadPackHandler
 from fastapi import HTTPException
 
 from services.database import get_pool
-from services.git_backend import FastRepo
+from services.git_backend import FastRepo, _AsyncBridge
 from services.push_policy import PreReceivePolicyHook, UpdatePolicyHook
 
 # End of message/data
@@ -108,11 +108,10 @@ def ref_info_handler(repo_id: int, action: str) -> bytes:
 
 def pack_handler(repo_id: int, action: str, input: bytes, policy=None) -> bytes:
     "Send/receive git objects"
-    backend = FastRepoBackend(FastRepo(repo_id))
+    if action == "git-receive-pack":
+        return _receive_pack(repo_id, input, policy)
 
-    if policy is not None:
-        backend._repo.hooks["pre-receive"] = PreReceivePolicyHook(policy)
-        backend._repo.hooks["update"] = UpdatePolicyHook(policy)
+    backend = FastRepoBackend(FastRepo(repo_id))
 
     input_stream = BytesIO(input)
     output_stream = BytesIO()
@@ -121,10 +120,59 @@ def pack_handler(repo_id: int, action: str, input: bytes, policy=None) -> bytes:
 
     if action == "git-upload-pack":
         handler = UploadPackHandler(backend, ["/"], protocol, stateless_rpc=True)
-    elif action == "git-receive-pack":
-        handler = ReceivePackHandler(backend, ["/"], protocol, stateless_rpc=True)
     else:
         raise HTTPException(status_code=403, detail="Unsupported service")
 
     handler.handle()
+    return output_stream.getvalue()
+
+
+def _receive_pack(repo_id: int, input: bytes, policy=None) -> bytes:
+    bridge = _AsyncBridge.get_instance()
+
+    async def _begin():
+        conn = await bridge.pool.acquire()
+        tr = conn.transaction()
+        try:
+            await tr.start()
+        except BaseException:
+            await bridge.pool.release(conn)
+            raise
+        return conn, tr
+
+    async def _abort(tr):
+        try:
+            await tr.rollback()
+        except Exception:
+            pass
+
+    async def _release(conn):
+        try:
+            await bridge.pool.release(conn)
+        except Exception:
+            pass
+
+    conn = None
+    try:
+        conn, tr = bridge.run(_begin())
+        repo = FastRepo(repo_id, bridge=bridge, _conn=conn)
+        backend = FastRepoBackend(repo)
+        if policy is not None:
+            policy.store = repo.object_store
+            backend._repo.hooks["pre-receive"] = PreReceivePolicyHook(policy)
+            backend._repo.hooks["update"] = UpdatePolicyHook(policy)
+
+        input_stream = BytesIO(input)
+        output_stream = BytesIO()
+        protocol = Protocol(input_stream.read, output_stream.write)
+        handler = ReceivePackHandler(backend, ["/"], protocol, stateless_rpc=True)
+        handler.handle()
+    except BaseException:
+        bridge.run(_abort(tr))
+        raise
+    else:
+        bridge.run(tr.commit())
+    finally:
+        if conn is not None:
+            bridge.run(_release(conn))
     return output_stream.getvalue()

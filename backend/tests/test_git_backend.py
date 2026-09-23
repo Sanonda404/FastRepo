@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import asyncpg
 
-from services.git_backend import ObjectStore, RefContainer, FastRepo, _AsyncBridge
+from services.git_backend import ObjectStore, RefContainer, FastRepo, _AsyncBridge, PushConflictError
 from models.git import ensure_tables, EMPTY_TREE_SHA
 from services.database import DATABASE_URL
 
@@ -380,7 +380,9 @@ class TestGitBackend:
 
         assert refs.set_if_equals(master_ref, commit_sha, b"b" * 40) is True
         assert refs[master_ref] == b"b" * 40
-        assert refs.set_if_equals(master_ref, commit_sha, b"c" * 40) is False
+        with pytest.raises(PushConflictError):
+            refs.set_if_equals(master_ref, commit_sha, b"c" * 40)
+        assert refs[master_ref] == b"b" * 40
 
         refs.set_symbolic_ref(head_ref, master_ref)
         assert refs[head_ref] == b"b" * 40

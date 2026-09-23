@@ -15,6 +15,7 @@ class PushPolicy:
         self.repo_id = repo_id
         self.role = role
         self.user = user
+        self.store = None
         self.commands: list[tuple[ObjectID, ObjectID, bytes]] = []
         self.violations: list[str] = []
 
@@ -68,7 +69,7 @@ class UpdatePolicyHook:
         new = new_sha.decode("ascii")
         denied = [
             path
-            for path in sorted(changed_paths(policy.repo_id, old, new))
+            for path in sorted(changed_paths(policy.repo_id, old, new, store=policy.store))
             if not policy._run(_check_folder(policy, path))
         ]
         if denied:
