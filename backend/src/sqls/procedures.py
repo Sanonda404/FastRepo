@@ -1,6 +1,7 @@
 import asyncpg
 
 from sqls.permission_functions import PERMISSION_FUNCTIONS
+from sqls.stat_functions import STAT_FUNCTIONS
 
 CREATE_ISSUE_PR_PROCEDURE = """
     CREATE OR REPLACE PROCEDURE create_pr_with_issues(
@@ -115,7 +116,8 @@ ADD_NEW_TEAM_MEMBER_PROCEDURE = """    CREATE OR REPLACE PROCEDURE add_new_team_
 """
 
 
-FORK_REPOSITORY_PROCEDURE = """    CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
+FORK_REPOSITORY_PROCEDURE = """
+    CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
         p_owner_id INT,
         p_name VARCHAR(255),
         p_description TEXT,
@@ -186,4 +188,6 @@ async def ensure_procedures(pool: asyncpg.Pool) -> None:
             await conn.execute(FORK_REPOSITORY_PROCEDURE)
             await conn.execute(UPDATE_DEFAULT_BRANCH_PROCEDURE)
             for func in PERMISSION_FUNCTIONS:
+                await conn.execute(func)
+            for func in STAT_FUNCTIONS:
                 await conn.execute(func)

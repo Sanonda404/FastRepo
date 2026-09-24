@@ -49,7 +49,8 @@ CAN_MANAGE_ISSUE_FUNC = """
     $$;
 """
 
-CAN_MANAGE_PR_FUNC = """    CREATE OR REPLACE FUNCTION can_manage_pr(p_repo_id INT, p_pr_id INT, p_user_id INT)
+CAN_MANAGE_PR_FUNC = """
+    CREATE OR REPLACE FUNCTION can_manage_pr(p_repo_id INT, p_pr_id INT, p_user_id INT)
     RETURNS BOOLEAN
     LANGUAGE sql
     STABLE

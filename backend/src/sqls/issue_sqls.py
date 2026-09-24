@@ -2,10 +2,7 @@ CREATE_ISSUE = """
     INSERT INTO issues(repository_id, author_id, title, body, number)
     VALUES (
         $1, $2, $3, $4,
-        COALESCE(
-            (SELECT max(number) + 1 FROM issues WHERE repository_id = $1),
-            1
-        )
+        get_next_issue_no($1)
     )
     RETURNING id, title, body, state, number, created_at, closed_at
 """
@@ -20,8 +17,8 @@ GET_ALL_ISSUES = """
            i.number,
            i.created_at,
            i.closed_at,
-           (SELECT COUNT(*) FROM issue_comments WHERE issue_id = i.id) AS comments_count,
-           (SELECT COUNT(*) FROM issue_pull_requests WHERE issue_id = i.id) AS pull_requests_count,
+           get_issue_comments_count(i.id) AS comments_count,
+           get_pr_of_issue_count(i.id) AS pull_requests_count,
            COALESCE(
                (SELECT JSON_AGG(JSON_BUILD_OBJECT(
                    'id', l.id,
@@ -54,8 +51,8 @@ GET_ISSUE_BY_NUMBER = """
            i.number,
            i.created_at,
            i.closed_at,
-           (SELECT COUNT(*) FROM issue_comments WHERE issue_id = i.id) AS comments_count,
-           (SELECT COUNT(*) FROM issue_pull_requests WHERE issue_id = i.id) AS pull_requests_count,
+           get_issue_comments_count(i.id) AS comments_count,
+           get_pr_of_issue_count(i.id) AS pull_requests_count,
            COALESCE(
                (SELECT JSON_AGG(JSON_BUILD_OBJECT(
                    'id', l.id,
