@@ -44,7 +44,7 @@ export default function RepositoryPage() {
       activeTab="Code"
       isPrivate={repoMeta?.is_private}
     >
-      <RepositoryCodePage repoMeta={repoMeta} />
+      <RepositoryCodePage repoMeta={repoMeta} role={role} />
     </RepositoryLayout>
   )
 }

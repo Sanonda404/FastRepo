@@ -36,6 +36,11 @@ export function listBranches(owner: string, name: string): Promise<BranchRespons
   return api<BranchResponse[]>(`/repositories/${owner}/${name}/branches`);
 }
 
+export function deleteBranch(owner: string, name: string, branch: string): Promise<void> {
+  const params = new URLSearchParams({ branch });
+  return api<void>(`/repositories/${owner}/${name}/branches?${params}`, { method: "DELETE" });
+}
+
 export function getTree(owner: string, name: string, ref: string, path: string): Promise<TreeResponse> {
   const params = new URLSearchParams({ ref });
   if (path) params.set("path", path);

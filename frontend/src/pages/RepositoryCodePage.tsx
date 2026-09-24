@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import {
   Check, ChevronDown, Copy, FileCode2, FileText,
   Folder, GitBranch, GitCommitHorizontal, History,
-  Search
+  Search, Trash2
 } from "lucide-react"
 import { Link, useParams } from "react-router-dom"
 
@@ -12,16 +12,27 @@ import RepositoryHeader from "@/components/repository/RepositoryHeader"
 import RepositoryAboutStats from "@/components/repository/RepositoryAboutStats"
 import EmptyRepositoryInstructions from "@/components/repository/EmptyRepositoryInstructions"
 import { buttonVariants } from "@/components/ui/button-variants"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { getErrorMessage } from "@/lib/apis/api"
 import {
-  getFile, getTree, listBranches, listCollaborators, listCommits,
+  deleteBranch, getFile, getTree, listBranches, listCollaborators, listCommits,
 } from "@/lib/apis/repository_apis"
+import type { RepositoryRole } from "@/lib/auth/permissions"
 import type {
   BranchResponse, CollaboratorResponse, CommitSummary, FileResponse,
   RepositoryResponse, TreeEntry,
 } from "@/lib/interfaces"
 
-export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryResponse | null }) {
+export default function RepositoryCodePage({ repoMeta, role }: { repoMeta: RepositoryResponse | null; role: RepositoryRole }) {
   const { owner = "jane", repository = "fastrepo" } = useParams()
   const [branchList, setBranchList] = useState<BranchResponse[]>([])
   const [branchesLoaded, setBranchesLoaded] = useState(false)
@@ -35,6 +46,11 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [goToFileOpen, setGoToFileOpen] = useState(false)
   const [fileResult, setResult] = useState<{ key: string; data?: FileResponse; error?: string } | null>(null)
+  const [deletingBranch, setDeletingBranch] = useState<string | null>(null)
+  const [branchToDelete, setBranchToDelete] = useState<string | null>(null)
+  const [branchError, setBranchError] = useState<string | null>(null)
+
+  const canDeleteBranch = role === "Owner" || role === "Admin"
 
   useEffect(() => {
     let active = true
@@ -128,6 +144,34 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
     setBranchSearch("")
   }
 
+  const handleDeleteBranch = (event: React.MouseEvent, name: string) => {
+    event.stopPropagation()
+    setBranchError(null)
+    setBranchToDelete(name)
+  }
+
+  const handleConfirmDeleteBranch = async () => {
+    if (!branchToDelete) return
+    const name = branchToDelete
+    setDeletingBranch(name)
+    setBranchError(null)
+    try {
+      await deleteBranch(owner, repository, name)
+      setBranchList((current) => current.filter((item) => item.name !== name))
+      setBranch((current) => {
+        if (current !== name) return current
+        const fallback = branchList.find((item) => item.name !== name && item.is_default)
+          ?? branchList.find((item) => item.name !== name)
+        return fallback ? fallback.name : ""
+      })
+      setBranchToDelete(null)
+    } catch (err) {
+      setBranchError(getErrorMessage(err))
+    } finally {
+      setDeletingBranch(null)
+    }
+  }
+
   const navigateToDir = (nextPath: string[]) => {
     setPath(nextPath)
     setSelectedFile(null)
@@ -149,10 +193,26 @@ export default function RepositoryCodePage({ repoMeta }: { repoMeta: RepositoryR
                   <div className="flex items-center gap-2 rounded-md border border-foreground/10 px-2"><Search className="size-4 text-muted-foreground" /><input id="branch-search" autoFocus value={branchSearch} onChange={(event) => setBranchSearch(event.target.value)} placeholder="Find a branch..." className="h-9 w-full bg-transparent text-sm outline-none" /></div>
                   <p className="mt-3 px-2 text-xs font-medium text-muted-foreground">BRANCHES</p>
                   <div className="mt-1 max-h-52 overflow-y-auto">
-                    {visibleBranches.map((item) => <button key={item.name} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => selectBranch(item.name)}><GitBranch className="size-4 text-muted-foreground" /><span className="flex-1">{item.name}</span>{item.is_default && <span className="text-xs text-muted-foreground">default</span>}{item.name === activeBranch && <Check className="size-4 text-primary" />}</button>)}
+                    {visibleBranches.map((item) => <button key={item.name} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => selectBranch(item.name)}><GitBranch className="size-4 text-muted-foreground" /><span className="flex-1">{item.name}</span>{item.is_default && <span className="text-xs text-muted-foreground">default</span>}{item.name === activeBranch && <Check className="size-4 text-primary" />}{canDeleteBranch && !item.is_default && <span role="button" tabIndex={0} title={`Delete branch ${item.name}`} aria-label={`Delete branch ${item.name}`} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={(event) => handleDeleteBranch(event, item.name)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") handleDeleteBranch(event as unknown as React.MouseEvent, item.name) }}>{deletingBranch === item.name ? <span className="block size-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-current" /> : <Trash2 className="size-4" />}</span>}</button>)}
                     {!visibleBranches.length && <p className="p-3 text-sm text-muted-foreground">No branches found.</p>}
                   </div>
+                  {branchError && <p className="mt-2 px-2 text-xs text-destructive">{branchError}</p>}
                 </div>}
+<AlertDialog open={branchToDelete !== null} onOpenChange={(open) => { if (!open) setBranchToDelete(null) }}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete "{branchToDelete}"?</AlertDialogTitle>
+                      <AlertDialogDescription>This action cannot be undone. The branch ref will be removed permanently.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={deletingBranch !== null}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleConfirmDeleteBranch} disabled={deletingBranch !== null} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        <Trash2 className="mr-2 size-4" />
+                        {deletingBranch !== null ? "Deleting..." : "Delete branch"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               <button className={buttonVariants({ variant: "outline", size: "sm" })} onClick={() => setGoToFileOpen(true)}><Search className="size-3.5" /> Go to file</button>
             </div>

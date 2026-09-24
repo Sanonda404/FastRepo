@@ -2,6 +2,7 @@ import { useAuth } from "@/lib/auth/use-auth"
 import { useMemo, useState } from "react"
 import {
   Check,
+  LogOut,
   Shield,
   UserPlus,
   Users,
@@ -11,6 +12,17 @@ import { useRepoPermissions } from "@/lib/auth/RepoPermissionManager"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 import {
   Select,
@@ -91,6 +103,9 @@ export default function CollaboratorSettings({
     useState<number | null>(null)
 
   const [leaving, setLeaving] =
+    useState(false)
+
+  const [leaveOpen, setLeaveOpen] =
     useState(false)
 
   // ------------------------------------------
@@ -264,19 +279,17 @@ export default function CollaboratorSettings({
   // Leave repository (self removal)
   // ------------------------------------------
 
-  const handleLeave = async () => {
-    if (
-      !window.confirm(
-        "Leave this repository? You will lose access immediately.",
-      )
-    ) {
-      return
-    }
+  const handleLeave = () => {
+    setLeaveOpen(true)
+  }
 
+  const handleConfirmLeave = async () => {
     try {
       setLeaving(true)
 
       await onLeaveRepository()
+
+      setLeaveOpen(false)
     } finally {
       setLeaving(false)
     }
@@ -590,6 +603,46 @@ export default function CollaboratorSettings({
         }
         onSubmit={handleSubmit}
       />
+
+      {/* ====================================== */}
+      {/* Leave repository dialog */}
+      {/* ====================================== */}
+
+      <AlertDialog
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Leave this repository?
+            </AlertDialogTitle>
+
+            <AlertDialogDescription>
+              You will lose access immediately.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={leaving}
+            >
+              Cancel
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              onClick={handleConfirmLeave}
+              disabled={leaving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <LogOut className="mr-2 size-4" />
+
+              {leaving ? "Leaving..." : "Leave repository"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
