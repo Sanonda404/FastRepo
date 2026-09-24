@@ -86,10 +86,33 @@ CAN_MODERATE_ISSUE_FUNC = """
     $$;
 """
 
+CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION = """
+    CREATE OR REPLACE FUNCTION validate_team_is_from_same_repo(
+        p_repository_id INT,
+        p_team_id INT,
+    )
+    RETURNS BOOLEAN AS $$
+    DECLARE
+        v_repository_id INT;
+    BEGIN
+        SELECT repository_id INTO v_repository_id
+        FROM teams
+        WHERE id = p_team_id;
+
+        IF v_repository_id IS DISTINCT FROM p_repository_id THEN
+            RETURN FALSE;
+        ELSE
+            RETURN TRUE;
+        END IF;
+    END;
+    $$ LANGUAGE plpgsql;
+"""
+
 PERMISSION_FUNCTIONS = (
     CAN_ACCESS_REPOSITORY_FUNC,
     IS_PRIVILEGED_ON_REPO_FUNC,
     CAN_MANAGE_ISSUE_FUNC,
     CAN_MODERATE_ISSUE_FUNC,
     CAN_MANAGE_PR_FUNC,
+    CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION,
 )

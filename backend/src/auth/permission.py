@@ -156,6 +156,16 @@ async def can_manage_team(
 
     return False
 
+async def check_same_repo_team(
+    pool: asyncpg.Pool,
+    repo_id: int,
+    team_id: int,
+) -> bool:
+    async with pool.acquire() as conn:
+        return bool(await conn.fetchval("SELECT validate_team_is_from_same_repo($1, $2)", repo_id, team_id))
+
+
+
 async def get_role(
     pool: asyncpg.Pool,
     owner_name: str,

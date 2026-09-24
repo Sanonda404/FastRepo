@@ -2,11 +2,16 @@ from fastapi import HTTPException
 from typing import List
 from schemas.permissions import PermissionAddRequest, PermissionResponse
 from sqls.permission_sqls import CREATE_PERMISSION, GET_ALL_PERMISSIONS_OF_REPO, DELETE_PERMISSION_BY_ID, DELETE_PERMISSIONS_BY_TEAM_AND_TARGET, UPDATE_PERMISSION_BY_ID
+from auth.permission import check_same_repo_team
 import asyncpg
 
 async def add_permission_to_team(pool: asyncpg.Pool, repo_id: int, team_id : int, payload: PermissionAddRequest):
     async with pool.acquire() as conn:
         try:
+            if not await check_same_repo_team(pool, repo_id, team_id):
+                raise HTTPException(
+                    status_code=403, detail="Team must be from same repository"
+                )
             row = await conn.fetchrow(
                 CREATE_PERMISSION, repo_id, team_id, payload.target_type, payload.target_identifier, payload.allow_write
             )
