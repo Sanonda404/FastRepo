@@ -34,10 +34,6 @@ from models.team_members import (
     CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION,
     CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER,
 )
-from models.permission import (
-    CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION,
-    CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER,
-)
 
 load_dotenv()
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/fastrepo")
@@ -70,11 +66,9 @@ async def init_pool() -> None:
         await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_FUNCTION)
         await conn.execute(CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER_FUNCTION)
         await conn.execute(CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER_FUNCTION)
-        await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION)
         await conn.execute(CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER)
         await conn.execute(CHECK_VIEWER_ONLY_IN_PRIVATE_REPO_TRIGGER)
         await conn.execute(CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER)
-        await conn.execute(CHECK_TEAM_IS_FROM_SAME_REPO_TRIGGER)
 
 async def close_pool() -> None:
     global _pool

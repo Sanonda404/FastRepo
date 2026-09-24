@@ -89,7 +89,7 @@ CAN_MODERATE_ISSUE_FUNC = """
 CHECK_TEAM_IS_FROM_SAME_REPO_FUNCTION = """
     CREATE OR REPLACE FUNCTION validate_team_is_from_same_repo(
         p_repository_id INT,
-        p_team_id INT,
+        p_team_id INT
     )
     RETURNS BOOLEAN AS $$
     DECLARE
