@@ -64,7 +64,7 @@ export default function HomePage() {
           </p>
           <div className="mt-10 flex items-center justify-center gap-3">
             <Link
-              to="/login?mode=register"
+              to="/register"
               className="bg-emerald-600 hover:bg-green-800 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300"
             >
               Get started

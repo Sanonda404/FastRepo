@@ -39,12 +39,12 @@ import { loginApi, registerApi, setAuthToken, getErrorMessage } from "@/lib/apis
 
 import "@/css/auth_theme.css";
 
-export default function AuthPage() {
+interface AuthPageProps {
+  mode: "login" | "register";
+}
+
+export default function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate();
-  const initialMode = new URLSearchParams(window.location.search).get("mode") === "register"
-    ? "register"
-    : "login";
-  const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +57,6 @@ export default function AuthPage() {
       if (sessionStorage.getItem("fastrepo_session_expired")) {
         sessionStorage.removeItem("fastrepo_session_expired")
         const msg = "Session timed out. Please sign in again."
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setErrorMessage(msg)
         toast.error(msg)
       }
@@ -138,11 +137,6 @@ export default function AuthPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const switchMode = (nextMode: "login" | "register") => {
-    setErrorMessage(null);
-    setMode(nextMode);
   };
 
   return (
@@ -466,7 +460,7 @@ export default function AuthPage() {
                     <span className="text-gray-600">Don't have an account?</span>
                     <button
                       type="button"
-                      onClick={() => switchMode("register")}
+                      onClick={() => navigate("/register")}
                       className="text-blue-600 font-medium hover:text-blue-800 hover:underline"
                     >
                       Register
@@ -478,7 +472,7 @@ export default function AuthPage() {
             ) : (
               <>
                 <span>Already have an account?</span>
-                <button type="button" onClick={() => switchMode("login")}>
+                <button type="button" onClick={() => navigate("/login")}>
                   Sign in
                 </button>
               </>
