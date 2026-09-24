@@ -5,14 +5,14 @@ import {
   GitBranch,
   Shield,
 } from "lucide-react"
-import { useParams } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "@/lib/auth/use-auth"
 
 import RepositoryLayout from "@/components/repository/RepositoryLayout"
 import type { RepositoryRole } from "@/lib/auth/permissions"
 import { getErrorMessage } from "@/lib/apis/api"
 import { getRole } from "@/lib/apis/repository_apis"
-import { addCollaborator, getCollaborators, updateCollaboratorRole, deleteCollaborator } from "@/lib/apis/repository_collaborator_apis"
+import { addCollaborator, getCollaborators, updateCollaboratorRole, deleteCollaborator, leaveRepository } from "@/lib/apis/repository_collaborator_apis"
 import { getRepository } from "@/lib/apis/repository_apis"
 
 import SettingsSidebar from "@/components/repository/settings/SettingsSidebar"
@@ -71,6 +71,7 @@ export default function RepositorySettingsPage() {
     repository = "fastrepo",
   } = useParams()
   const { username: currentUsername, isLoggedIn } = useAuth()
+  const navigate = useNavigate()
 
   const [role, setRole] =
     useState<RepositoryRole>("Viewer")
@@ -206,6 +207,21 @@ export default function RepositorySettingsPage() {
   };
 
 
+  const handleLeaveRepository = async () => {
+    if (!owner || !repository) return;
+
+    setActionError(null);
+
+    try {
+      await leaveRepository(owner, repository);
+      navigate("/");
+    } catch (err) {
+      setActionError(getErrorMessage(err));
+      throw err;
+    }
+  };
+
+
   const handleChangeRole = async (
     collaborator: CollaboratorResponse,
     role: CollaboratorRole,
@@ -317,6 +333,9 @@ export default function RepositorySettingsPage() {
                     }
                     onDeleteCollaborator={
                       handleDeleteCollaborator
+                    }
+                    onLeaveRepository={
+                      handleLeaveRepository
                     }
                   />
                 </RepoPermissionProvider>

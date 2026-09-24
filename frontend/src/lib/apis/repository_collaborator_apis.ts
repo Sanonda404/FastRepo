@@ -16,3 +16,7 @@ export async function updateCollaboratorRole(owner:string, repo_name: string, co
 export async function deleteCollaborator(owner:string, repo_name: string, collaborator_id : number): Promise<CollaboratorResponse> {
   return api<CollaboratorResponse>(`/collaborators/${owner}/${repo_name}/${collaborator_id}`, { method: "DELETE" });
 }
+
+export async function leaveRepository(owner:string, repo_name: string): Promise<CollaboratorResponse> {
+  return api<CollaboratorResponse>(`/collaborators/${owner}/${repo_name}/leave`, { method: "DELETE" });
+}

@@ -49,6 +49,8 @@ interface CollaboratorSettingsProps {
   onDeleteCollaborator: (
     collaborator: CollaboratorResponse,
   ) => Promise<void>
+
+  onLeaveRepository: () => Promise<void>
 }
 
 type RoleFilter =
@@ -68,6 +70,7 @@ export default function CollaboratorSettings({
   onAddCollaborator,
   onChangeRole,
   onDeleteCollaborator,
+  onLeaveRepository,
 }: CollaboratorSettingsProps) {
   const { username } = useAuth()
   let canManage = false
@@ -86,6 +89,21 @@ export default function CollaboratorSettings({
 
   const [actionLoading, setActionLoading] =
     useState<number | null>(null)
+
+  const [leaving, setLeaving] =
+    useState(false)
+
+  // ------------------------------------------
+  // Current user is a non-owner collaborator.
+  // ------------------------------------------
+
+  const isSelfCollaborator =
+    !!username &&
+    username !== ownerUsername &&
+    collaborators.some(
+      (collaborator) =>
+        collaborator.username === username,
+    )
 
   // ------------------------------------------
   // Filter collaborators
@@ -242,6 +260,28 @@ export default function CollaboratorSettings({
     }
   }
 
+  // ------------------------------------------
+  // Leave repository (self removal)
+  // ------------------------------------------
+
+  const handleLeave = async () => {
+    if (
+      !window.confirm(
+        "Leave this repository? You will lose access immediately.",
+      )
+    ) {
+      return
+    }
+
+    try {
+      setLeaving(true)
+
+      await onLeaveRepository()
+    } finally {
+      setLeaving(false)
+    }
+  }
+
   return (
     <div className="max-w-4xl space-y-8">
 
@@ -292,6 +332,23 @@ export default function CollaboratorSettings({
           <p className="text-xs text-muted-foreground">Only owners and admins can manage collaborators</p>
         )}
       </div>
+
+      {isSelfCollaborator && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-foreground/10 bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            You are a collaborator on this repository.
+          </p>
+
+          <Button
+            variant="outline"
+            disabled={leaving}
+            onClick={handleLeave}
+            className="shrink-0 gap-2 text-destructive hover:text-destructive"
+          >
+            {leaving ? "Leaving..." : "Leave repository"}
+          </Button>
+        </div>
+      )}
 
       {/* ====================================== */}
       {/* Error */}

@@ -4,7 +4,7 @@ import asyncpg
 from services.database import get_pool
 
 from schemas.repository_collaborator import CollaboratorAddRequest, CollaboratorResponse, CollaboratorRoleUpdate
-from services.repository_collaborator import add_collaborator_to_repo, get_collaborators, remove_collaborator_from_repo, update_collaborator_role_in_repo, get_user_details
+from services.repository_collaborator import add_collaborator_to_repo, get_collaborators, get_collaborator_details, remove_collaborator_from_repo, update_collaborator_role_in_repo, get_user_details
 from services.repository_crud import get_repository, can_access_repository
 from services.user import get_user_by_username_or_email
 from auth.auth import get_current_user, get_optional_current_user
@@ -115,6 +115,29 @@ async def update_collaborator_role(
                 detail="Viewer can only be assigned to private repositories"
             )
         return await update_collaborator_role_in_repo(pool, repo.id, collaborator_id, payload, user)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+@router.delete("/{owner_name}/{repo_name}/leave", response_model=CollaboratorResponse, status_code=status.HTTP_200_OK)
+async def leave_repository(
+    owner_name: str,
+    repo_name: str,
+    current_user: dict = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool)
+):
+    try:
+        repo = await get_repository(pool, owner_name, repo_name)
+        collaborator = await get_collaborator_details(pool, repo.id, current_user["id"])
+        if collaborator is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="You are not a collaborator of this repository"
+            )
+        return await remove_collaborator_from_repo(pool, current_user["id"], repo.id)
 
     except ValueError as e:
         raise HTTPException(
