@@ -1,23 +1,21 @@
 CREATE OR REPLACE PROCEDURE create_pr_with_issues(
-    p_repository_id INT,
-    p_author_id INT,
-    p_title VARCHAR(255),
-    p_body TEXT,
-    p_source_branch VARCHAR(100),
-    p_target_branch VARCHAR(100),
-    p_source_repository_id INT,
-    p_issue_ids INT[],
-    INOUT p_pr_id INT DEFAULT NULL
-)
-LANGUAGE plpgsql
-AS $$
+        p_repository_id INT,
+        p_author_id INT,
+        p_title VARCHAR(255),
+        p_body TEXT,
+        p_source_branch VARCHAR(100),
+        p_target_branch VARCHAR(100),
+        p_source_repository_id INT,
+        p_issue_ids INT[],
+        INOUT p_pr_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
     DECLARE
         v_missing_issue_id INT;
         v_wrong_repo_issue_id INT;
     BEGIN
-        -- 1. Validate issue existence and repo matching inside SQL
         IF array_length(p_issue_ids, 1) > 0 THEN
-            -- Check for non-existent issues
             SELECT id INTO v_missing_issue_id
             FROM unnest(p_issue_ids) AS id
             WHERE id NOT IN (SELECT id FROM issues);
@@ -26,7 +24,6 @@ AS $$
                 RAISE EXCEPTION 'ISSUE_NOT_FOUND:%', v_missing_issue_id;
             END IF;
 
-            -- Check for issues belonging to a different repository
             SELECT id INTO v_wrong_repo_issue_id
             FROM issues
             WHERE id = ANY(p_issue_ids) AND repository_id <> p_repository_id
@@ -37,7 +34,6 @@ AS $$
             END IF;
         END IF;
 
-        -- Insert the Pull Request
         INSERT INTO pull_requests (
             repository_id,
             author_id,
@@ -60,23 +56,22 @@ AS $$
         )
         RETURNING id INTO p_pr_id;
 
-        -- Link issues into the issue_pull_requests junction table
         IF array_length(p_issue_ids, 1) > 0 THEN
             INSERT INTO issue_pull_requests (issue_id, pull_request_id)
             SELECT unnest(p_issue_ids), p_pr_id
             ON CONFLICT DO NOTHING;
         END IF;
-END;
-$$;
+    END;
+    $$;
 
 CREATE OR REPLACE PROCEDURE add_new_team_member(
-    p_repository_id INT,
-    p_user_id INT,
-    p_team_id INT,
-    INOUT p_collaborator_id INT DEFAULT NULL
-)
-LANGUAGE plpgsql
-AS $$
+        p_repository_id INT,
+        p_user_id INT,
+        p_team_id INT,
+        INOUT p_collaborator_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
     DECLARE
         v_team_repo INT;
     BEGIN
@@ -104,20 +99,84 @@ AS $$
         INSERT INTO team_members (team_id, member_id)
         VALUES (p_team_id, p_collaborator_id)
         ON CONFLICT (team_id, member_id) DO NOTHING;
-END;
-$$;
+    END;
+    $$;
+
+CREATE OR REPLACE PROCEDURE attach_label_to_issue(
+        p_repository_id INT,
+        p_issue_number INT,
+        p_name VARCHAR(50),
+        p_color VARCHAR(7),
+        INOUT p_label_id INT DEFAULT NULL,
+        INOUT p_label_name VARCHAR(50) DEFAULT NULL,
+        INOUT p_label_color VARCHAR(7) DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        v_issue_id INT;
+        v_label_id INT;
+    BEGIN
+        SELECT i.id INTO v_issue_id
+        FROM issues i
+        WHERE i.repository_id = p_repository_id AND i.number = p_issue_number;
+
+        IF v_issue_id IS NULL THEN
+            RAISE EXCEPTION 'ISSUE_NOT_FOUND:%', p_issue_number;
+        END IF;
+
+        -- Exact name+color already attached: idempotent, nothing to do.
+        SELECT l.id INTO v_label_id
+        FROM issue_labels il
+        INNER JOIN labels l ON l.id = il.label_id
+        WHERE il.issue_id = v_issue_id AND l.name = p_name AND l.color = p_color
+        LIMIT 1;
+
+        IF v_label_id IS NULL THEN
+            -- Any same-name label attached: reject, one name per issue.
+            IF EXISTS (
+                SELECT 1 FROM issue_labels il
+                INNER JOIN labels l ON l.id = il.label_id
+                WHERE il.issue_id = v_issue_id AND l.name = p_name
+            ) THEN
+                RAISE EXCEPTION 'LABEL_ALREADY_ATTACHED:%', p_name;
+            END IF;
+
+            -- Same name+color exists elsewhere: reuse it, no new labels row.
+            SELECT l.id INTO v_label_id
+            FROM labels l
+            WHERE l.name = p_name AND l.color = p_color
+            ORDER BY l.id
+            LIMIT 1;
+
+            IF v_label_id IS NULL THEN
+                -- New label row (same name under a new color, or brand new).
+                INSERT INTO labels (name, color)
+                VALUES (p_name, p_color)
+                RETURNING id INTO v_label_id;
+            END IF;
+
+            INSERT INTO issue_labels (issue_id, label_id)
+            VALUES (v_issue_id, v_label_id)
+            ON CONFLICT (issue_id, label_id) DO NOTHING;
+        END IF;
+
+        SELECT id, name, color INTO p_label_id, p_label_name, p_label_color
+        FROM labels WHERE id = v_label_id;
+    END;
+    $$;
 
 CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
-    p_owner_id INT,
-    p_name VARCHAR(255),
-    p_description TEXT,
-    p_is_private BOOLEAN,
-    p_default_branch VARCHAR(255),
-    p_source_repo_id INT,
-    INOUT p_new_repo_id INT DEFAULT NULL
-)
-LANGUAGE plpgsql
-AS $$
+        p_owner_id INT,
+        p_name VARCHAR(255),
+        p_description TEXT,
+        p_is_private BOOLEAN,
+        p_default_branch VARCHAR(255),
+        p_source_repo_id INT,
+        INOUT p_new_repo_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
     BEGIN
         INSERT INTO repositories (owner_id, name, description, is_private, default_branch, parent_repository_id)
         VALUES (p_owner_id, p_name, p_description, p_is_private, p_default_branch, p_source_repo_id)
@@ -140,15 +199,15 @@ AS $$
 
         INSERT INTO refs (repo_id, name, commit_sha, tag_sha, symref)
         SELECT p_new_repo_id, name, commit_sha, tag_sha, symref FROM refs WHERE repo_id = p_source_repo_id;
-END;
-$$;
+    END;
+    $$;
 
 CREATE OR REPLACE PROCEDURE update_default_branch(
-    p_repo_id INT,
-    p_branch VARCHAR(255)
-)
-LANGUAGE plpgsql
-AS $$
+        p_repo_id INT,
+        p_branch VARCHAR(255)
+    )
+    LANGUAGE plpgsql
+    AS $$
     BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM refs WHERE repo_id = p_repo_id AND name = 'refs/heads/' || p_branch
@@ -162,5 +221,5 @@ AS $$
         VALUES (p_repo_id, 'HEAD', 'refs/heads/' || p_branch)
         ON CONFLICT (repo_id, name)
         DO UPDATE SET symref = EXCLUDED.symref, commit_sha = NULL, tag_sha = NULL;
-END;
-$$;
+    END;
+    $$;

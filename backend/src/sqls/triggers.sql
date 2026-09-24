@@ -1,3 +1,25 @@
+CREATE OR REPLACE FUNCTION validate_team_collaborator_from_same_repo()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v1_repository_id INT;
+        v2_repository_id INT;
+    BEGIN
+        SELECT repository_id INTO v1_repository_id
+        FROM teams
+        WHERE id = NEW.team_id;
+        
+        SELECT repository_id INTO v2_repository_id
+        FROM repository_collaborators
+        WHERE id = NEW.member_id;
+
+        IF v1_repository_id IS DISTINCT FROM v2_repository_id THEN
+            RAISE EXCEPTION 'Constraint Violation: Team and collaborator are not part of same repository';
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION validate_viewer_role_repo_privacy()
     RETURNS TRIGGER AS $$
     DECLARE
@@ -39,23 +61,6 @@ CREATE OR REPLACE FUNCTION validate_no_viewer_in_public_repo()
     END;
     $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION validate_team_is_from_same_repo()
-    RETURNS TRIGGER AS $$
-    DECLARE
-        v_repository_id INT;
-    BEGIN
-        SELECT repository_id INTO v_repository_id
-        FROM teams
-        WHERE id = NEW.team_id;
-
-        IF v_repository_id IS DISTINCT FROM NEW.repository_id THEN
-            RAISE EXCEPTION 'Constraint Violation: Team % does not belong to repository %.', NEW.team_id, NEW.repository_id;
-        END IF;
-
-        RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql;
-
 CREATE OR REPLACE FUNCTION delete_orphan_label()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -65,6 +70,31 @@ BEGIN
             SELECT 1 FROM issue_labels WHERE label_id = OLD.label_id
         );
     RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_unique_label_name_per_issue()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_new_name VARCHAR(50);
+BEGIN
+    SELECT name INTO v_new_name FROM labels WHERE id = NEW.label_id;
+
+    IF v_new_name IS NULL THEN
+        RAISE EXCEPTION 'Constraint Violation: Label % not found', NEW.label_id;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM issue_labels il
+        INNER JOIN labels l ON l.id = il.label_id
+        WHERE il.issue_id = NEW.issue_id
+            AND l.name = v_new_name
+            AND il.label_id IS DISTINCT FROM NEW.label_id
+    ) THEN
+        RAISE EXCEPTION 'Constraint Violation: Issue % already has a label named %', NEW.issue_id, v_new_name;
+    END IF;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -148,28 +178,27 @@ DROP TRIGGER IF EXISTS check_is_private_update ON repositories;
     FOR EACH ROW
     EXECUTE FUNCTION validate_no_viewer_in_public_repo();
 
-DROP TRIGGER IF EXISTS validate_team_is_from_same_repo ON permissions;
-
-    CREATE TRIGGER validate_team_is_from_same_repo
-    BEFORE INSERT OR UPDATE OF team_id, repository_id
-    ON permissions
-    FOR EACH ROW
-    EXECUTE FUNCTION validate_team_is_from_same_repo();
-
 DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
-    CREATE TRIGGER delete_orphan_label
-    AFTER DELETE ON issue_labels
-    FOR EACH ROW
-    EXECUTE FUNCTION delete_orphan_label();
+CREATE TRIGGER delete_orphan_label
+AFTER DELETE ON issue_labels
+FOR EACH ROW
+EXECUTE FUNCTION delete_orphan_label();
+
+DROP TRIGGER IF EXISTS validate_unique_label_name_per_issue ON issue_labels;
+CREATE TRIGGER validate_unique_label_name_per_issue
+BEFORE INSERT OR UPDATE OF issue_id, label_id
+ON issue_labels
+FOR EACH ROW
+EXECUTE FUNCTION validate_unique_label_name_per_issue();
 
 DROP TRIGGER IF EXISTS validate_issue_pull_request_same_repo ON issue_pull_requests;
-    CREATE TRIGGER validate_issue_pull_request_same_repo
-    BEFORE INSERT OR UPDATE OF issue_id, pull_request_id
-    ON issue_pull_requests
-    FOR EACH ROW
-    EXECUTE FUNCTION validate_issue_pull_request_same_repo();
+CREATE TRIGGER validate_issue_pull_request_same_repo
+BEFORE INSERT OR UPDATE OF issue_id, pull_request_id
+ON issue_pull_requests
+FOR EACH ROW
+EXECUTE FUNCTION validate_issue_pull_request_same_repo();
 
 DROP TRIGGER IF EXISTS check_pr_review_privilege ON pr_reviews;
-    CREATE TRIGGER check_pr_review_privilege
-    BEFORE INSERT OR UPDATE OF decision, reviewer_id, pull_request_id ON pr_reviews
-    FOR EACH ROW EXECUTE FUNCTION validate_pr_review_privilege();
+CREATE TRIGGER check_pr_review_privilege
+BEFORE INSERT OR UPDATE OF decision, reviewer_id, pull_request_id ON pr_reviews
+FOR EACH ROW EXECUTE FUNCTION validate_pr_review_privilege();
