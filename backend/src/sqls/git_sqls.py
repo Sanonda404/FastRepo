@@ -134,6 +134,12 @@ GET_BRANCH_REFS = """
     ORDER BY name
 """
 
+DELETE_BRANCH_REF = """
+    DELETE FROM refs
+    WHERE repo_id = $1 AND name = $2 AND name LIKE 'refs/heads/%'
+    RETURNING 1
+"""
+
 GET_COMMIT_META = """
     SELECT c.sha, c.root_tree_sha, c.author_name, c.author_date, c.message,
            u.email AS author_email

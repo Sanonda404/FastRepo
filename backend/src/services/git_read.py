@@ -20,6 +20,7 @@ from models.git import EMPTY_TREE_SHA_HEX
 from services.git_backend import ObjectStore
 from models.git import EMPTY_TREE_SHA
 from sqls.git_sqls import (
+    DELETE_BRANCH_REF,
     GET_BLOBS,
     GET_BRANCH_REFS,
     GET_COMMIT_META,
@@ -95,6 +96,27 @@ async def get_branches(pool: asyncpg.Pool, repo_id: int) -> list[dict]:
         }
         for row in rows
     ]
+
+
+async def delete_branch(
+    pool: asyncpg.Pool,
+    repo_id: int,
+    branch: str,
+    default_branch: str | None,
+) -> str:
+    """Delete a branch ref. The HEAD-pointed (default) branch is protected."""
+    ref = "refs/heads/" + branch
+    async with pool.acquire() as conn:
+        head = await conn.fetchrow(READ_LOOSE_REF, repo_id, "HEAD")
+        target = None
+        if head and head["value"] and head["value"].startswith("ref: "):
+            target = head["value"][5:]
+        if ref == target or (default_branch and branch == default_branch):
+            raise ValueError("Cannot delete the default branch.")
+        row = await conn.fetchrow(DELETE_BRANCH_REF, repo_id, ref)
+        if row is None:
+            raise ValueError(f"Branch '{branch}' does not exist.")
+    return branch
 
 
 async def get_history(

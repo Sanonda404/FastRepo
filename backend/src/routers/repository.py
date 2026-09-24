@@ -37,6 +37,7 @@ from services.repository_crud import (
     list_starred_repositories
 )
 from services.git_read import (
+    delete_branch,
     get_branches,
     get_commit,
     get_diff,
@@ -223,6 +224,32 @@ async def list_branches(
     """List branches of a repository, newest default marked."""
     repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
     return await get_branches(pool, repo.id)
+
+@router.delete("/{owner_name}/{repo_name}/branches", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_branch(
+    owner_name: str,
+    repo_name: str,
+    branch: str = Query(..., min_length=1, description="Branch name to delete."),
+    current_user: dict = Depends(get_current_user),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """Delete a branch ref. Owner or Admin only; the default (HEAD) branch is protected."""
+    repo = await get_repository(pool, owner_name, repo_name)
+    role = await get_role(pool, owner_name, repo_name, current_user)
+    if role not in ('Owner', 'Admin'):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete branches.",
+        )
+    try:
+        await delete_branch(pool, repo.id, branch, repo.default_branch)
+    except ValueError as e:
+        message = str(e)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if "does not exist" in message else status.HTTP_400_BAD_REQUEST,
+            detail=message,
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.get("/{owner_name}/{repo_name}/commits", response_model=list[CommitSummary])
 async def list_commits(
