@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { ArrowLeft, GitPullRequest, X } from "lucide-react"
 
@@ -68,6 +68,20 @@ export default function IssueDetailsPage({
     useState<string | null>(null)
 
   const [mutating, setMutating] = useState(false)
+
+  // Newest first by creation time (id breaks
+  // same-timestamp ties), so freshly posted
+  // comments land on top without a reload.
+  const sortedComments = useMemo(
+    () =>
+      [...comments].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime() ||
+          b.id - a.id,
+      ),
+    [comments],
+  )
 
   /*
    * ============================================================
@@ -580,7 +594,7 @@ export default function IssueDetailsPage({
               )}
 
               <IssueActivitySection
-                comments={comments}
+                comments={sortedComments}
                 commentsLoading={
                   commentsLoading
                 }

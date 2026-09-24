@@ -10,6 +10,7 @@ GET_ALL_COMMENTS_BY_ISSUE_ID = """
     INNER JOIN users u
     on i.author_id = u.id
     WHERE issue_id = $1
+    ORDER BY i.created_at DESC, i.id DESC
 """
 
 GET_ISSUE_COMMENT_BY_ID = """

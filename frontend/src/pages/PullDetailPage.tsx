@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { GitPullRequest, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
 
@@ -222,6 +222,20 @@ export default function PullDetailPage() {
       setMutating(false)
     }
   }
+
+  // Newest first by review time (id breaks
+  // same-timestamp ties), so freshly posted
+  // reviews land on top without a reload.
+  const sortedReviews = useMemo(
+    () =>
+      [...reviews].sort(
+        (a, b) =>
+          new Date(b.reviewed_at).getTime() -
+            new Date(a.reviewed_at).getTime() ||
+          b.id - a.id,
+      ),
+    [reviews],
+  )
 
   const latestByReviewer = (() => {
     const map = new Map<number | string, string>()
@@ -539,7 +553,7 @@ export default function PullDetailPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {reviews.map((review) => (
+                      {sortedReviews.map((review) => (
                         <PullReviewItem
                           key={review.id}
                           review={review}

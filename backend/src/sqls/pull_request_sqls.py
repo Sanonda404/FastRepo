@@ -135,7 +135,7 @@ PR_REVIEW_SELECT = """
 
 GET_PR_REVIEWS = PR_REVIEW_SELECT + """
     WHERE r.pull_request_id = $1
-    ORDER BY r.id
+    ORDER BY r.reviewed_at DESC, r.id DESC
 """
 
 GET_PR_REVIEW = PR_REVIEW_SELECT + """
