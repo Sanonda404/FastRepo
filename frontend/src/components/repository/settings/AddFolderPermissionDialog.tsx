@@ -2,10 +2,12 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Check } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import type { Team, BranchResponse } from "@/lib/interfaces"
 import { listAllFilePaths } from "@/lib/apis/repository_apis"
 
@@ -28,6 +30,30 @@ interface Props {
   onSubmit: (data: FormValues) => Promise<void>
 }
 
+interface TreeNode {
+  name: string
+  path: string
+  children: Record<string, TreeNode>
+}
+
+// Convert flat paths into a nested tree structure
+function buildFolderTree(paths: string[]): TreeNode {
+  const root: TreeNode = { name: "", path: "", children: {} }
+  for (const path of paths) {
+    const parts = path.split("/")
+    let current = root
+    let currentPath = ""
+    for (const part of parts) {
+      currentPath = currentPath ? `${currentPath}/${part}` : part
+      if (!current.children[part]) {
+        current.children[part] = { name: part, path: currentPath, children: {} }
+      }
+      current = current.children[part]
+    }
+  }
+  return root
+}
+
 function foldersFromPaths(paths: string[]): string[] {
   const set = new Set<string>()
   for (const p of paths) {
@@ -35,6 +61,107 @@ function foldersFromPaths(paths: string[]): string[] {
     for (let i = 1; i < parts.length; i++) set.add(parts.slice(0, i).join("/"))
   }
   return Array.from(set).sort()
+}
+
+function FolderTreeNode({
+  node,
+  selectedPath,
+  onSelect,
+}: {
+  node: TreeNode
+  selectedPath: string
+  onSelect: (path: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const hasChildren = Object.keys(node.children).length > 0
+  const isSelected = selectedPath === node.path
+
+  return (
+    <div className="pl-3">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors",
+          isSelected && "bg-primary/10 text-primary font-medium"
+        )}
+        onClick={() => onSelect(node.path)}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            className="p-0.5 hover:bg-muted rounded text-muted-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(!isOpen)
+            }}
+          >
+            {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </button>
+        ) : (
+          <span className="w-4" />
+        )}
+
+        {isOpen ? (
+          <FolderOpen className="size-4 text-amber-500 shrink-0" />
+        ) : (
+          <Folder className="size-4 text-amber-500 shrink-0" />
+        )}
+
+        <span className="truncate flex-1">{node.name}</span>
+
+        {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
+      </div>
+
+      {isOpen && hasChildren && (
+        <div className="border-l border-border/50 ml-2">
+          {Object.values(node.children).map((child) => (
+            <FolderTreeNode
+              key={child.path}
+              node={child}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FolderTreePicker({
+  paths,
+  selectedPath,
+  onSelect,
+}: {
+  paths: string[]
+  selectedPath: string
+  onSelect: (path: string) => void
+}) {
+  const tree = buildFolderTree(paths)
+
+  return (
+    <div className="max-h-52 overflow-y-auto rounded-md border border-input bg-background p-2 shadow-inner">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors",
+          selectedPath === "/" && "bg-primary/10 text-primary font-medium"
+        )}
+        onClick={() => onSelect("/")}
+      >
+        <Folder className="size-4 text-amber-500 shrink-0" />
+        <span className="truncate flex-1">/ (Root Directory)</span>
+        {selectedPath === "/" && <Check className="size-3.5 text-primary shrink-0" />}
+      </div>
+
+      {Object.values(tree.children).map((child) => (
+        <FolderTreeNode
+          key={child.path}
+          node={child}
+          selectedPath={selectedPath}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  )
 }
 
 export default function AddFolderPermissionDialog({ open, teams, branches, owner, repository, loading, onClose, onSubmit }: Props) {
@@ -83,6 +210,8 @@ export default function AddFolderPermissionDialog({ open, teams, branches, owner
     await onSubmit(data)
   }
 
+  const selectedTarget = form.watch("target_identifier")
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
@@ -98,7 +227,9 @@ export default function AddFolderPermissionDialog({ open, teams, branches, owner
               onValueChange={(v) => form.setValue("team_id", Number(v ?? 0), { shouldValidate: true })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select team" />
+                <SelectValue placeholder="Select team">
+                  {teams.find((t) => t.id === form.watch("team_id"))?.name}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {teams.map((t) => (
@@ -126,34 +257,32 @@ export default function AddFolderPermissionDialog({ open, teams, branches, owner
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">Select a branch to list its folders.</p>
+            <p className="text-xs text-muted-foreground">Select a branch to explore its folder structure.</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Folder</label>
+            <label className="text-sm font-medium">Browse Folders</label>
             {foldersLoading ? (
-              <p className="text-xs text-muted-foreground">Loading folders for {branch}...</p>
+              <p className="text-xs text-muted-foreground py-2">Loading repository tree for {branch}...</p>
             ) : folders.length > 0 ? (
-              <Select
-                value={form.watch("target_identifier") || ""}
-                onValueChange={(v) => form.setValue("target_identifier", v ?? "", { shouldValidate: true })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select folder" />
-                </SelectTrigger>
-                <SelectContent>
-                  {folders.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FolderTreePicker
+                paths={folders}
+                selectedPath={selectedTarget}
+                onSelect={(path) => form.setValue("target_identifier", path, { shouldValidate: true })}
+              />
             ) : (
-              <p className="text-xs text-muted-foreground">No folders on {branch || "this branch"} — type a path below.</p>
+              <p className="text-xs text-muted-foreground py-1">No subfolders found on {branch || "this branch"}. You can enter a path manually below.</p>
             )}
-            <Input placeholder="e.g. src or src/components" {...form.register("target_identifier")} />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Selected Path</label>
+            <Input
+              placeholder="e.g. src or src/components"
+              {...form.register("target_identifier")}
+            />
             {form.formState.errors.target_identifier && <p className="text-xs text-destructive">{form.formState.errors.target_identifier.message}</p>}
+            <p className="text-xs text-muted-foreground">Selected from tree or typed manually.</p>
           </div>
 
           <div className="space-y-2">
