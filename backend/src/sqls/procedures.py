@@ -21,9 +21,7 @@ CREATE_ISSUE_PR_PROCEDURE = """
         v_missing_issue_id INT;
         v_wrong_repo_issue_id INT;
     BEGIN
-        -- 1. Validate issue existence and repo matching inside SQL
         IF array_length(p_issue_ids, 1) > 0 THEN
-            -- Check for non-existent issues
             SELECT id INTO v_missing_issue_id
             FROM unnest(p_issue_ids) AS id
             WHERE id NOT IN (SELECT id FROM issues);
@@ -32,7 +30,6 @@ CREATE_ISSUE_PR_PROCEDURE = """
                 RAISE EXCEPTION 'ISSUE_NOT_FOUND:%', v_missing_issue_id;
             END IF;
 
-            -- Check for issues belonging to a different repository
             SELECT id INTO v_wrong_repo_issue_id
             FROM issues
             WHERE id = ANY(p_issue_ids) AND repository_id <> p_repository_id
@@ -43,7 +40,6 @@ CREATE_ISSUE_PR_PROCEDURE = """
             END IF;
         END IF;
 
-        -- Insert the Pull Request
         INSERT INTO pull_requests (
             repository_id,
             author_id,
@@ -66,7 +62,6 @@ CREATE_ISSUE_PR_PROCEDURE = """
         )
         RETURNING id INTO p_pr_id;
 
-        -- Link issues into the issue_pull_requests junction table
         IF array_length(p_issue_ids, 1) > 0 THEN
             INSERT INTO issue_pull_requests (issue_id, pull_request_id)
             SELECT unnest(p_issue_ids), p_pr_id
@@ -111,6 +106,73 @@ ADD_NEW_TEAM_MEMBER_PROCEDURE = """    CREATE OR REPLACE PROCEDURE add_new_team_
         INSERT INTO team_members (team_id, member_id)
         VALUES (p_team_id, p_collaborator_id)
         ON CONFLICT (team_id, member_id) DO NOTHING;
+    END;
+    $$;
+"""
+
+
+ATTACH_LABEL_PROCEDURE = """
+    CREATE OR REPLACE PROCEDURE attach_label_to_issue(
+        p_repository_id INT,
+        p_issue_number INT,
+        p_name VARCHAR(50),
+        p_color VARCHAR(7),
+        INOUT p_label_id INT DEFAULT NULL,
+        INOUT p_label_name VARCHAR(50) DEFAULT NULL,
+        INOUT p_label_color VARCHAR(7) DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
+    DECLARE
+        v_issue_id INT;
+        v_label_id INT;
+    BEGIN
+        SELECT i.id INTO v_issue_id
+        FROM issues i
+        WHERE i.repository_id = p_repository_id AND i.number = p_issue_number;
+
+        IF v_issue_id IS NULL THEN
+            RAISE EXCEPTION 'ISSUE_NOT_FOUND:%', p_issue_number;
+        END IF;
+
+        -- Exact name+color already attached: idempotent, nothing to do.
+        SELECT l.id INTO v_label_id
+        FROM issue_labels il
+        INNER JOIN labels l ON l.id = il.label_id
+        WHERE il.issue_id = v_issue_id AND l.name = p_name AND l.color = p_color
+        LIMIT 1;
+
+        IF v_label_id IS NULL THEN
+            -- Any same-name label attached: reject, one name per issue.
+            IF EXISTS (
+                SELECT 1 FROM issue_labels il
+                INNER JOIN labels l ON l.id = il.label_id
+                WHERE il.issue_id = v_issue_id AND l.name = p_name
+            ) THEN
+                RAISE EXCEPTION 'LABEL_ALREADY_ATTACHED:%', p_name;
+            END IF;
+
+            -- Same name+color exists elsewhere: reuse it, no new labels row.
+            SELECT l.id INTO v_label_id
+            FROM labels l
+            WHERE l.name = p_name AND l.color = p_color
+            ORDER BY l.id
+            LIMIT 1;
+
+            IF v_label_id IS NULL THEN
+                -- New label row (same name under a new color, or brand new).
+                INSERT INTO labels (name, color)
+                VALUES (p_name, p_color)
+                RETURNING id INTO v_label_id;
+            END IF;
+
+            INSERT INTO issue_labels (issue_id, label_id)
+            VALUES (v_issue_id, v_label_id)
+            ON CONFLICT (issue_id, label_id) DO NOTHING;
+        END IF;
+
+        SELECT id, name, color INTO p_label_id, p_label_name, p_label_color
+        FROM labels WHERE id = v_label_id;
     END;
     $$;
 """
@@ -185,6 +247,7 @@ async def ensure_procedures(pool: asyncpg.Pool) -> None:
         async with conn.transaction():
             await conn.execute(CREATE_ISSUE_PR_PROCEDURE)
             await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)
+            await conn.execute(ATTACH_LABEL_PROCEDURE)
             await conn.execute(FORK_REPOSITORY_PROCEDURE)
             await conn.execute(UPDATE_DEFAULT_BRANCH_PROCEDURE)
             for func in PERMISSION_FUNCTIONS:

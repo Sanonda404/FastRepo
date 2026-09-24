@@ -126,21 +126,8 @@ LIST_ASSIGNEES = """
     ORDER BY u.username
 """
 
-CREATE_LABEL = """
-    INSERT INTO labels (name, color)
-    VALUES ($1, $2)
-    ON CONFLICT (name) DO NOTHING
-    RETURNING id, name, color
-"""
-
-ATTACH_LABEL = """
-    INSERT INTO issue_labels (issue_id, label_id)
-    SELECT i.id, $3
-    FROM issues i
-    WHERE i.repository_id = $1 AND i.number = $2
-    ON CONFLICT (issue_id, label_id)
-        DO UPDATE SET label_id = EXCLUDED.label_id
-    RETURNING label_id
+CALL_ATTACH_LABEL = """
+    CALL attach_label_to_issue($1, $2, $3, $4, NULL, NULL, NULL)
 """
 
 DETACH_LABEL = """

@@ -659,14 +659,43 @@ class TestIssueLabels:
             assert r.status_code == 201, r.text
             assert r.json()["id"] == created["id"]
 
-            # same name, different color -> rejected
+            # same name, different color, not yet applied -> new label row
             r = client.post(
                 f"/issues/{owner}/{repo_name}/{issue2['number']}/labels",
                 headers=auth(token), json={"name": name, "color": "#00ff00"},
             )
-            assert r.status_code == 400
+            assert r.status_code == 201, r.text
+            second = r.json()
+            assert second["id"] != created["id"]
+            assert second["name"] == name and second["color"] == "#00ff00"
+
+            # same name already applied to this issue, new color -> rejected
+            wobble = unique("wobble")
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": wobble, "color": "#ff0000"},
+            )
+            assert r.status_code == 201, r.text
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/labels",
+                headers=auth(token), json={"name": wobble, "color": "#00ff00"},
+            )
+            assert r.status_code == 409, r.text
+
+            # same name, other color already on this issue -> rejected
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels",
+                headers=auth(token), json={"name": name, "color": "#ff0000"},
+            )
+            assert r.status_code == 409, r.text
 
             # second issue shares the label once color matches
+            # (detach the green one first: one name per issue)
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue2['number']}/labels/{second['id']}",
+                headers=auth(token),
+            )
+            assert r.status_code == 200, r.text
             r = client.post(
                 f"/issues/{owner}/{repo_name}/{issue2['number']}/labels",
                 headers=auth(token), json={"name": name, "color": "#ff0000"},
@@ -677,7 +706,7 @@ class TestIssueLabels:
             r = client.get(
                 f"/issues/{owner}/{repo_name}/{issue['number']}/labels", headers=auth(token)
             )
-            assert [l["id"] for l in r.json()] == [created["id"]]
+            assert created["id"] in [l["id"] for l in r.json()]
 
             # unknown issue -> 404
             r = client.post(

@@ -10,8 +10,7 @@ from sqls.issue_sqls import (
     GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, 
     IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, 
     LIST_ASSIGNEES, 
-    CREATE_LABEL, 
-    ATTACH_LABEL, 
+    CALL_ATTACH_LABEL, 
     DETACH_LABEL, 
     LIST_ISSUE_LABELS,
     GET_ASSIGNED_ISSUES
@@ -57,11 +56,9 @@ async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: st
         response: List[IssueSummary] = []
 
         for row in rows:
-            # Parse JSON arrays returned by PostgreSQL
             labels_data = row["labels"] or []
             assignees_data = row["assignees"] or []
 
-            # If asyncpg returns them as strings, decode JSON
             if isinstance(labels_data, str):
                 labels_data = json.loads(labels_data)
             if isinstance(assignees_data, str):
@@ -108,7 +105,6 @@ async def get_issue_by_number(pool: asyncpg.Pool, repo_id: int, issue_no : int) 
         labels_data = row["labels"] or []
         assignees_data = row["assignees"] or []
 
-        # If asyncpg returns them as strings, decode JSON
         if isinstance(labels_data, str):
             labels_data = json.loads(labels_data)
         if isinstance(assignees_data, str):
@@ -211,19 +207,27 @@ async def list_issue_assignees(pool: asyncpg.Pool, repo_id: int, issue_number: i
 async def attach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, payload) -> LabelResponse:
     async with pool.acquire() as conn:
         async with conn.transaction():
-            row = await conn.fetchrow(CREATE_LABEL, payload.name, payload.color)
-            if row is None:
-                # name already taken: same color -> reuse it, else reject
-                row = await conn.fetchrow("SELECT id, name, color FROM labels WHERE name = $1", payload.name)
-                if row["color"] != payload.color:
+            try:
+                row = await conn.fetchrow(
+                    CALL_ATTACH_LABEL, repo_id, issue_number, payload.name, payload.color
+                )
+            except asyncpg.PostgresError as e:
+                msg = str(e)
+                if "ISSUE_NOT_FOUND" in msg:
+                    raise HTTPException(status_code=404, detail="Issue not found")
+                if "LABEL_ALREADY_ATTACHED" in msg or "already has a label named" in msg:
                     raise HTTPException(
-                        status_code=400,
-                        detail="Label with this name already exists with a different color",
+                        status_code=409,
+                        detail="A label with this name is already attached to this issue",
                     )
-            attached = await conn.fetchval(ATTACH_LABEL, repo_id, issue_number, row["id"])
-            if attached is None:
-                raise HTTPException(status_code=404, detail="Issue not found")
-        return LabelResponse(**row)
+                raise HTTPException(status_code=500, detail=f"Database error: {msg}")
+            if row is None:
+                raise HTTPException(status_code=500, detail="Label attach failed unexpectedly")
+            return LabelResponse(
+                id=row["p_label_id"],
+                name=row["p_label_name"],
+                color=row["p_label_color"],
+            )
 
 
 async def detach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, label_id: int) -> LabelResponse:
@@ -258,7 +262,6 @@ async def get_assigned_issues(pool: asyncpg.Pool, user_id: int) -> List[Assigned
         for row in rows:
             labels_data = row["labels"] or []
 
-            # If asyncpg returns JSON arrays as strings, decode them
             if isinstance(labels_data, str):
                 labels_data = json.loads(labels_data)
 
