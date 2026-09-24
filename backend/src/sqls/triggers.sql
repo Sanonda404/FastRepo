@@ -1,25 +1,3 @@
-CREATE OR REPLACE FUNCTION validate_team_collaborator_from_same_repo()
-    RETURNS TRIGGER AS $$
-    DECLARE
-        v1_repository_id INT;
-        v2_repository_id INT;
-    BEGIN
-        SELECT repository_id INTO v1_repository_id
-        FROM teams
-        WHERE id = NEW.team_id;
-        
-        SELECT repository_id INTO v2_repository_id
-        FROM repository_collaborators
-        WHERE id = NEW.member_id;
-
-        IF v1_repository_id IS DISTINCT FROM v2_repository_id THEN
-            RAISE EXCEPTION 'Constraint Violation: Team and collaborator are not part of same repository';
-        END IF;
-
-        RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql;
-
 CREATE OR REPLACE FUNCTION validate_viewer_role_repo_privacy()
     RETURNS TRIGGER AS $$
     DECLARE

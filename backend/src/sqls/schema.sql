@@ -55,24 +55,22 @@ CREATE INDEX IF NOT EXISTS idx_teams_parent ON teams(parent_team_id);
 CREATE TABLE IF NOT EXISTS team_members (
     team_id INT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     member_id INT NOT NULL REFERENCES repository_collaborators(id) ON DELETE CASCADE,
-    PRIMARY KEY (team_id, member_id)
+    CONSTRAINT team_members_pk PRIMARY KEY (team_id, member_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_team_members_member_id ON team_members(member_id);
 
 CREATE TABLE IF NOT EXISTS permissions (
     id SERIAL PRIMARY KEY,
-    repository_id INT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     team_id INT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('branch', 'folder')),
     target_identifier TEXT NOT NULL,
     allow_write BOOLEAN NOT NULL DEFAULT TRUE,
 
-    CONSTRAINT uq_team_permission UNIQUE (repository_id, team_id, target_type, target_identifier)
+    CONSTRAINT uq_team_permission UNIQUE (team_id, target_type, target_identifier)
 );
 
-CREATE INDEX IF NOT EXISTS idx_perm_repo_type_ident_team ON permissions(repository_id, target_type, target_identifier, team_id);
-CREATE INDEX IF NOT EXISTS idx_perm_repo ON permissions(repository_id);
+CREATE INDEX IF NOT EXISTS idx_perm_team_target ON permissions(team_id, target_type, target_identifier);
 CREATE INDEX IF NOT EXISTS idx_perm_team ON permissions(team_id);
 
 CREATE TABLE IF NOT EXISTS blobs (
