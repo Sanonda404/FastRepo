@@ -157,19 +157,19 @@ DROP TRIGGER IF EXISTS validate_team_is_from_same_repo ON permissions;
     EXECUTE FUNCTION validate_team_is_from_same_repo();
 
 DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
-CREATE TRIGGER delete_orphan_label
-AFTER DELETE ON issue_labels
-FOR EACH ROW
-EXECUTE FUNCTION delete_orphan_label();
+    CREATE TRIGGER delete_orphan_label
+    AFTER DELETE ON issue_labels
+    FOR EACH ROW
+    EXECUTE FUNCTION delete_orphan_label();
 
 DROP TRIGGER IF EXISTS validate_issue_pull_request_same_repo ON issue_pull_requests;
-CREATE TRIGGER validate_issue_pull_request_same_repo
-BEFORE INSERT OR UPDATE OF issue_id, pull_request_id
-ON issue_pull_requests
-FOR EACH ROW
-EXECUTE FUNCTION validate_issue_pull_request_same_repo();
+    CREATE TRIGGER validate_issue_pull_request_same_repo
+    BEFORE INSERT OR UPDATE OF issue_id, pull_request_id
+    ON issue_pull_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_issue_pull_request_same_repo();
 
 DROP TRIGGER IF EXISTS check_pr_review_privilege ON pr_reviews;
-CREATE TRIGGER check_pr_review_privilege
-BEFORE INSERT OR UPDATE OF decision, reviewer_id, pull_request_id ON pr_reviews
-FOR EACH ROW EXECUTE FUNCTION validate_pr_review_privilege();
+    CREATE TRIGGER check_pr_review_privilege
+    BEFORE INSERT OR UPDATE OF decision, reviewer_id, pull_request_id ON pr_reviews
+    FOR EACH ROW EXECUTE FUNCTION validate_pr_review_privilege();
