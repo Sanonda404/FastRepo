@@ -52,8 +52,8 @@ export async function deletePullReview(owner: string, repo_name: string, pull_id
   return api<void>(`/pulls/${owner}/${repo_name}/${pull_id}/reviews/${review_id}`, { method: "DELETE" });
 }
 
-export async function createIssuePr(owner: string, repo_name: string, data: IssuePrFormOutput): Promise<PullRequest> {
-  return api<PullRequest>(`/pulls/issues/${owner}/${repo_name}`, { method: "POST", body: data });
+export async function createIssuePr(owner: string, repo_name: string, data: IssuePrFormOutput): Promise<number> {
+  return api<number>(`/pulls/issues/${owner}/${repo_name}`, { method: "POST", body: data });
 }
 
 export async function getPullIssues(owner: string, repo_name: string, pull_id: number): Promise<IssueRef[]> {
