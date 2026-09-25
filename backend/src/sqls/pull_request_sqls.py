@@ -174,11 +174,27 @@ CHECK_REVIEWS_FOR_MERGE = """
         AND reviewer_id IS NOT NULL
         AND decision <> 'COMMENTED'
         ORDER BY reviewer_id, reviewed_at DESC, id DESC
+    ),
+    latest_overall AS (
+        SELECT decision
+        FROM pr_reviews
+        WHERE pull_request_id = $1
+        AND reviewer_id IS NOT NULL
+        AND decision <> 'COMMENTED'
+        ORDER BY reviewed_at DESC, id DESC
+        LIMIT 1
     )
-    SELECT 
+    SELECT
         EXISTS (
-            SELECT 1 
-            FROM latest_reviews 
+            SELECT 1
+            FROM latest_reviews
             WHERE decision IN ('REJECTED', 'REQUEST_CHANGES')
-        ) AS is_blocked;
+        ) AS is_blocked,
+        EXISTS (
+            SELECT 1
+            FROM pr_reviews
+            WHERE pull_request_id = $1
+            AND decision = 'COMMENTED'
+        ) AS has_comments,
+        (SELECT decision FROM latest_overall) AS latest_decision;
 """

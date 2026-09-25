@@ -21,6 +21,7 @@ from test_pull_requests import (
     clone_and_push,
     push_branch,
     make_pr,
+    post_review,
 )
 
 SERVER_URL = os.getenv("TEST_SERVER_URL", "http://127.0.0.1:8000")
@@ -162,6 +163,8 @@ class TestMergeable:
     def test_mergeable_after_merge(self, client, server_url):
         username, repo_name, _, token, pr = seed_clean_pr(client, server_url, "mgm")
         try:
+            post_review(client, username, repo_name, pr["id"], token, "COMMENTED", "ok")
+            post_review(client, username, repo_name, pr["id"], token, "APPROVED", "ok")
             r = client.post(
                 f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
                 headers=auth(token),
@@ -266,6 +269,8 @@ class TestMergePrivilegedOnly:
             seed_repo(maintainer, unique("junkq"))
             maintainer_token = token_for(maintainer)
             add_collaborator(client, username, repo_name, token, maintainer, "Maintainer")
+            post_review(client, username, repo_name, pr["id"], maintainer_token, "COMMENTED", "ok")
+            post_review(client, username, repo_name, pr["id"], maintainer_token, "APPROVED", "ok")
             r = client.post(
                 f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
                 headers=auth(maintainer_token),

@@ -447,7 +447,14 @@ async def delete_pr_review(pool: asyncpg.Pool, pull_request_id: int, review_id: 
 async def check_pr_for_merge(
     pool: asyncpg.Pool,
     pull_request_id: int,
-) -> bool:
+) -> str | None:
+    """None when the PR may merge, otherwise a human-readable block reason."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(CHECK_REVIEWS_FOR_MERGE, pull_request_id)
-        return not row["is_blocked"] if row else False
+    if row is None or row["is_blocked"]:
+        return "Pull request has reviews requesting changes"
+    if not row["has_comments"]:
+        return "Pull request needs at least one comment before merging"
+    if row["latest_decision"] != "APPROVED":
+        return "Pull request needs an approval before merging"
+    return None
