@@ -77,6 +77,33 @@ class PushPolicy:
             )
             return row is not None
 
+    def is_fast_forward(self, old_sha: str, new_sha: str) -> bool:
+        """
+        True if `old_sha` is reachable from `new_sha`.
+        """
+        if old_sha == new_sha:
+            return True
+        if not self.store:
+            return False
+        target = old_sha.encode("ascii")
+        queue = [new_sha.encode("ascii")]
+        visited = set()
+        while queue:
+            curr = queue.pop()
+            if curr in visited:
+                continue
+            visited.add(curr)
+            if curr == target:
+                return True
+            try:
+                commit_obj = self.store[curr]
+            except KeyError:
+                continue
+            for parent_sha in getattr(commit_obj, "parents", []):
+                if parent_sha not in visited:
+                    queue.append(parent_sha)
+        return False
+
 
 class PreReceivePolicyHook:
     def __init__(self, policy: PushPolicy) -> None:
@@ -120,6 +147,17 @@ class UpdatePolicyHook:
 
         paths_to_check = sorted(changed_paths(policy.repo_id, old, new, store=policy.store))
 
+        branch = ref_name[len(b"refs/heads/"):].decode("utf-8", "replace")
+        if new_sha == ZERO_SHA:
+            raise HookError(f"deleting branch '{branch}' is not allowed")
+
+        new = new_sha.decode("ascii")
+        if old_sha == ZERO_SHA:
+            old = None
+        else:
+            old = old_sha.decode("ascii")
+            if not policy.is_fast_forward(old, new):
+                raise HookError(f"rewriting history of branch '{branch}' is not allowed")
         denied = [
             path
             for path in paths_to_check
