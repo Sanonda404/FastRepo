@@ -12,6 +12,7 @@ GET_ALL_COLLABORATORS = """
     FROM repository_collaborators c
     INNER JOIN users u ON c.user_id = u.id
     WHERE c.repository_id = $1
+    AND c.user_id <> (SELECT owner_id FROM repositories WHERE id = $1)
 """
 
 GET_COLLABORATOR_BY_ID = """
@@ -42,4 +43,11 @@ UPDATE_COLLABOATOR_ROLE_BY_ID = """
     WHERE id = $1
     AND repository_id = $2
     RETURNING id, repository_id, user_id, role;
+"""
+
+ADD_OWNER_COLLABORATOR = """
+    INSERT INTO repository_collaborators (repository_id, user_id, role)
+    VALUES ($1, $2, 'Admin')
+    ON CONFLICT (repository_id, user_id)
+    DO NOTHING
 """

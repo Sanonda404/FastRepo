@@ -109,6 +109,11 @@ async def update_collaborator_role(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot change your own role"
             )
+        if user.id == repo.owner_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change the repository owner's role"
+            )
         if payload.role == "Viewer" and not repo.is_private:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -131,6 +136,11 @@ async def leave_repository(
 ):
     try:
         repo = await get_repository(pool, owner_name, repo_name)
+        if current_user["id"] == repo.owner_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Repository owner cannot leave their own repository"
+            )
         collaborator = await get_collaborator_details(pool, repo.id, current_user["id"])
         if collaborator is None:
             raise HTTPException(
@@ -171,6 +181,11 @@ async def remove_collaborator(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot remove yourself"
+            )
+        if user.id == repo.owner_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot remove the repository owner"
             )
         return await remove_collaborator_from_repo(pool, user.id, repo.id)
 

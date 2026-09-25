@@ -73,6 +73,32 @@ CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER = """
     EXECUTE FUNCTION validate_no_viewer_in_public_repo();
 """
 
+FORBID_OWNER_COLLABORATOR_CHANGE_FUNCTION = """
+    CREATE OR REPLACE FUNCTION forbid_owner_collaborator_change()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM repositories r
+            WHERE r.id = OLD.repository_id AND r.owner_id = OLD.user_id
+        ) THEN
+            RAISE EXCEPTION 'Cannot modify the repository owner collaborator row';
+        END IF;
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+"""
+
+FORBID_OWNER_COLLABORATOR_CHANGE_TRIGGER = """
+    DROP TRIGGER IF EXISTS forbid_owner_collaborator_change ON repository_collaborators;
+    CREATE TRIGGER forbid_owner_collaborator_change
+    BEFORE UPDATE OR DELETE ON repository_collaborators
+    FOR EACH ROW
+    EXECUTE FUNCTION forbid_owner_collaborator_change();
+"""
+
 async def ensure_repository_collaborators_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.transaction():

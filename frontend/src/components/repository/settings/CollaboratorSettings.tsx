@@ -2,6 +2,7 @@ import { useAuth } from "@/lib/auth/use-auth"
 import { useMemo, useState } from "react"
 import {
   Check,
+  Crown,
   LogOut,
   Shield,
   UserPlus,
@@ -34,7 +35,6 @@ import {
 
 import AddCollaboratorDialog from "./AddCollaboratorDialog"
 import CollaboratorRow from "./CollaboratorRow"
-import OwnerRow from "./OwnerRow"
 import RoleSummaryCard from "./RoleSummaryCard"
 
 import type { AddCollaboratorInput } from "@/lib/schemas/repository_collaborators"
@@ -136,19 +136,60 @@ export default function CollaboratorSettings({
   }, [collaborators, roleFilter])
 
   // ------------------------------------------
-  // Owner should never be treated as a normal
-  // collaborator.
+  // Owner is not part of the collaborator
+  // listing (SQL excludes the owner row), so
+  // it is rendered statically.
   // ------------------------------------------
 
-  const visibleCollaborators = useMemo(() => {
-    return filteredCollaborators.filter(
-      (collaborator) =>
-        collaborator.username !== ownerUsername,
-    )
-  }, [
-    filteredCollaborators,
-    ownerUsername,
-  ])
+  const ownerBlock = (
+    <div className="flex items-center justify-between gap-4 bg-amber-500/[0.03] px-5 py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="
+            flex size-10 shrink-0
+            items-center
+            justify-center
+            rounded-full
+            bg-amber-500/10
+            font-semibold
+            text-amber-600
+          "
+        >
+          {ownerUsername
+            .charAt(0)
+            .toUpperCase()}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold">
+              {ownerUsername}
+            </p>
+
+            <span
+              className="
+                inline-flex items-center gap-1.5
+                rounded-full
+                bg-amber-500/10
+                px-2.5 py-1
+                text-xs font-medium
+                text-amber-600
+              "
+            >
+              <Crown className="size-3.5" />
+              Owner
+            </span>
+          </div>
+
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Repository owner
+          </p>
+        </div>
+      </div>
+
+      {/* Deliberately no actions */}
+    </div>
+  )
 
   // ------------------------------------------
   // Role counts
@@ -499,29 +540,17 @@ export default function CollaboratorSettings({
         </div>
 
         {/* ==================================== */}
-        {/* Owner filter */}
+        {/* Owner + collaborators */}
         {/* ==================================== */}
 
         {roleFilter === "Owner" ? (
-          <OwnerRow
-            username={ownerUsername}
-          />
+          ownerBlock
         ) : (
           <div className="divide-y divide-foreground/10">
 
-            {/* -------------------------------- */}
-            {/* Owner */}
-            {/* -------------------------------- */}
+            {ownerBlock}
 
-            <OwnerRow
-              username={ownerUsername}
-            />
-
-            {/* -------------------------------- */}
-            {/* Collaborators */}
-            {/* -------------------------------- */}
-
-            {visibleCollaborators.length ===
+            {filteredCollaborators.length ===
             0 ? (
               <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
                 <div
@@ -560,7 +589,7 @@ export default function CollaboratorSettings({
                 )}
               </div>
             ) : (
-              visibleCollaborators.map(
+              filteredCollaborators.map(
                 (collaborator) => (
                   <CollaboratorRow
                     key={collaborator.id}
@@ -586,7 +615,7 @@ export default function CollaboratorSettings({
               )
             )}
           </div>
-        )}
+        }
       </div>
 
       {/* ====================================== */}
