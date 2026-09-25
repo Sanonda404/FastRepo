@@ -270,8 +270,13 @@ class ObjectStore(BaseObjectStore):
         async def _inner():
             async with self._connection() as conn:
                 if self._conn is None:
-                    async with conn.transaction():
+                    await conn.execute("BEGIN")
+                    try:
                         await self._add_one(conn, obj)
+                    except BaseException:
+                        await conn.execute("ROLLBACK")
+                        raise
+                    await conn.execute("COMMIT")
                 else:
                     await self._add_one(conn, obj)
         self._run(_inner())
@@ -289,11 +294,16 @@ class ObjectStore(BaseObjectStore):
         async def _inner():
             async with self._connection() as conn:
                 if self._conn is None:
-                    async with conn.transaction():
+                    await conn.execute("BEGIN")
+                    try:
                         for obj, _path in items:
                             await self._add_one(conn, obj)
                             if progress:
                                 progress(obj.id.decode())
+                    except BaseException:
+                        await conn.execute("ROLLBACK")
+                        raise
+                    await conn.execute("COMMIT")
                 else:
                     for obj, _path in items:
                         await self._add_one(conn, obj)
@@ -482,8 +492,14 @@ class RefContainer(RefsContainer):
         async def _inner():
             async with self._connection() as conn:
                 if self._conn is None:
-                    async with conn.transaction():
-                        return await self._set_ref(conn, name, old_ref, new_ref)
+                    await conn.execute("BEGIN")
+                    try:
+                        result = await self._set_ref(conn, name, old_ref, new_ref)
+                    except BaseException:
+                        await conn.execute("ROLLBACK")
+                        raise
+                    await conn.execute("COMMIT")
+                    return result
                 return await self._set_ref(conn, name, old_ref, new_ref)
         result = self._run(_inner())
         if result:
@@ -555,8 +571,14 @@ class RefContainer(RefsContainer):
         async def _inner():
             async with self._connection() as conn:
                 if self._conn is None:
-                    async with conn.transaction():
-                        return await self._remove_ref(conn, name, old_ref, force=force)
+                    await conn.execute("BEGIN")
+                    try:
+                        result = await self._remove_ref(conn, name, old_ref, force=force)
+                    except BaseException:
+                        await conn.execute("ROLLBACK")
+                        raise
+                    await conn.execute("COMMIT")
+                    return result
                 return await self._remove_ref(conn, name, old_ref, force=force)
         result = self._run(_inner())
         if result:

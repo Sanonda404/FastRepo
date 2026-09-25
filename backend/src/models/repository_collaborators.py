@@ -75,5 +75,10 @@ CHECK_VIEWER_IN_PRIVATE_TO_PUBLIC_REPO_UPDATE_TRIGGER = """
 
 async def ensure_repository_collaborators_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             await conn.execute(REPOSITORY_COLLABORATORS_TABLE_DDL)
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")

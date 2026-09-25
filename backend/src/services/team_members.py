@@ -9,7 +9,8 @@ import asyncpg
 
 async def add_new_member_in_repo_team(pool: asyncpg.Pool, repo_id: int, team_id: int, payload: AddNewTeamMemberRequest) -> TeamMember:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             try:
                 user = await get_user_by_username_or_email(pool, payload.member_identifier)
                 if not user:
@@ -29,7 +30,6 @@ async def add_new_member_in_repo_team(pool: asyncpg.Pool, repo_id: int, team_id:
                     collaborator_id=row["p_collaborator_id"],
                     username=user["username"]
                 )
-                return res
             except asyncpg.PostgresError as e:
                 msg = str(e)
                 if "TEAM_NOT_FOUND" in msg:
@@ -43,6 +43,11 @@ async def add_new_member_in_repo_team(pool: asyncpg.Pool, repo_id: int, team_id:
                 raise HTTPException(
                     status_code=500, detail=f"Database error: {msg}"
                 )
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return res
 
 
 async def add_existing_collaborator_to_team(pool: asyncpg.Pool, repo_id: int, team_id: int, collaborator_id : int) -> TeamMember:

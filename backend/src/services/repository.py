@@ -132,17 +132,16 @@ def _receive_pack(repo_id: int, input: bytes, policy=None) -> bytes:
 
     async def _begin():
         conn = await bridge.pool.acquire()
-        tr = conn.transaction()
         try:
-            await tr.start()
+            await conn.execute("BEGIN")
         except BaseException:
             await bridge.pool.release(conn)
             raise
-        return conn, tr
+        return conn
 
-    async def _abort(tr):
+    async def _abort(conn):
         try:
-            await tr.rollback()
+            await conn.execute("ROLLBACK")
         except Exception:
             pass
 
@@ -154,7 +153,7 @@ def _receive_pack(repo_id: int, input: bytes, policy=None) -> bytes:
 
     conn = None
     try:
-        conn, tr = bridge.run(_begin())
+        conn = bridge.run(_begin())
         repo = FastRepo(repo_id, bridge=bridge, _conn=conn)
         backend = FastRepoBackend(repo)
         if policy is not None:
@@ -168,10 +167,10 @@ def _receive_pack(repo_id: int, input: bytes, policy=None) -> bytes:
         handler = ReceivePackHandler(backend, ["/"], protocol, stateless_rpc=True)
         handler.handle()
     except BaseException:
-        bridge.run(_abort(tr))
+        bridge.run(_abort(conn))
         raise
     else:
-        bridge.run(tr.commit())
+        bridge.run(conn.execute("COMMIT"))
     finally:
         if conn is not None:
             bridge.run(_release(conn))

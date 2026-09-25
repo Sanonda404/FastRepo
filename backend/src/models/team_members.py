@@ -48,6 +48,11 @@ CHECK_TEAM_COLLABORATOR_FROM_SAME_REPO_TRIGGER = """
 
 async def ensure_team_members_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             await conn.execute(TEAM_MEMBERS_TABLE_DDL)
             await conn.execute(TEAM_MEMBERS_INDEX_DDL)
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")

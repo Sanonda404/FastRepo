@@ -30,13 +30,18 @@ def _with_profile_url(row: dict | None) -> dict | None:
 
 async def _store_profile_pic(pool: asyncpg.Pool, user_id: int, content: bytes, mime_type: str) -> None:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             old = await conn.fetchrow(GET_USER_PROFILE_PIC_ID, user_id)
             old_id = old["profile_pic_id"] if old and old["profile_pic_id"] else None
             new_id = await conn.fetchval(INSERT_PROFILE_PIC, content, mime_type)
             await conn.execute(UPDATE_USER_PROFILE_PIC, user_id, new_id)
             if old_id:
                 await conn.execute(DELETE_PROFILE_PIC, old_id)
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
 
 async def create_user(pool: asyncpg.Pool, user_in: UserCreate, profile_pic: tuple[bytes, str] | None = None) -> dict:
     hashed_password = get_password_hash(user_in.password)
@@ -51,10 +56,15 @@ async def create_user(pool: asyncpg.Pool, user_in: UserCreate, profile_pic: tupl
             user_id = row["id"]
             if profile_pic is not None:
                 content, mime_type = profile_pic
-                async with conn.transaction():
+                await conn.execute("BEGIN")
+                try:
                     old = await conn.fetchrow(GET_USER_PROFILE_PIC_ID, user_id)
                     new_id = await conn.fetchval(INSERT_PROFILE_PIC, content, mime_type)
                     await conn.execute(UPDATE_USER_PROFILE_PIC, user_id, new_id)
+                except BaseException:
+                    await conn.execute("ROLLBACK")
+                    raise
+                await conn.execute("COMMIT")
                 row = await conn.fetchrow("SELECT id, username, email, profile_pic_id FROM users WHERE id=$1", user_id)
             return _with_profile_url(dict(row))  # type: ignore
         except asyncpg.UniqueViolationError:
@@ -108,13 +118,18 @@ async def update_user(pool: asyncpg.Pool, user_id: int, user_in: UserUpdate, pro
                 raise ValueError("User not found")
             if profile_pic is not None:
                 content, mime_type = profile_pic
-                async with conn.transaction():
+                await conn.execute("BEGIN")
+                try:
                     old = await conn.fetchrow(GET_USER_PROFILE_PIC_ID, user_id)
                     old_id = old["profile_pic_id"] if old and old["profile_pic_id"] else None
                     new_id = await conn.fetchval(INSERT_PROFILE_PIC, content, mime_type)
                     await conn.execute(UPDATE_USER_PROFILE_PIC, user_id, new_id)
                     if old_id:
                         await conn.execute(DELETE_PROFILE_PIC, old_id)
+                except BaseException:
+                    await conn.execute("ROLLBACK")
+                    raise
+                await conn.execute("COMMIT")
             row = await conn.fetchrow("SELECT id, username, email, profile_pic_id FROM users WHERE id=$1", user_id)
             return _with_profile_url(dict(row))  # type: ignore
         except asyncpg.UniqueViolationError:

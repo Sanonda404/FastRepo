@@ -165,7 +165,8 @@ async def create_issue_pull_request(
         raise ValueError(f"Target branch '{payload.target_branch}' does not exist")
 
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             try:
                 row = await conn.fetchrow(
                     CALL_CREATE_PR_WITH_ISSUES,
@@ -179,7 +180,7 @@ async def create_issue_pull_request(
                     payload.issue_ids or [],
                 )
                 data = dict(row)
-                return data["p_pr_id"]
+                pr_id = data["p_pr_id"]
             except asyncpg.PostgresError as e:
                 msg = str(e)
                 if "ISSUE_NOT_FOUND" in msg:
@@ -195,6 +196,11 @@ async def create_issue_pull_request(
                         detail=f"Issue {issue_id} and pull request must belong to same repository"
                     )
                 raise HTTPException(status_code=500, detail=f"Database error: {msg}")
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return pr_id
 
 async def get_pull_files(pool: asyncpg.Pool, pr: PullRequestResponse) -> list[dict]:
     source_repo_id = pr.source_repository_id or pr.repository_id

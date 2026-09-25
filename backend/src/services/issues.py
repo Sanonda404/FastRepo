@@ -210,7 +210,8 @@ async def list_issue_assignees(pool: asyncpg.Pool, repo_id: int, issue_number: i
 
 async def attach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, payload) -> LabelResponse:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             try:
                 row = await conn.fetchrow(
                     CALL_ATTACH_LABEL, repo_id, issue_number, payload.name, payload.color
@@ -227,11 +228,16 @@ async def attach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, payl
                 raise HTTPException(status_code=500, detail=f"Database error: {msg}")
             if row is None:
                 raise HTTPException(status_code=500, detail="Label attach failed unexpectedly")
-            return LabelResponse(
+            result = LabelResponse(
                 id=row["p_label_id"],
                 name=row["p_label_name"],
                 color=row["p_label_color"],
             )
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return result
 
 
 async def detach_label(pool: asyncpg.Pool, repo_id: int, issue_number: int, label_id: int) -> LabelResponse:

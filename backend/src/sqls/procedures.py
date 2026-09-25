@@ -244,7 +244,8 @@ UPDATE_DEFAULT_BRANCH_PROCEDURE = """
 
 async def ensure_procedures(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             await conn.execute(CREATE_ISSUE_PR_PROCEDURE)
             await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)
             await conn.execute(ATTACH_LABEL_PROCEDURE)
@@ -254,3 +255,7 @@ async def ensure_procedures(pool: asyncpg.Pool) -> None:
                 await conn.execute(func)
             for func in STAT_FUNCTIONS:
                 await conn.execute(func)
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")

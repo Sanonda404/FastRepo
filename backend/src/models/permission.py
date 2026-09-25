@@ -19,6 +19,11 @@ CREATE INDEX IF NOT EXISTS idx_perm_team ON permissions(team_id);
 
 async def ensure_permission_table(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             await conn.execute(PERMISSIONS_TABLE_DDL)
             await conn.execute(PERMISSIONS_INDEXES_DDL)
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")

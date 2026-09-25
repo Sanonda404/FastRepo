@@ -358,7 +358,8 @@ async def merge_pull_request(
     source_repo_id = source_repository_id or target_repo_id
 
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             target_ref = f"refs/heads/{target_branch}"
             source_ref = f"refs/heads/{source_branch}"
             target_head = await conn.fetchval(GET_BRANCH_REF, target_repo_id, target_ref)
@@ -452,5 +453,8 @@ async def merge_pull_request(
             await conn.execute(MERGE_CLOSE_PULL_REQUEST, pull_id)
             if author_id and author_id != target_repo["owner_id"]:
                 await conn.execute(ADD_COLLABORATOR_IF_MISSING, target_repo_id, author_id)
-
-            return merge_sha
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return merge_sha

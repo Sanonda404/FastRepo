@@ -31,7 +31,8 @@ from sqls.git_sqls import INSERT_HEAD_REF, INSERT_COMMIT, UPSERT_REF
 async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest, current_user : dict) -> RepositoryResponse:
     async with pool.acquire() as conn:
         try:
-            async with conn.transaction():
+            await conn.execute("BEGIN")
+            try:
                 row = await conn.fetchrow(
                     CREATE_REPOSITORY, current_user["id"], payload.name, payload.description, payload.is_private, payload.default_branch if payload.default_branch != "" else None
                 )
@@ -68,6 +69,10 @@ async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest
                         commit.message.decode("ascii"),
                     )
                     await conn.execute(UPSERT_REF, repo_id, branch, commit.id.decode("ascii"))
+            except BaseException:
+                await conn.execute("ROLLBACK")
+                raise
+            await conn.execute("COMMIT")
 
             return RepositoryResponse(**dict(row))
         except asyncpg.UniqueViolationError:
@@ -141,7 +146,8 @@ async def list_all_public_repositories(pool : asyncpg.Pool, owner_name : str) ->
 async def update_repository(pool: asyncpg.Pool, repo_id: int, repo_name: str, payload: RepositoryUpdateRequest) -> RepositoryResponse:
     async with pool.acquire() as conn:
         try:
-            async with conn.transaction():
+            await conn.execute("BEGIN")
+            try:
                 exists = await conn.fetchval(
                     "SELECT 1 FROM repositories WHERE id = $1 AND name = $2",
                     repo_id, repo_name,
@@ -161,6 +167,10 @@ async def update_repository(pool: asyncpg.Pool, repo_id: int, repo_name: str, pa
                 )
                 if row is None:
                     raise HTTPException(status_code=404, detail="Repository not found")
+            except BaseException:
+                await conn.execute("ROLLBACK")
+                raise
+            await conn.execute("COMMIT")
             return RepositoryResponse(**dict(row))
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")
@@ -177,7 +187,8 @@ async def can_access_repository(pool: asyncpg.Pool, repo_id: int, user_id: int) 
 
 async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, payload: ForkRepositoryRequest ,current_user_id: int) -> RepositoryResponse:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             try:
                 target_name = payload.name or source_repo.name
                 target_description = payload.description if payload.description is not None else source_repo.description
@@ -193,11 +204,16 @@ async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, p
                 if repo_row is None:
                     raise HTTPException(status_code=404, detail="Repository not found")
 
-                return RepositoryResponse(**dict(repo_row))
+                result = RepositoryResponse(**dict(repo_row))
             except asyncpg.UniqueViolationError:
                 raise ValueError("Repository with same name already exists")
             except asyncpg.PostgresError as e:
                 raise HTTPException(status_code=400, detail=f"Database error: {e}")
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return result
 
 async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: int | None) -> List[RepositoryDetails]:
     async with pool.acquire() as conn:
@@ -219,25 +235,37 @@ async def list_fork_repositories(pool : asyncpg.Pool, repo_id : int, user_id: in
 
 async def star_repository(pool: asyncpg.Pool, user_id: int, repo_id: int) -> StarResponse:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             try:
                 await conn.execute(INSERT_STAR, user_id, repo_id)
                 is_starred = True
                 star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
-                return StarResponse(is_starred=is_starred, star_count=star_count)
+                result = StarResponse(is_starred=is_starred, star_count=star_count)
             except asyncpg.PostgresError:
                 raise HTTPException(status_code=500, detail="Database error occurred")
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return result
 
 async def unstar_repository(pool: asyncpg.Pool, user_id: int, repo_id: int) -> StarResponse:
     async with pool.acquire() as conn:
-        async with conn.transaction():
+        await conn.execute("BEGIN")
+        try:
             try:
                 await conn.execute(REMOVE_STAR, user_id, repo_id)
                 is_starred = False
                 star_count = await conn.fetchval(GET_REPOSITORY_STAR_COUNT, repo_id) or 0
-                return StarResponse(is_starred=is_starred, star_count=star_count)
+                result = StarResponse(is_starred=is_starred, star_count=star_count)
             except asyncpg.PostgresError:
                 raise HTTPException(status_code=500, detail="Database error occurred")
+        except BaseException:
+            await conn.execute("ROLLBACK")
+            raise
+        await conn.execute("COMMIT")
+        return result
 
 async def get_star(pool: asyncpg.Pool, repo_id: int, user_id: int | None) -> StarResponse:
     async with pool.acquire() as conn:
