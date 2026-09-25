@@ -238,7 +238,7 @@ export default function RepositoryCodePage({ repoMeta, role }: { repoMeta: Repos
                   ))}
                 </nav>
                 {isEmptyRoot || isTrulyEmptyRepo ? (
-                  <EmptyRepositoryInstructions owner={owner} repository={repository} activeBranch={activeBranch} defaultBranch={repoMeta?.default_branch ?? ""} />
+                  <EmptyRepositoryInstructions owner={owner} repository={repository} activeBranch={activeBranch} defaultBranch={repoMeta?.default_branch ?? ""} role={role} />
                 ) : (
                   <div role="table" aria-label="Repository file explorer">
                     <div role="row" className="hidden grid-cols-[minmax(14rem,2fr)_9rem] gap-4 border-b border-foreground/10 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid"><span role="columnheader">Name</span><span role="columnheader">Size</span></div>

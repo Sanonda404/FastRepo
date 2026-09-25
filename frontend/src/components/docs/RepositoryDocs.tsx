@@ -1,6 +1,8 @@
+import { useAuth } from "@/lib/auth/use-auth"
 import DocsSection from "./DocsSection"
 
 export default function RepositoryDocs() {
+  const auth = useAuth();
   return (
     <DocsSection
       id="repositories"
@@ -29,10 +31,11 @@ export default function RepositoryDocs() {
           number="4"
           title="Connect the remote repository"
         >
-          <CodeBlock>
-{`git remote add origin <repository-url>
-git push origin main`}
-          </CodeBlock>
+         <CodeBlock>
+{`git clone http://${auth?.username ?? "username"}:YOUR_PASSWORD@localhost:8000/ownerName/repoName
+cd repoName
+git config user.name "${auth?.username ?? "username"}"`}
+        </CodeBlock>
         </Step>
 
         <div className="rounded-xl bg-green-600/5 p-4 text-sm text-muted-foreground">
