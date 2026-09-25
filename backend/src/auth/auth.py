@@ -29,8 +29,8 @@ HOST_URL: str = os.getenv("HOST_URL", "http://localhost:8000")
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/users/login")
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/users/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="users/login", auto_error=False)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:

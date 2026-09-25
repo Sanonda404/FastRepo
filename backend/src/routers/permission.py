@@ -56,6 +56,11 @@ async def get_all_permissions(
 ):
     try:
         repo = await _get_viewable_repo(pool, owner_name, repo_name, current_user)
+        if(await can_manage_team(pool, owner_name, repo_name, current_user) is False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str("You don't have permission to manage permission")
+        )
         permissions = await get_all_permissions_in_repo(pool, repo.id)
         return permissions
     
