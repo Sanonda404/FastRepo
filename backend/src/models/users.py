@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT users_email_format_chk CHECK (
         email LIKE '%_@_%'
         AND email NOT LIKE '% %'
+    ),
+
+    CONSTRAINT invalid_username_chk CHECK (
+        username NOT IN ('login', 'register', 'forgot-password', 'reset-password', 'create', 'docs')
+        AND username NOT LIKE '% %'
     )
 )
 """
