@@ -343,11 +343,12 @@ class TestPullRequestMerge:
                         await conn.close()
                 return _run_async(_check())
 
-            assert _collab_exists() == 0
+            # owner is auto-added as Admin collaborator at repo creation
+            assert _collab_exists() == 1
             r = client.post(f"/pulls/{owner}/{repo_name}/{pr['id']}/merge",
                             headers=auth(owner_token))
             assert r.status_code == 200, r.text
-            assert _collab_exists() == 1
+            assert _collab_exists() == 2
 
             tree = client.get(f"/repositories/{owner}/{repo_name}/tree",
                               headers=auth(owner_token)).json()

@@ -14,42 +14,11 @@ GET_REPO_BY_USER_AND_REPOSIRY_NAME = """
     WHERE u.username = $1 AND r.name = $2
 """
 GET_ALL_REPOS_OF_OWNER_BY_OWNER_ID = """
-    -- owner
-    SELECT r.id,
-           r.name,
-           r.description,
-           r.is_private,
-           r.owner_id,
-           r.default_branch,
-           r.parent_repository_id,
-           pu.username AS parent_owner_username,
-           p.name AS parent_repository_name,
-           r.created_at
+    SELECT r.id, r.name, r.description, r.is_private, r.owner_id, r.default_branch, r.parent_repository_id, pu.username AS parent_owner_username, p.name AS parent_repository_name, r.created_at
     FROM repositories r
     LEFT JOIN repositories p ON p.id = r.parent_repository_id
     LEFT JOIN users pu ON pu.id = p.owner_id
     WHERE r.owner_id = $1
-
-    UNION
-
-    -- collaborator
-    SELECT r.id,
-           r.name,
-           r.description,
-           r.is_private,
-           r.owner_id,
-           r.default_branch,
-           r.parent_repository_id,
-           pu.username AS parent_owner_username,
-           p.name AS parent_repository_name,
-           r.created_at
-    FROM repositories r
-    LEFT JOIN repositories p ON p.id = r.parent_repository_id
-    LEFT JOIN users pu ON pu.id = p.owner_id
-    INNER JOIN repository_collaborators rc ON rc.repository_id = r.id
-    WHERE rc.user_id = $1
-
-    ORDER BY created_at DESC;
 """
 
 GET_ALL_PUBLIC_OF_OWNER_BY_OWNER_NAME = """
@@ -209,6 +178,12 @@ COPY_FORK_COMMIT_PARENTS = """
 COPY_FORK_REFS = """
     INSERT INTO refs (repo_id, name, commit_sha, tag_sha, symref)
     SELECT $1, name, commit_sha, tag_sha, symref FROM refs WHERE repo_id = $2
+"""
+
+CALL_CREATE_REPOSITORY = """
+    CALL create_repository_with_setup(
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL
+    )
 """
 
 CALL_FORK_REPOSITORY = """

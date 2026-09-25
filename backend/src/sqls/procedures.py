@@ -178,6 +178,49 @@ ATTACH_LABEL_PROCEDURE = """
 """
 
 
+CREATE_REPOSITORY_PROCEDURE = """
+    CREATE OR REPLACE PROCEDURE create_repository_with_setup(
+        p_owner_id INT,
+        p_name VARCHAR(255),
+        p_description TEXT,
+        p_is_private BOOLEAN,
+        p_default_branch VARCHAR(255),
+        p_commit_sha VARCHAR(40),
+        p_commit_content BYTEA,
+        p_seed_author_name TEXT,
+        p_seed_author_date TIMESTAMPTZ,
+        p_seed_message TEXT,
+        INOUT p_new_repo_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        INSERT INTO repositories (owner_id, name, description, is_private, default_branch)
+        VALUES (p_owner_id, p_name, p_description, p_is_private, p_default_branch)
+        RETURNING id INTO p_new_repo_id;
+
+        INSERT INTO repository_collaborators (repository_id, user_id, role)
+        VALUES (p_new_repo_id, p_owner_id, 'Admin')
+        ON CONFLICT (repository_id, user_id) DO NOTHING;
+
+        IF p_default_branch IS NOT NULL THEN
+            INSERT INTO refs (repo_id, name, symref)
+            VALUES (p_new_repo_id, 'HEAD', 'refs/heads/' || p_default_branch)
+            ON CONFLICT (repo_id, name) DO NOTHING;
+
+            INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
+            VALUES (p_new_repo_id, p_commit_sha, p_commit_content, NULL, p_seed_author_name, p_seed_author_date, p_seed_message)
+            ON CONFLICT (repo_id, sha) DO NOTHING;
+
+            INSERT INTO refs (repo_id, name, commit_sha)
+            VALUES (p_new_repo_id, 'refs/heads/' || p_default_branch, p_commit_sha)
+            ON CONFLICT (repo_id, name) DO UPDATE SET commit_sha = EXCLUDED.commit_sha, tag_sha = NULL, symref = NULL;
+        END IF;
+    END;
+    $$;
+"""
+
+
 FORK_REPOSITORY_PROCEDURE = """
     CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
         p_owner_id INT,
@@ -249,6 +292,7 @@ async def ensure_procedures(pool: asyncpg.Pool) -> None:
             await conn.execute(CREATE_ISSUE_PR_PROCEDURE)
             await conn.execute(ADD_NEW_TEAM_MEMBER_PROCEDURE)
             await conn.execute(ATTACH_LABEL_PROCEDURE)
+            await conn.execute(CREATE_REPOSITORY_PROCEDURE)
             await conn.execute(FORK_REPOSITORY_PROCEDURE)
             await conn.execute(UPDATE_DEFAULT_BRANCH_PROCEDURE)
             for func in PERMISSION_FUNCTIONS:

@@ -270,7 +270,7 @@ class TestBranchRules:
         team_id = seed_team(world["repo_id"], "devs")
         add_team_member(world["repo_id"], team_id, username)
         seed_permission(world["repo_id"], team_id, "branch", "main", True)
-        seed_permission(world["repo_id"], team_id, "folder", "", True)
+        seed_permission(world["repo_id"], team_id, "folder", "/", True)
 
         clone_dir = clone(cred_url(world["owner"], world["repo_name"], username), TMP_DIR / f"ba_{world['repo_name']}")
         head = make_commit(clone_dir, "m.txt", "x", "member commit")
@@ -320,7 +320,7 @@ class TestBranchRules:
         child_team = seed_team(world["repo_id"], "child", parent_team_id=parent_team)
         add_team_member(world["repo_id"], child_team, username)
         seed_permission(world["repo_id"], parent_team, "branch", "main", True)
-        seed_permission(world["repo_id"], parent_team, "folder", "", True)
+        seed_permission(world["repo_id"], parent_team, "folder", "/", True)
 
         clone_dir = clone(cred_url(world["owner"], world["repo_name"], username), TMP_DIR / f"inh_{world['repo_name']}")
         head = make_commit(clone_dir, "m.txt", "x", "member commit")
@@ -335,7 +335,7 @@ class TestTagsAndRefs:
         team_id = seed_team(world["repo_id"], "devs")
         add_team_member(world["repo_id"], team_id, username)
         seed_permission(world["repo_id"], team_id, "branch", "main", True)
-        seed_permission(world["repo_id"], team_id, "folder", "", True)
+        seed_permission(world["repo_id"], team_id, "folder", "/", True)
         return username
 
     def test_member_cannot_push_tag(self, world):
