@@ -120,6 +120,11 @@ async def register(request: Request, pool: asyncpg.Pool = Depends(get_pool)):
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail=str(e)
         )
+    except asyncpg.CheckViolationError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid username or email"
+        )
 
 @router.post("/login", response_model=Token)
 async def login(
