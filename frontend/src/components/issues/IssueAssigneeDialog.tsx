@@ -28,7 +28,6 @@ import {
 
 type Props = {
   loading: boolean
-  owner: string
   collaborators: CollaboratorResponse[]
   assignedUsernames: string[]
   onSubmit: (
@@ -38,7 +37,6 @@ type Props = {
 
 export default function IssueAssigneeDialog({
   loading,
-  owner,
   collaborators,
   assignedUsernames,
   onSubmit,
@@ -156,13 +154,6 @@ export default function IssueAssigneeDialog({
                 <option value="">
                   Select a collaborator
                 </option>
-
-                {/* Repository owner */}
-                {!assignedUsernames.includes(owner) && (
-                  <option value={owner}>
-                    {owner}
-                  </option>
-                )}
 
                 {/* Other collaborators */}
                 {available.map(

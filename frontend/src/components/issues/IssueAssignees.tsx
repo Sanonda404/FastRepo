@@ -20,7 +20,6 @@ import IssueAssigneeDialog from "./IssueAssigneeDialog"
 import IssueEmptyState from "./IssueEmptyState"
 
 type Props = {
-  owner: string
   assignees: IssueAssigneeResponse[]
   collaborators: CollaboratorResponse[]
   mutating: boolean
@@ -34,7 +33,6 @@ type Props = {
 }
 
 export default function IssueAssignees({
-  owner,
   assignees,
   collaborators,
   mutating,
@@ -51,6 +49,7 @@ export default function IssueAssignees({
     !isClosed &&
     !mutating &&
     role !== "Viewer" &&
+    role !== "Owner" &&
     role !== null
 
   return (
@@ -122,7 +121,6 @@ export default function IssueAssignees({
             >
               <IssueAssigneeDialog
                 loading={mutating}
-                owner={owner}
                 collaborators={collaborators}
                 assignedUsernames={assignees.map(
                   (a) => a.username

@@ -44,7 +44,8 @@ CAN_MANAGE_ISSUE_FUNC = """
             OR EXISTS (
                 SELECT 1 FROM issue_assignees ia
                 INNER JOIN issues i ON i.id = ia.issue_id
-                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND ia.user_id = p_user_id
+                INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND c.user_id = p_user_id
             );
     $$;
 """
@@ -81,7 +82,8 @@ CAN_MODERATE_ISSUE_FUNC = """
             OR EXISTS (
                 SELECT 1 FROM issue_assignees ia
                 INNER JOIN issues i ON i.id = ia.issue_id
-                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND ia.user_id = p_user_id
+                INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND c.user_id = p_user_id
             );
     $$;
 """

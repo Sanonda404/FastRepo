@@ -4,14 +4,15 @@ from sqls.pull_request_sqls import GET_ISSUE_PRS
 from sqls.issue_sqls import (
     CREATE_ISSUE,
     GET_ALL_ISSUES,
-    GET_ISSUE_BY_NUMBER, 
-    DELETE_ISSUE_BY_REPO_ID_AND_NUMBER, 
-    CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER, 
-    GET_ISSUE_REPOSITORY, ADD_ASSIGNEE, 
-    IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE, 
-    LIST_ASSIGNEES, 
-    CALL_ATTACH_LABEL, 
-    DETACH_LABEL, 
+    GET_ISSUE_BY_NUMBER,
+    DELETE_ISSUE_BY_REPO_ID_AND_NUMBER,
+    CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER,
+    GET_ISSUE_REPOSITORY, ADD_ASSIGNEE,
+    FIND_COLLABORATOR_ID,
+    IS_ISSUE_ASSIGNEE, REMOVE_ASSIGNEE,
+    LIST_ASSIGNEES,
+    CALL_ATTACH_LABEL,
+    DETACH_LABEL,
     LIST_ISSUE_LABELS,
     GET_ASSIGNED_ISSUES
 )
@@ -179,6 +180,11 @@ async def close_or_reopen_issue_by_no(pool: asyncpg.Pool, closed_by_id : int, re
             raise HTTPException(status_code=404, detail="No issues found for this repository")
 
         return await get_issue_by_number(pool, repo_id, issue_no)
+
+async def get_collaborator_id(pool: asyncpg.Pool, repo_id: int, username: str) -> int | None:
+    async with pool.acquire() as conn:
+        return await conn.fetchval(FIND_COLLABORATOR_ID, repo_id, username)
+
 
 async def add_issue_assignee(pool: asyncpg.Pool, repo_id: int, issue_number: int, username: str) -> str:
     async with pool.acquire() as conn:

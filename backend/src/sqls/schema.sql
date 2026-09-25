@@ -196,8 +196,8 @@ CREATE TABLE IF NOT EXISTS stars (
 
 CREATE TABLE IF NOT EXISTS issue_assignees (
     issue_id INT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT issue_assignees_pkey PRIMARY KEY (issue_id, user_id)
+    collaborator_id INT NOT NULL REFERENCES repository_collaborators(id) ON DELETE CASCADE,
+    CONSTRAINT issue_assignees_pkey PRIMARY KEY (issue_id, collaborator_id)
 );
 
 CREATE TABLE IF NOT EXISTS issue_labels (
@@ -283,7 +283,8 @@ CREATE OR REPLACE FUNCTION can_manage_issue(p_repo_id INT, p_issue_number INT, p
             OR EXISTS (
                 SELECT 1 FROM issue_assignees ia
                 INNER JOIN issues i ON i.id = ia.issue_id
-                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND ia.user_id = p_user_id
+                INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND c.user_id = p_user_id
             );
     $$;
 
@@ -300,7 +301,8 @@ CREATE OR REPLACE FUNCTION can_moderate_issue(p_repo_id INT, p_issue_number INT,
             OR EXISTS (
                 SELECT 1 FROM issue_assignees ia
                 INNER JOIN issues i ON i.id = ia.issue_id
-                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND ia.user_id = p_user_id
+                INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+                WHERE i.repository_id = p_repo_id AND i.number = p_issue_number AND c.user_id = p_user_id
             );
     $$;
 
