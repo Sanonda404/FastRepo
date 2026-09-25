@@ -28,6 +28,7 @@ import {
 
 type Props = {
   loading: boolean
+  owner: string
   collaborators: CollaboratorResponse[]
   assignedUsernames: string[]
   onSubmit: (
@@ -37,6 +38,7 @@ type Props = {
 
 export default function IssueAssigneeDialog({
   loading,
+  owner,
   collaborators,
   assignedUsernames,
   onSubmit,
@@ -55,6 +57,12 @@ export default function IssueAssigneeDialog({
       collaborator.role !== "Viewer" &&
       !assignedUsernames.includes(collaborator.username)
   );
+
+  // Owner has a collaborator row but is excluded
+  // from the collaborator listing, so it is
+  // offered explicitly.
+  const ownerAvailable =
+    !assignedUsernames.includes(owner)
 
 
   const handleSubmit = async (
@@ -100,7 +108,7 @@ export default function IssueAssigneeDialog({
               Collaborator
             </Label>
 
-            {available.length === 0 ? (
+            {available.length === 0 && !ownerAvailable ? (
               <div className="
                 rounded-xl
                 border
@@ -155,6 +163,13 @@ export default function IssueAssigneeDialog({
                   Select a collaborator
                 </option>
 
+                {/* Repository owner */}
+                {ownerAvailable && (
+                  <option value={owner}>
+                    {owner}
+                  </option>
+                )}
+
                 {/* Other collaborators */}
                 {available.map(
                   (collaborator) => (
@@ -187,7 +202,8 @@ export default function IssueAssigneeDialog({
               type="submit"
               disabled={
                 loading ||
-                available.length === 0
+                (available.length === 0 &&
+                  !ownerAvailable)
               }
               className="rounded-lg"
             >

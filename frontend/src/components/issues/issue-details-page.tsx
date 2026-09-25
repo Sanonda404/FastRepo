@@ -615,6 +615,7 @@ export default function IssueDetailsPage({
 
             <aside className="space-y-5">
               <IssueAssignees
+                owner={owner}
                 assignees={issue.assignees}
                 collaborators={
                   collaborators
