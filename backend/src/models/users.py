@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     ),
 
     CONSTRAINT invalid_username_chk CHECK (
-        username NOT IN ('login', 'register', 'forgot-password', 'reset-password', 'create', 'docs')
+        username NOT IN ('login', 'register', 'forgot-password', 'reset-password', 'create', 'docs', 'api')
         AND username NOT LIKE '% %'
     )
 )

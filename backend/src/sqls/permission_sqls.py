@@ -27,7 +27,7 @@ CHECK_BRANCH_PERMISSION = """
                 SELECT allow_write 
                 FROM configured_branch_rules 
                 WHERE target_identifier = $3 
-                ORDER BY allow_write ASC -- FALSE takes precedence if conflict exists
+                ORDER BY allow_write ASC
                 LIMIT 1
             ),
             FALSE
