@@ -410,7 +410,8 @@ class TestIssueDelete:
             assert deleted["author_username"] == username
 
             lst = client.get(f"/issues/{username}/{repo_name}", headers=auth(token))
-            assert lst.status_code == 404  # no issues remain in the repository
+            assert lst.status_code == 200  # empty list, not 404
+            assert lst.json() == []
         finally:
             cleanup_repo(username, repo_name)
 
@@ -452,7 +453,7 @@ class TestIssueComments:
             issue = create_issue(client, f"{username}/{repo_name}", token, "t")
 
             r = client.post(
-                f"/issues-comments/{issue['id']}", headers=auth(token), json={"body": "first"}
+                f"/comments/{username}/{repo_name}/{issue['number']}", headers=auth(token), json={"body": "first"}
             )
             assert r.status_code == 201
             comment = r.json()
@@ -460,16 +461,16 @@ class TestIssueComments:
             assert comment["author_username"] == username
             assert comment["body"] == "first"
 
-            lst = client.get(f"/issues-comments/{issue['id']}", headers=auth(token))
+            lst = client.get(f"/comments/{username}/{repo_name}/{issue['number']}", headers=auth(token))
             assert lst.status_code == 200
             assert [c["body"] for c in lst.json()] == ["first"]
 
-            r = client.delete(f"/issues-comments/{comment['id']}", headers=auth(token))
+            r = client.delete(f"/comments/{username}/{repo_name}/{comment['id']}", headers=auth(token))
             assert r.status_code == 200
             assert r.json()["id"] == comment["id"]
             assert r.json()["body"] == "first"
 
-            lst = client.get(f"/issues-comments/{issue['id']}", headers=auth(token))
+            lst = client.get(f"/comments/{username}/{repo_name}/{issue['number']}", headers=auth(token))
             assert lst.json() == []
         finally:
             cleanup_repo(username, repo_name)
@@ -484,11 +485,11 @@ class TestIssueComments:
             issue = create_issue(client, f"{owner}/{repo_name}", token, "t")
 
             r = client.post(
-                f"/issues-comments/{issue['id']}", headers=auth(other_token), json={"body": "x"}
+                f"/comments/{owner}/{repo_name}/{issue['number']}", headers=auth(other_token), json={"body": "x"}
             )
             assert r.status_code == 403
 
-            r = client.get(f"/issues-comments/{issue['id']}", headers=auth(other_token))
+            r = client.get(f"/comments/{owner}/{repo_name}/{issue['number']}", headers=auth(other_token))
             assert r.status_code == 403
         finally:
             cleanup_repo(owner, repo_name)
@@ -496,15 +497,16 @@ class TestIssueComments:
 
     def test_comment_on_missing_issue(self, client, server_url):
         username = unique("iss")
+        repo_name = unique("iss")
         try:
-            seed_repo(username, unique("junk"))
+            seed_repo(username, repo_name)
             token = token_for(username)
             r = client.post(
-                "/issues-comments/999999", headers=auth(token), json={"body": "x"}
+                f"/comments/{username}/{repo_name}/999999", headers=auth(token), json={"body": "x"}
             )
             assert r.status_code == 404
         finally:
-            cleanup_repo(username, unique("junk"))
+            cleanup_repo(username, repo_name)
 
     def test_non_author_cannot_delete_comment(self, client, server_url):
         owner = unique("iss")
@@ -516,10 +518,10 @@ class TestIssueComments:
             other_token = token_for(other)
             issue = create_issue(client, f"{owner}/{repo_name}", token, "t")
             comment = client.post(
-                f"/issues-comments/{issue['id']}", headers=auth(token), json={"body": "mine"}
+                f"/comments/{owner}/{repo_name}/{issue['number']}", headers=auth(token), json={"body": "mine"}
             ).json()
 
-            r = client.delete(f"/issues-comments/{comment['id']}", headers=auth(other_token))
+            r = client.delete(f"/comments/{owner}/{repo_name}/{comment['id']}", headers=auth(other_token))
             assert r.status_code == 403
         finally:
             cleanup_repo(owner, repo_name)
@@ -527,13 +529,14 @@ class TestIssueComments:
 
     def test_delete_missing_comment(self, client, server_url):
         username = unique("iss")
+        repo_name = unique("iss")
         try:
-            seed_repo(username, unique("junk"))
+            seed_repo(username, repo_name)
             token = token_for(username)
-            r = client.delete("/issues-comments/999999", headers=auth(token))
+            r = client.delete(f"/comments/{username}/{repo_name}/999999", headers=auth(token))
             assert r.status_code == 404
         finally:
-            cleanup_repo(username, unique("junk"))
+            cleanup_repo(username, repo_name)
 
 
 class TestIssueAssignees:
@@ -568,14 +571,21 @@ class TestIssueAssignees:
             assert r.status_code == 200
             assert [a["username"] for a in r.json()] == [collab]
 
-            # assigning any existing user is allowed, even without repo access
+            # assigning a user without repo access is rejected (frontend only offers collaborators)
             outsider = unique("asg")
             seed_repo(outsider, unique("junk"))
             r = client.post(
                 f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
                 headers=auth(token), json={"username": outsider},
             )
-            assert r.status_code == 201
+            assert r.status_code == 403
+
+            # owner has no collaborator row -> rejected like any non-collaborator
+            r = client.post(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token), json={"username": owner},
+            )
+            assert r.status_code == 403
 
             # unknown user -> 404
             r = client.post(
@@ -792,29 +802,45 @@ class TestIssueLabels:
 
 
 class TestIssueCloseByAssignee:
-    def test_assignee_without_repo_access_can_close(self, client, server_url):
+    def test_removing_collaborator_drops_assignment_and_close_rights(self, client, server_url):
         owner = unique("cls")
         collab = unique("cls")
         repo_name = unique("cls")
         try:
             _, token = seed_repo_and_token(owner, repo_name)
             seed_other(collab)
+            add_collaborator(owner, repo_name, token, collab)
             issue = create_issue(client, f"{owner}/{repo_name}", token)
 
-            # collaborator-less outsider gets assigned directly
+            # assignee must be a collaborator at assign time
             r = client.post(
                 f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
                 headers=auth(token), json={"username": collab},
             )
             assert r.status_code == 201, r.text
 
-            # not a collaborator, but assignee -> can close
+            # removing the collaborator cascades the assignment away
+            r = client.get(f"/collaborators/{owner}/{repo_name}", headers=auth(token))
+            assert r.status_code == 200
+            collab_id = next(c["id"] for c in r.json() if c["username"] == collab)
+            r = client.delete(
+                f"/collaborators/{owner}/{repo_name}/{collab_id}", headers=auth(token)
+            )
+            assert r.status_code == 200, r.text
+
+            r = client.get(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
+                headers=auth(token),
+            )
+            assert r.status_code == 200
+            assert r.json() == []
+
+            # ex-collaborator is no longer assignee -> cannot close
             r = client.patch(
                 f"/issues/{owner}/{repo_name}/{issue['number']}",
                 headers=auth(token_for(collab)),
             )
-            assert r.status_code == 200, r.text
-            assert r.json()["state"] == "closed"
+            assert r.status_code == 403, r.text
         finally:
             cleanup_repo(owner, repo_name)
             cleanup_repo(collab, unique("junk"))

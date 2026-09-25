@@ -14,17 +14,14 @@ CHECK_BRANCH_PERMISSION = """
         JOIN user_teams ut ON ut.parent_team_id = parent.id
     ),
     configured_branch_rules AS (
-        -- Get all explicit branch permissions defined for the user's teams
         SELECT p.target_identifier, p.allow_write
         FROM permissions p
         JOIN user_teams ut ON p.team_id = ut.team_id
         WHERE p.target_type = 'branch'
     )
     SELECT CASE
-        -- No branch rules exist for this team -> Allow pushing anywhere
         WHEN NOT EXISTS (SELECT 1 FROM configured_branch_rules) THEN TRUE
 
-        -- Branch rules exist, check if target branch is explicitly allowed
         ELSE COALESCE(
             (
                 SELECT allow_write 
@@ -33,7 +30,7 @@ CHECK_BRANCH_PERMISSION = """
                 ORDER BY allow_write ASC -- FALSE takes precedence if conflict exists
                 LIMIT 1
             ),
-            FALSE -- Specified rules exist, but target branch is NOT among them -> Deny
+            FALSE
         )
     END AS allow_write;
 """
@@ -62,8 +59,8 @@ CHECK_FOLDER_PERMISSION = """
           OR p.target_identifier = '/'
       )
     ORDER BY
-        p.allow_write ASC,                 -- Deny takes precedence on ties
-        length(p.target_identifier) DESC   -- Specific folder paths override broader ones
+        p.allow_write ASC,
+        length(p.target_identifier) DESC
     LIMIT 1;
 """
 
