@@ -39,6 +39,7 @@ for _file in DIST_DIR.iterdir():
 FRONTEND_ROUTES = [
     "/",
     "/login",
+    "/register",
     "/create/repository",
     "/forgot-password",
     "/reset-password",

@@ -43,6 +43,7 @@ async def get_push_role(pool, repo: dict, user: dict) -> str | None:
 async def ensure_push_allowed(repo: dict, user: dict | None) -> tuple[dict, str]:
     user = auth_required(user)
     role = await get_push_role(get_pool(), repo, user)
+    print(role)
     if role is None or role == "Viewer":
         raise HTTPException(status_code=403, detail="Forbidden")
     return user, role
