@@ -50,8 +50,6 @@ async def create_issue_in_repo(pool: asyncpg.Pool, author_id: int, repo_id: int,
 async def get_all_issues_in_repo(pool: asyncpg.Pool, repo_id: int, repo_name: str) -> List[IssueSummary]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(GET_ALL_ISSUES, repo_id)
-        if not rows:
-            raise HTTPException(status_code=404, detail="No issues found for this repository")
 
         response: List[IssueSummary] = []
 

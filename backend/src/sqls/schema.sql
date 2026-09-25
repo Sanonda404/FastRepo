@@ -137,7 +137,8 @@ CREATE TABLE IF NOT EXISTS issues(
     number INT NOT NULL,
     state VARCHAR(20) NOT NULL DEFAULT 'open' CONSTRAINT issues_state_chk CHECK (state IN ('open', 'closed')),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    closed_at TIMESTAMP
+    closed_at TIMESTAMP,
+    CONSTRAINT unique_issue_number UNIQUE (repository_id, number)
 );
 
 CREATE TABLE IF NOT EXISTS labels (
