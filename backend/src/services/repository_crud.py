@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from dulwich.objects import Commit
 from schemas.repository import RepositoryCreateRequest, RepositoryResponse, RepositoryUpdateRequest, ForkRepositoryRequest, StarResponse, RepositoryDetails
 from sqls.repository_sqls import (
-    CREATE_REPOSITORY, 
+    CALL_CREATE_REPOSITORY,
     GET_REPO_BY_USER_AND_REPOSIRY_NAME,
     GET_ACCESIBLE_REPOS_OF_OWNER_BY_USERNAME,
     GET_ALL_REPOS_OF_OWNER_BY_OWNER_ID,
@@ -25,51 +25,48 @@ from sqls.repository_sqls import (
 )
 from sqls.pull_request_sqls import GET_REPO_BY_ID
 from models.git import EMPTY_TREE_SHA
-
-from sqls.git_sqls import INSERT_HEAD_REF, INSERT_COMMIT, UPSERT_REF
+from sqls.repository_collaborators_sqls import ADD_OWNER_COLLABORATOR
 
 async def create_repository(pool: asyncpg.Pool, payload: RepositoryCreateRequest, current_user : dict) -> RepositoryResponse:
+    default_branch = payload.default_branch if payload.default_branch != "" else None
+    commit_sha = None
+    commit_content = None
+    seed_author_name = None
+    seed_author_date = None
+    seed_message = None
+    if default_branch:
+        now = int(datetime.now(timezone.utc).timestamp())
+        commit = Commit()
+        commit.tree = EMPTY_TREE_SHA
+        commit.parents = []
+        identity = f"{current_user['username']} <{current_user['email']}>".encode()
+        commit.author = identity
+        commit.committer = identity
+        commit.author_time = now
+        commit.commit_time = now
+        commit.author_timezone = 0
+        commit.commit_timezone = 0
+        commit.message = b"Repository Creation"
+        commit_sha = commit.id.decode("ascii")
+        commit_content = commit.as_raw_string()
+        seed_author_name = current_user["username"]
+        seed_author_date = datetime.fromtimestamp(now, tz=timezone.utc)
+        seed_message = commit.message.decode("ascii")
     async with pool.acquire() as conn:
         try:
             async with conn.transaction():
                 row = await conn.fetchrow(
-                    CREATE_REPOSITORY, current_user["id"], payload.name, payload.description, payload.is_private, payload.default_branch if payload.default_branch != "" else None
+                    CALL_CREATE_REPOSITORY,
+                    current_user["id"], payload.name, payload.description, payload.is_private, default_branch,
+                    commit_sha, commit_content, seed_author_name, seed_author_date, seed_message,
                 )
-                if row is None:
+                if row is None or row["p_new_repo_id"] is None:
                     raise RuntimeError("Failed to create repository")
-                repo_id = row["id"]
-                if row["default_branch"]:
-                    branch = f"refs/heads/{row['default_branch']}"
-                    await conn.execute(
-                        INSERT_HEAD_REF,
-                        repo_id,
-                        branch,
-                    )
-                    now = int(datetime.now(timezone.utc).timestamp())
-                    commit = Commit()
-                    commit.tree = EMPTY_TREE_SHA
-                    commit.parents = []
-                    identity = f"{current_user['username']} <{current_user['email']}>".encode()
-                    commit.author = identity
-                    commit.committer = identity
-                    commit.author_time = now
-                    commit.commit_time = now
-                    commit.author_timezone = 0
-                    commit.commit_timezone = 0
-                    commit.message = b"Repository Creation"
-                    await conn.execute(
-                        INSERT_COMMIT,
-                        repo_id,
-                        commit.id.decode("ascii"),
-                        commit.as_raw_string(),
-                        None,
-                        current_user["username"],
-                        datetime.fromtimestamp(now, tz=timezone.utc),
-                        commit.message.decode("ascii"),
-                    )
-                    await conn.execute(UPSERT_REF, repo_id, branch, commit.id.decode("ascii"))
+                repo_row = await conn.fetchrow(GET_REPO_BY_ID, row["p_new_repo_id"])
+                if repo_row is None:
+                    raise RuntimeError("Failed to create repository")
 
-            return RepositoryResponse(**dict(row))
+            return RepositoryResponse(**dict(repo_row))
         except asyncpg.UniqueViolationError:
             raise ValueError("Repository with same name already exists")
         
@@ -192,6 +189,8 @@ async def fork_repository(pool: asyncpg.Pool, source_repo: RepositoryResponse, p
                 repo_row = await conn.fetchrow(GET_REPO_BY_ID, row["p_new_repo_id"])
                 if repo_row is None:
                     raise HTTPException(status_code=404, detail="Repository not found")
+
+                await conn.execute(ADD_OWNER_COLLABORATOR, row["p_new_repo_id"], current_user_id)
 
                 return RepositoryResponse(**dict(repo_row))
             except asyncpg.UniqueViolationError:

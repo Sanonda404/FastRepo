@@ -1,6 +1,7 @@
 import os
 import time
 
+import asyncpg
 import httpx
 import pytest
 
@@ -11,7 +12,8 @@ from test_pull_requests import (
     auth,
     seed_repo_and_token,
 )
-from test_git_cli import seed_repo, cleanup_repo, GIT_PASSWORD
+from test_git_cli import seed_repo, cleanup_repo, GIT_PASSWORD, _run_async
+from services.database import DATABASE_URL
 
 TEST_SERVER_URL = API_URL
 
@@ -103,6 +105,8 @@ class TestCollaboratorRoutes:
             assert r.status_code == 200
             users = {c["username"]: c["role"] for c in r.json()}
             assert users == {collab_a: "Member", collab_b: "Member"}
+            # owner row exists in DB but is excluded from collaborator listings
+            assert owner not in users
             assert {"id", "repository_id", "user_id", "username", "email", "role"} <= set(r.json()[0].keys())
 
             # collaborator can list too
@@ -183,6 +187,123 @@ class TestCollaboratorRoutes:
                 json={"title": "t", "body": "b"},
             )
             assert r.status_code == 403
+        finally:
+            cleanup_repo(owner, repo_name)
+            cleanup_repo(collab, unique("junk"))
+
+    def test_owner_row_is_protected(self, client, server_url):
+        owner = unique("iss")
+        repo_name = unique("iss")
+        try:
+            repo_id, token = seed_private_repo(owner, repo_name)
+
+            async def _db(coro_fn):
+                conn = await asyncpg.connect(DATABASE_URL)
+                try:
+                    return await coro_fn(conn)
+                finally:
+                    await conn.close()
+
+            async def _owner_collab_id(conn):
+                return await conn.fetchval(
+                    "SELECT c.id FROM repository_collaborators c "
+                    "JOIN repositories r ON r.id = c.repository_id "
+                    "WHERE r.id = $1 AND c.user_id = r.owner_id",
+                    repo_id,
+                )
+
+            owner_id = _run_async(_db(_owner_collab_id))
+            assert owner_id is not None
+
+            # owner role cannot be changed
+            r = client.patch(
+                f"/collaborators/{owner}/{repo_name}/{owner_id}",
+                json={"role": "Member"},
+                headers=auth(token),
+            )
+            assert r.status_code == 400
+
+            # owner cannot be removed
+            r = client.delete(
+                f"/collaborators/{owner}/{repo_name}/{owner_id}", headers=auth(token)
+            )
+            assert r.status_code == 400
+
+            # owner cannot leave own repo
+            r = client.delete(
+                f"/collaborators/{owner}/{repo_name}/leave", headers=auth(token)
+            )
+            assert r.status_code == 400
+
+            # row still there with Admin role
+            async def _owner_role(conn):
+                return await conn.fetchval(
+                    "SELECT role FROM repository_collaborators WHERE id = $1",
+                    owner_id,
+                )
+
+            assert _run_async(_db(_owner_role)) == "Admin"
+        finally:
+            cleanup_repo(owner, repo_name)
+
+    def test_owner_row_guard_trigger(self, client, server_url):
+        """DB trigger blocks direct UPDATE/DELETE of the owner collaborator row."""
+        owner = unique("iss")
+        collab = unique("iss")
+        repo_name = unique("iss")
+        try:
+            repo_id, token = seed_private_repo(owner, repo_name)
+            seed_other(collab)
+            add_collaborator(owner, repo_name, token, collab)
+
+            async def _db(coro_fn):
+                conn = await asyncpg.connect(DATABASE_URL)
+                try:
+                    return await coro_fn(conn)
+                finally:
+                    await conn.close()
+
+            async def _owner_ids(conn):
+                return await conn.fetchrow(
+                    "SELECT r.owner_id, c.id AS collab_id FROM repositories r "
+                    "JOIN repository_collaborators c ON c.repository_id = r.id "
+                    "WHERE r.id = $1 AND c.user_id = r.owner_id",
+                    repo_id,
+                )
+
+            ids = _run_async(_db(_owner_ids))
+            assert ids is not None
+
+            async def _try_owner_update(conn):
+                try:
+                    await conn.execute(
+                        "UPDATE repository_collaborators SET role = 'Member' WHERE id = $1",
+                        ids["collab_id"],
+                    )
+                    return False
+                except asyncpg.RaiseError:
+                    return True
+
+            async def _try_owner_delete(conn):
+                try:
+                    await conn.execute(
+                        "DELETE FROM repository_collaborators WHERE id = $1",
+                        ids["collab_id"],
+                    )
+                    return False
+                except asyncpg.RaiseError:
+                    return True
+
+            assert _run_async(_db(_try_owner_update)) is True
+            assert _run_async(_db(_try_owner_delete)) is True
+
+            async def _row_intact(conn):
+                return await conn.fetchval(
+                    "SELECT role FROM repository_collaborators WHERE id = $1",
+                    ids["collab_id"],
+                )
+
+            assert _run_async(_db(_row_intact)) == "Admin"
         finally:
             cleanup_repo(owner, repo_name)
             cleanup_repo(collab, unique("junk"))
@@ -580,12 +701,18 @@ class TestIssueAssignees:
             )
             assert r.status_code == 403
 
-            # owner has no collaborator row -> rejected like any non-collaborator
+            # owner is an Admin collaborator -> assignable
             r = client.post(
                 f"/issues/{owner}/{repo_name}/{issue['number']}/assignees",
                 headers=auth(token), json={"username": owner},
             )
-            assert r.status_code == 403
+            assert r.status_code == 201, r.text
+            assert r.json() == {"username": owner}
+            r = client.delete(
+                f"/issues/{owner}/{repo_name}/{issue['number']}/assignees/{owner}",
+                headers=auth(token),
+            )
+            assert r.status_code == 200, r.text
 
             # unknown user -> 404
             r = client.post(

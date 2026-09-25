@@ -536,6 +536,46 @@ CREATE OR REPLACE PROCEDURE attach_label_to_issue(
     END;
     $$;
 
+CREATE OR REPLACE PROCEDURE create_repository_with_setup(
+        p_owner_id INT,
+        p_name VARCHAR(255),
+        p_description TEXT,
+        p_is_private BOOLEAN,
+        p_default_branch VARCHAR(255),
+        p_commit_sha VARCHAR(40),
+        p_commit_content BYTEA,
+        p_seed_author_name TEXT,
+        p_seed_author_date TIMESTAMPTZ,
+        p_seed_message TEXT,
+        INOUT p_new_repo_id INT DEFAULT NULL
+    )
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        INSERT INTO repositories (owner_id, name, description, is_private, default_branch)
+        VALUES (p_owner_id, p_name, p_description, p_is_private, p_default_branch)
+        RETURNING id INTO p_new_repo_id;
+
+        INSERT INTO repository_collaborators (repository_id, user_id, role)
+        VALUES (p_new_repo_id, p_owner_id, 'Admin')
+        ON CONFLICT (repository_id, user_id) DO NOTHING;
+
+        IF p_default_branch IS NOT NULL THEN
+            INSERT INTO refs (repo_id, name, symref)
+            VALUES (p_new_repo_id, 'HEAD', 'refs/heads/' || p_default_branch)
+            ON CONFLICT (repo_id, name) DO NOTHING;
+
+            INSERT INTO commits (repo_id, sha, content, root_tree_sha, author_name, author_date, message)
+            VALUES (p_new_repo_id, p_commit_sha, p_commit_content, NULL, p_seed_author_name, p_seed_author_date, p_seed_message)
+            ON CONFLICT (repo_id, sha) DO NOTHING;
+
+            INSERT INTO refs (repo_id, name, commit_sha)
+            VALUES (p_new_repo_id, 'refs/heads/' || p_default_branch, p_commit_sha)
+            ON CONFLICT (repo_id, name) DO UPDATE SET commit_sha = EXCLUDED.commit_sha, tag_sha = NULL, symref = NULL;
+        END IF;
+    END;
+    $$;
+
 CREATE OR REPLACE PROCEDURE fork_repository_with_copy(
         p_owner_id INT,
         p_name VARCHAR(255),
@@ -657,6 +697,22 @@ CREATE OR REPLACE FUNCTION validate_no_viewer_in_public_repo()
     END;
     $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION forbid_owner_collaborator_change()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM repositories r
+            WHERE r.id = OLD.repository_id AND r.owner_id = OLD.user_id
+        ) THEN
+            RAISE EXCEPTION 'Cannot modify the repository owner collaborator row';
+        END IF;
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION delete_orphan_label()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -773,6 +829,12 @@ DROP TRIGGER IF EXISTS check_is_private_update ON repositories;
     ON repositories
     FOR EACH ROW
     EXECUTE FUNCTION validate_no_viewer_in_public_repo();
+
+DROP TRIGGER IF EXISTS forbid_owner_collaborator_change ON repository_collaborators;
+    CREATE TRIGGER forbid_owner_collaborator_change
+    BEFORE UPDATE OR DELETE ON repository_collaborators
+    FOR EACH ROW
+    EXECUTE FUNCTION forbid_owner_collaborator_change();
 
 DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
 CREATE TRIGGER delete_orphan_label

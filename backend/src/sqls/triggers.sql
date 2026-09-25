@@ -61,6 +61,22 @@ CREATE OR REPLACE FUNCTION validate_no_viewer_in_public_repo()
     END;
     $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION forbid_owner_collaborator_change()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM repositories r
+            WHERE r.id = OLD.repository_id AND r.owner_id = OLD.user_id
+        ) THEN
+            RAISE EXCEPTION 'Cannot modify the repository owner collaborator row';
+        END IF;
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION delete_orphan_label()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -177,6 +193,12 @@ DROP TRIGGER IF EXISTS check_is_private_update ON repositories;
     ON repositories
     FOR EACH ROW
     EXECUTE FUNCTION validate_no_viewer_in_public_repo();
+
+DROP TRIGGER IF EXISTS forbid_owner_collaborator_change ON repository_collaborators;
+    CREATE TRIGGER forbid_owner_collaborator_change
+    BEFORE UPDATE OR DELETE ON repository_collaborators
+    FOR EACH ROW
+    EXECUTE FUNCTION forbid_owner_collaborator_change();
 
 DROP TRIGGER IF EXISTS delete_orphan_label ON issue_labels;
 CREATE TRIGGER delete_orphan_label
