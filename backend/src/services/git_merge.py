@@ -77,7 +77,10 @@ async def _copy_reachable(
         if row["root_tree_sha"] is not None:
             await _copy_tree(conn, src_repo, dst_repo, row["root_tree_sha"])
         parents = await conn.fetch(GET_PARENTS, src_repo, [sha])
-        for parent in parents:
+        for index, parent in enumerate(parents):
+            await conn.execute(
+                INSERT_COMMIT_PARENT, dst_repo, sha, parent["parent_sha"], index
+            )
             if not await conn.fetchval(CHECK_OBJECT_EXISTS, dst_repo, parent["parent_sha"]):
                 stack.append(parent["parent_sha"])
 
