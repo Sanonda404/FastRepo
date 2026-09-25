@@ -33,7 +33,8 @@ from services.issues import (
     list_issue_labels,
     can_manage_issue,
     get_assigned_issues,
-    get_pulls_for_issue
+    get_pulls_for_issue,
+    get_collaborator_id,
 )
 from auth.auth import get_current_user, get_optional_current_user
 from auth.permission import get_role
@@ -240,9 +241,8 @@ async def assign_user(
         role = await get_role(pool, owner_name, repo_name, current_user)
         if role == 'Viewer':
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not allowed to assign users to issues")
-        
-        #check if user is a collaborator
-        if not await can_access_repository(pool, repo.id, user["id"]):
+
+        if await get_collaborator_id(pool, repo.id, user["username"]) is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a collaborator of this repository")
         
         return AssigneeResponse(username=await add_issue_assignee(pool, repo.id, issue_number, payload.username))

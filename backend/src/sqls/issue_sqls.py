@@ -29,16 +29,17 @@ GET_ALL_ISSUES = """
                 INNER JOIN labels l ON il.label_id = l.id
                 WHERE il.issue_id = i.id), '[]'
            ) AS labels,
-           COALESCE(
-               (SELECT JSON_AGG(u3.username)
-                FROM issue_assignees ia
-                INNER JOIN users u3 ON ia.user_id = u3.id
-                WHERE ia.issue_id = i.id), '[]'
-           ) AS assignees
-    FROM issues i
-    INNER JOIN users u ON i.author_id = u.id
-    LEFT OUTER JOIN users u2 ON i.closed_by_id = u2.id
-    WHERE i.repository_id = $1;
+            COALESCE(
+                (SELECT JSON_AGG(u3.username)
+                 FROM issue_assignees ia
+                 INNER JOIN repository_collaborators c3 ON c3.id = ia.collaborator_id
+                 INNER JOIN users u3 ON u3.id = c3.user_id
+                 WHERE ia.issue_id = i.id), '[]'
+            ) AS assignees
+     FROM issues i
+     INNER JOIN users u ON i.author_id = u.id
+     LEFT OUTER JOIN users u2 ON i.closed_by_id = u2.id
+     WHERE i.repository_id = $1;
 """
 
 GET_ISSUE_BY_NUMBER = """
@@ -63,17 +64,18 @@ GET_ISSUE_BY_NUMBER = """
                 INNER JOIN labels l ON il.label_id = l.id
                 WHERE il.issue_id = i.id), '[]'
            ) AS labels,
-           COALESCE(
-               (SELECT JSON_AGG(u3.username)
-                FROM issue_assignees ia
-                INNER JOIN users u3 ON ia.user_id = u3.id
-                WHERE ia.issue_id = i.id), '[]'
-           ) AS assignees
-    FROM issues i
-    INNER JOIN users u ON i.author_id = u.id
-    LEFT OUTER JOIN users u2 ON i.closed_by_id = u2.id
-    WHERE i.repository_id = $1
-    AND i.number = $2;
+            COALESCE(
+                (SELECT JSON_AGG(u3.username)
+                 FROM issue_assignees ia
+                 INNER JOIN repository_collaborators c3 ON c3.id = ia.collaborator_id
+                 INNER JOIN users u3 ON u3.id = c3.user_id
+                 WHERE ia.issue_id = i.id), '[]'
+            ) AS assignees
+     FROM issues i
+     INNER JOIN users u ON i.author_id = u.id
+     LEFT OUTER JOIN users u2 ON i.closed_by_id = u2.id
+     WHERE i.repository_id = $1
+     AND i.number = $2;
 """
 
 CLOSE_OR_REOPEN_ISSUE_BY_REPO_ID_AND_NUMBER = """
@@ -98,21 +100,30 @@ GET_ISSUE_REPOSITORY = """
     WHERE i.id = $1
 """
 
+FIND_COLLABORATOR_ID = """
+    SELECT c.id
+    FROM repository_collaborators c
+    INNER JOIN users u ON u.id = c.user_id
+    WHERE c.repository_id = $1 AND u.username = $2
+"""
+
 ADD_ASSIGNEE = """
-    INSERT INTO issue_assignees (issue_id, user_id)
-    SELECT i.id, u.id
+    INSERT INTO issue_assignees (issue_id, collaborator_id)
+    SELECT i.id, c.id
     FROM issues i
     INNER JOIN users u ON u.username = $3
+    INNER JOIN repository_collaborators c
+        ON c.repository_id = i.repository_id AND c.user_id = u.id
     WHERE i.repository_id = $1 AND i.number = $2
-    ON CONFLICT (issue_id, user_id)
-        DO UPDATE SET user_id = EXCLUDED.user_id
-    RETURNING user_id
+    ON CONFLICT (issue_id, collaborator_id)
+        DO UPDATE SET collaborator_id = EXCLUDED.collaborator_id
+    RETURNING collaborator_id
 """
 
 REMOVE_ASSIGNEE = """
     DELETE FROM issue_assignees ia
-    USING issues i, users u
-    WHERE ia.issue_id = i.id AND ia.user_id = u.id
+    USING issues i, users u, repository_collaborators c
+    WHERE ia.issue_id = i.id AND ia.collaborator_id = c.id AND c.user_id = u.id
         AND i.repository_id = $1 AND i.number = $2 AND u.username = $3
     RETURNING u.username
 """
@@ -121,7 +132,8 @@ LIST_ASSIGNEES = """
     SELECT u.username
     FROM issue_assignees ia
     INNER JOIN issues i ON ia.issue_id = i.id
-    INNER JOIN users u ON ia.user_id = u.id
+    INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+    INNER JOIN users u ON u.id = c.user_id
     WHERE i.repository_id = $1 AND i.number = $2
     ORDER BY u.username
 """
@@ -152,7 +164,8 @@ IS_ISSUE_ASSIGNEE = """
         SELECT 1
         FROM issue_assignees ia
         INNER JOIN issues i ON ia.issue_id = i.id
-        INNER JOIN users u ON ia.user_id = u.id
+        INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+        INNER JOIN users u ON u.id = c.user_id
         WHERE i.repository_id = $1 AND i.number = $2 AND u.username = $3
     )
 """
@@ -178,11 +191,12 @@ GET_ASSIGNED_ISSUES = """
                 INNER JOIN labels l ON il.label_id = l.id
                 WHERE il.issue_id = i.id), '[]'
            ) AS labels
-    FROM issue_assignees ia
-    INNER JOIN issues i ON ia.issue_id = i.id
-    INNER JOIN users u ON i.author_id = u.id
-    INNER JOIN repositories r ON i.repository_id = r.id
-    INNER JOIN users o ON r.owner_id = o.id
-    WHERE ia.user_id = $1
-    ORDER BY i.created_at DESC;
+     FROM issue_assignees ia
+     INNER JOIN issues i ON ia.issue_id = i.id
+     INNER JOIN repository_collaborators c ON c.id = ia.collaborator_id
+     INNER JOIN users u ON i.author_id = u.id
+     INNER JOIN repositories r ON i.repository_id = r.id
+     INNER JOIN users o ON r.owner_id = o.id
+     WHERE c.user_id = $1
+     ORDER BY i.created_at DESC;
 """
