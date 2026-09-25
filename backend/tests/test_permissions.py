@@ -114,13 +114,16 @@ def add_team_member(repo_id: int, team_id: int, username: str) -> None:
 
 
 def seed_permission(repo_id: int, team_id: int, target_type: str, target_identifier: str, allow_write: bool) -> None:
+    """permissions no longer carry repository_id (repo is reached via team); repo_id kept for call-site compat"""
     async def _q():
         conn = await asyncpg.connect(DATABASE_URL)
         try:
+            team_repo = await conn.fetchval("SELECT repository_id FROM teams WHERE id = $1", team_id)
+            assert team_repo == repo_id, f"team {team_id} belongs to repo {team_repo}, not {repo_id}"
             await conn.execute(
-                "INSERT INTO permissions (repository_id, team_id, target_type, target_identifier, allow_write) "
-                "VALUES ($1, $2, $3, $4, $5)",
-                repo_id, team_id, target_type, target_identifier, allow_write,
+                "INSERT INTO permissions (team_id, target_type, target_identifier, allow_write) "
+                "VALUES ($1, $2, $3, $4)",
+                team_id, target_type, target_identifier, allow_write,
             )
         finally:
             await conn.close()
