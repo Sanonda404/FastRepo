@@ -171,8 +171,7 @@ export default function IssuePullCreatePage() {
     }
   }, [owner, repository, form])
 
-  const sourceKey = (s: SourceOption) =>
-    s.id === null ? `${s.owner_username}/${s.name}` : String(s.id)
+  const sourceKey = (s: SourceOption) => `${s.owner_username}/${s.name}`
   const activeSource: SourceOption =
     sources.find((s) => sourceKey(s) === sourceId) ?? sources[0]
 

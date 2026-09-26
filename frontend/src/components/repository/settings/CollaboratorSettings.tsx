@@ -615,7 +615,7 @@ export default function CollaboratorSettings({
               )
             )}
           </div>
-        }
+        )}
       </div>
 
       {/* ====================================== */}
