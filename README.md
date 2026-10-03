@@ -115,6 +115,7 @@ RESET_PASSWORD_TOKEN_EXPIRE_MINUTES=5
 FRONTEND_URL="http://localhost:5173"
 GMAIL_APP_PASSWORD="YOUR_GMAIL_APP_PASSWORD"
 GMAIL_USER="YOUR_EMAIL"
+```
 
 Then open `http://localhost:8000` and create your first repository.
 
