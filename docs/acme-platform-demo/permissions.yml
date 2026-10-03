@@ -1,0 +1,78 @@
+# NOTE: this schema is a suggestion. Adjust key names to match fastRepo's real config format.
+repository:
+  name: acme-platform
+  visibility: private
+  owner: olivia
+
+users:
+  - { name: olivia, role: owner }
+  - { name: adam,   role: admin }
+  - { name: maya,   role: maintainer, teams: [backend] }
+  - { name: sam,    role: maintainer, teams: [frontend] }
+  - { name: ben,    role: member,     teams: [payments] }
+  - { name: fiona,  role: member,     teams: [frontend] }
+  - { name: dana,   role: member,     teams: [design] }
+  - { name: vic,    role: viewer }      # viewer is only valid on private repos
+
+teams:
+  engineering: { members: [adam] }
+  backend:     { parent: engineering, members: [maya] }
+  payments:    { parent: backend,     members: [ben] }
+  frontend:    { parent: engineering, members: [sam, fiona] }
+  devops:      { parent: engineering, members: [] }
+  design:      { members: [dana] }
+  security:    { members: [] }
+
+# Subteams inherit their parent's folder access, then add their own.
+folders:
+  apps/web:
+    engineering: read
+    backend: read
+    frontend: write
+    devops: read
+    design: read
+    security: read
+  services/api:
+    engineering: read
+    backend: write
+    payments: write
+    frontend: read
+    devops: read
+    security: read
+  services/payments:
+    backend: read
+    payments: write
+    security: read
+  infra:
+    devops: write
+    security: read
+  design:
+    frontend: read
+    design: write
+  security:
+    security: write
+  docs:
+    engineering: write
+    backend: write
+    payments: write
+    frontend: write
+    devops: write
+    design: write
+    security: write
+
+branches:
+  main:
+    push: none
+    merge: { roles: [maintainer, admin, owner], approvals: 1 }
+  develop:
+    push: { min_role: member }
+    merge: { roles: [maintainer, admin, owner] }
+  "release/*":
+    push: { roles: [maintainer] }
+    merge: { roles: [admin, owner] }
+  "hotfix/*":
+    push: { roles: [maintainer], teams: [payments] }
+    merge: { roles: [admin, owner] }
+  infra/prod:
+    push: { teams: [devops] }
+    merge: { teams: [devops], roles: [admin, owner] }

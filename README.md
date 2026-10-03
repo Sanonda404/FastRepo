@@ -104,7 +104,9 @@ cp .env.example .env
 poetry run uvicorn app:app --reload 
 ```
 
-Add this variables to .env file
+Add these variables to your `.env` file:
+
+```dotenv
 JWT_SECRET_KEY="YOUR_JWT_SECRET_KEY"
 JWT_ALGORITHM="HASHING_ALGO"
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -126,8 +128,6 @@ Then open `http://localhost:8000` and create your first repository.
 6. Invite a **viewer** if you need read-only stakeholders on a private repo.
 
 ## 🏗 Architecture
-
-> Fill in with your actual stack — placeholder shown below.
 
 ```
 Client (web/CLI) ──> API ──> Permission engine ──> Git storage

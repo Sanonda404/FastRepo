@@ -1,0 +1,11 @@
+services:
+  api:
+    build: ../services/api
+    ports: ["5000:5000"]
+    env_file: ../services/api/.env.example
+  payments:
+    build: ../services/payments
+    ports: ["5001:5001"]
+  web:
+    build: ../apps/web
+    ports: ["3000:3000"]
