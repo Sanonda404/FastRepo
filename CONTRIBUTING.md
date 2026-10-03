@@ -11,28 +11,46 @@ Thanks for your interest in improving fastRepo! This document covers how to prop
 
 ```bash
 # 1. Fork the repo, then clone your fork
-git clone https://github.com/<your-username>/fastrepo.git
+git clone https://github.com/Sanonda404/FastRepo
 cd fastrepo
 
 # 2. Add the upstream remote
-git remote add upstream https://github.com/<org>/fastrepo.git
+git remote add upstream https://github.com/Sanonda404/FastRepo
+# Install dependencies
+cd frontend
+npm install
+npm build
+cd ..
+cd backend
+poetry install
 
-# 3. Install dependencies
-<package-manager> install
-
-# 4. Copy environment config
+# Configure environment
 cp .env.example .env
 
-# 5. Run migrations and start the dev server
-<migration-command>
-<run-command>
+
+# Start the development server
+poetry run uvicorn app:app --reload 
 ```
 
-> Replace the placeholder commands above with the project's actual setup steps.
+Add these variables to your `.env` file:
+
+```dotenv
+JWT_SECRET_KEY="YOUR_JWT_SECRET_KEY"
+JWT_ALGORITHM="HASHING_ALGO"
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+DATABASE_URL="YOUR_POSTGRES_DATABASE_URL"
+RESET_PASSWORD_TOKEN_EXPIRE_MINUTES=5
+FRONTEND_URL="http://localhost:5173"
+GMAIL_APP_PASSWORD="YOUR_GMAIL_APP_PASSWORD"
+GMAIL_USER="YOUR_EMAIL"
+```
+
+Then open `http://localhost:8000` and create your first repository.
+
 
 ## Branching model
 
-fastRepo's own repo follows the same branch conventions the product encourages:
+FastRepo's own repo follows the same branch conventions the product encourages:
 
 | Branch | Purpose |
 |---|---|
