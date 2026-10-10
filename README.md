@@ -50,9 +50,9 @@ Permissions are the intersection of a user's **role** and their **team membershi
 ### 🔐 Private-repo viewers
 Give outside stakeholders (auditors, clients, contractors) safe, read-only visibility into a private repo without handing them write access or folder visibility they don't need.
 
-## 🆚 fastRepo vs. a typical Git host
+## 🆚 fastRepo vs. a typical Git remote server
 
-| Capability | Typical Git host | fastRepo |
+| Capability | Typical Git remote server | fastRepo |
 |---|:---:|:---:|
 | Repo-level read/write | ✅ | ✅ |
 | Nested teams with inherited permissions | ⚠️ limited | ✅ |
@@ -81,8 +81,6 @@ This means the same repository can have one team that only sees `docs/` and `des
 
 ## 🏁 Getting Started
 
-> Replace this section with your actual install/setup steps once finalized.
-
 ```bash
 # Clone the project
 git clone https://github.com/Sanonda404/FastRepo.git
@@ -91,30 +89,20 @@ cd fastrepo
 # Install dependencies
 cd frontend
 npm install
-npm build
+npm run build
 cd ..
 cd backend
 poetry install
 
-# Configure environment
+# Configure environment variables
 cp .env.example .env
 
 
 # Start the development server
-poetry run uvicorn app:app --reload 
-```
+poetry run serve dev
 
-Add these variables to your `.env` file:
-
-```dotenv
-JWT_SECRET_KEY="YOUR_JWT_SECRET_KEY"
-JWT_ALGORITHM="HASHING_ALGO"
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-DATABASE_URL="YOUR_POSTGRES_DATABASE_URL"
-RESET_PASSWORD_TOKEN_EXPIRE_MINUTES=5
-FRONTEND_URL="http://localhost:5173"
-GMAIL_APP_PASSWORD="YOUR_GMAIL_APP_PASSWORD"
-GMAIL_USER="YOUR_EMAIL"
+# Or Production server
+poetry run serve prod
 ```
 
 Then open `http://localhost:8000` and create your first repository.
