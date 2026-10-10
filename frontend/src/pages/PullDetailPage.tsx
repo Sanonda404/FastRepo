@@ -252,6 +252,7 @@ export default function PullDetailPage() {
     return map
   })()
   const latestDecisions = [...latestByReviewer.values()]
+  const hasComments = reviews.some((r) => r.decision === "COMMENTED")
   const hasRejected = latestDecisions.includes("REJECTED")
   const hasRequestedChanges = latestDecisions.includes("REQUEST_CHANGES")
   const isApproved = latestDecisions.includes("APPROVED")
@@ -394,6 +395,8 @@ export default function PullDetailPage() {
                           mutating ||
                           mergeStatusLoading ||
                           !mergeStatus?.mergeable ||
+                          !hasComments ||
+                          !isApproved ||
                           hasRejected ||
                           hasRequestedChanges
                         }
