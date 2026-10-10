@@ -248,9 +248,9 @@ async def merge_pull(
     if pr.state != "open":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pull request is not open")
     
-    check_reviews = await check_pr_for_merge(pool, pr.id)
-    if check_reviews == False:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pull request is blocked from merging")
+    block_reason = await check_pr_for_merge(pool, pr.id)
+    if block_reason is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=block_reason)
     
     try:
         merge_sha = await merge_pull_request(

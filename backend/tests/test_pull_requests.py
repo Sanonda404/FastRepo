@@ -83,6 +83,17 @@ def clone_and_push(url: str, clone_dir: Path, commit_fn) -> None:
     push_branch(url, clone_dir, "main")
 
 
+def post_review(client, owner: str, repo_name: str, pr_id: int, token: str,
+                decision: str, body: str = "review body") -> dict:
+    r = client.post(
+        f"/pulls/{owner}/{repo_name}/{pr_id}/reviews",
+        json={"decision": decision, "body": body},
+        headers=auth(token),
+    )
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
 def make_pr(base: str, token: str, source: str, target: str,
             source_repository_id: int | None = None, body: str = "pr body") -> dict:
     with httpx.Client(base_url=API_URL) as client:
@@ -244,6 +255,8 @@ class TestPullRequestMerge:
             push_branch(url, clone, "feature")
             pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
 
+            post_review(client, username, repo_name, pr["id"], token, "COMMENTED", "lgtm-ish")
+            post_review(client, username, repo_name, pr["id"], token, "APPROVED", "looks good")
             r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
                             headers=auth(token))
             assert r.status_code == 200, r.text
@@ -271,6 +284,76 @@ class TestPullRequestMerge:
         finally:
             cleanup_repo(username, repo_name)
 
+    def test_merge_blocked_without_comments(self, client, server_url):
+        username = unique("pmb")
+        repo_name = unique("pmb")
+        try:
+            _, token = seed_repo_and_token(username, repo_name)
+            url = repo_url(server_url, username, repo_name, GIT_PASSWORD)
+            clone = TMP_DIR / f"pmb_{repo_name}"
+            clone_and_push(url, clone, lambda d: make_commit(d, "a.txt", "a", "base"))
+            run_git(clone, "checkout", "-b", "feature")
+            make_commit(clone, "b.txt", "b", "feature work")
+            push_branch(url, clone, "feature")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
+
+            post_review(client, username, repo_name, pr["id"], token, "APPROVED", "ok")
+            r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
+                            headers=auth(token))
+            assert r.status_code == 400, r.text
+            assert "comment" in r.json()["detail"].lower()
+            assert client.get(f"/pulls/{username}/{repo_name}/{pr['id']}",
+                              headers=auth(token)).json()["state"] == "open"
+        finally:
+            cleanup_repo(username, repo_name)
+
+    def test_merge_blocked_without_approval(self, client, server_url):
+        username = unique("pmu")
+        repo_name = unique("pmu")
+        try:
+            _, token = seed_repo_and_token(username, repo_name)
+            url = repo_url(server_url, username, repo_name, GIT_PASSWORD)
+            clone = TMP_DIR / f"pmu_{repo_name}"
+            clone_and_push(url, clone, lambda d: make_commit(d, "a.txt", "a", "base"))
+            run_git(clone, "checkout", "-b", "feature")
+            make_commit(clone, "b.txt", "b", "feature work")
+            push_branch(url, clone, "feature")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
+
+            post_review(client, username, repo_name, pr["id"], token, "COMMENTED", "nice")
+            r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
+                            headers=auth(token))
+            assert r.status_code == 400, r.text
+            assert "approval" in r.json()["detail"].lower()
+            assert client.get(f"/pulls/{username}/{repo_name}/{pr['id']}",
+                              headers=auth(token)).json()["state"] == "open"
+        finally:
+            cleanup_repo(username, repo_name)
+
+    def test_merge_blocked_when_latest_review_requests_changes(self, client, server_url):
+        username = unique("pmr")
+        repo_name = unique("pmr")
+        try:
+            _, token = seed_repo_and_token(username, repo_name)
+            url = repo_url(server_url, username, repo_name, GIT_PASSWORD)
+            clone = TMP_DIR / f"pmr_{repo_name}"
+            clone_and_push(url, clone, lambda d: make_commit(d, "a.txt", "a", "base"))
+            run_git(clone, "checkout", "-b", "feature")
+            make_commit(clone, "b.txt", "b", "feature work")
+            push_branch(url, clone, "feature")
+            pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
+
+            post_review(client, username, repo_name, pr["id"], token, "COMMENTED", "ok")
+            post_review(client, username, repo_name, pr["id"], token, "APPROVED", "ok")
+            post_review(client, username, repo_name, pr["id"], token, "REQUEST_CHANGES", "wait")
+            r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
+                            headers=auth(token))
+            assert r.status_code == 400, r.text
+            assert client.get(f"/pulls/{username}/{repo_name}/{pr['id']}",
+                              headers=auth(token)).json()["state"] == "open"
+        finally:
+            cleanup_repo(username, repo_name)
+
     def test_merge_conflict_409(self, client, server_url):
         username = unique("pmc")
         repo_name = unique("pmc")
@@ -290,6 +373,8 @@ class TestPullRequestMerge:
             main_head = fetch_ref(repo_id, "refs/heads/main")
             pr = make_pr(f"{username}/{repo_name}", token, "feature", "main")
 
+            post_review(client, username, repo_name, pr["id"], token, "COMMENTED", "ok")
+            post_review(client, username, repo_name, pr["id"], token, "APPROVED", "ok")
             r = client.post(f"/pulls/{username}/{repo_name}/{pr['id']}/merge",
                             headers=auth(token))
             assert r.status_code == 409
@@ -345,6 +430,8 @@ class TestPullRequestMerge:
 
             # owner is auto-added as Admin collaborator at repo creation
             assert _collab_exists() == 1
+            post_review(client, owner, repo_name, pr["id"], owner_token, "COMMENTED", "ok")
+            post_review(client, owner, repo_name, pr["id"], owner_token, "APPROVED", "ok")
             r = client.post(f"/pulls/{owner}/{repo_name}/{pr['id']}/merge",
                             headers=auth(owner_token))
             assert r.status_code == 200, r.text
